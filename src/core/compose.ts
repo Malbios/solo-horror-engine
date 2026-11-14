@@ -7,6 +7,7 @@ import type {
   Module,
   Pack,
   Phase,
+  QuantityType,
   Space,
   UnitKind,
 } from "./pack";
@@ -22,6 +23,7 @@ export type Rules = Content & {
   edgeFilterById: ReadonlyMap<string, EdgeFilter>;
   unitKindById: ReadonlyMap<string, UnitKind>;
   spaceCounterById: ReadonlyMap<string, Counter>;
+  quantityTypeById: ReadonlyMap<string, QuantityType>;
 };
 
 function layer<T extends { id: string }>(
@@ -52,6 +54,8 @@ function applyModule(content: Content, module: Module): Content {
     counters: layer(content.counters, added.counters, remove.counters),
     zones: layer(content.zones, added.zones, remove.zones),
     cards: layer(content.cards, added.cards, remove.cards),
+    quantityTypes: layer(content.quantityTypes, added.quantityTypes, remove.quantityTypes),
+    modifiers: layer(content.modifiers, added.modifiers, remove.modifiers),
     triggers: layer(content.triggers, added.triggers, remove.triggers),
     checks: layer(content.checks, added.checks, remove.checks),
     endConditions: layer(content.endConditions, added.endConditions, remove.endConditions),
@@ -94,5 +98,6 @@ export function composeRules(pack: Pack, moduleIds: readonly string[]): Result<R
     edgeFilterById: indexById(content.edgeFilters),
     unitKindById: indexById(content.unitKinds),
     spaceCounterById: indexById(content.spaceCounters),
+    quantityTypeById: indexById(content.quantityTypes),
   });
 }

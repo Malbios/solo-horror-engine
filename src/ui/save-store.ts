@@ -35,6 +35,10 @@ function isAction(value: unknown): value is Action {
       return typeof value["card"] === "string";
     case "moveTo":
       return typeof value["space"] === "string";
+    case "pickUnit":
+      return typeof value["unit"] === "string";
+    case "pickCard":
+      return typeof value["card"] === "string";
     default:
       return false;
   }

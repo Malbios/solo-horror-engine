@@ -35,6 +35,7 @@ export const unitRefSchema: z.ZodType<UnitRef> = z.lazy(() =>
 
 export const spaceRefSchema: z.ZodType<SpaceRef> = z.lazy(() =>
   z.union([
+    z.literal("candidate"),
     z.strictObject({ space: idSchema }),
     z.strictObject({
       locationOf: unitRefSchema,
@@ -100,12 +101,38 @@ export const boolExprSchema: z.ZodType<BoolExpr> = z.lazy(() => {
   ]);
 });
 
+const costSchema = z.union([
+  z.strictObject({ counter: idSchema, amount: numExprSchema }),
+  z.strictObject({ attribute: idSchema, of: unitRefSchema, amount: numExprSchema }),
+  z.strictObject({
+    discard: z.strictObject({ from: idSchema, to: idSchema, count: numExprSchema }),
+  }),
+]);
+
+const costListSchema = z.array(costSchema).default([]);
+
+const orderSchema = z.strictObject({
+  sortBy: z
+    .array(
+      z.strictObject({ key: numExprSchema, direction: z.enum(["asc", "desc"]).default("asc") }),
+    )
+    .default([]),
+  tieBreak: z.enum(["id", "random", "decision"]).default("id"),
+});
+
+const unitSetSchema = z.strictObject({
+  kind: idSchema.nullable().default(null),
+  at: spaceRefSchema.nullable().default(null),
+  where: boolExprSchema.default(true),
+});
+
 export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
   const effects = z.array(effectSchema).default([]);
   const option = z.strictObject({
     id: idSchema,
     label: nameSchema,
     when: boolExprSchema.default(true),
+    cost: costListSchema,
     effects,
   });
   return z.discriminatedUnion("type", [
@@ -154,6 +181,7 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       steps: numExprSchema,
       filter: idSchema,
       stopWhen: boolExprSchema.default(false),
+      order: orderSchema.prefault({}),
     }),
     z.strictObject({
       type: z.literal("stepMove"),
@@ -187,9 +215,22 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
     }),
     z.strictObject({
       type: z.literal("forEachUnit"),
-      kind: idSchema.nullable().default(null),
-      at: spaceRefSchema.nullable().default(null),
+      units: unitSetSchema.prefault({}),
+      order: orderSchema.prefault({}),
       effects,
+    }),
+    z.strictObject({
+      type: z.literal("selectUnits"),
+      units: unitSetSchema.prefault({}),
+      order: orderSchema.prefault({}),
+      count: numExprSchema.default(1),
+      effects,
+    }),
+    z.strictObject({
+      type: z.literal("deliver"),
+      quantity: idSchema,
+      amount: numExprSchema,
+      recipient: unitRefSchema.nullable().default(null),
     }),
     z.strictObject({ type: z.literal("addEdge"), edge: edgeSchema }),
     z.strictObject({ type: z.literal("removeEdge"), edge: idSchema }),
@@ -204,6 +245,7 @@ const edgeSchema = z.strictObject({
   directed: z.boolean().default(false),
   tags: z.array(idSchema).default([]),
   gate: boolExprSchema.default(true),
+  cost: costListSchema,
 });
 
 const effectListSchema = z.array(effectSchema).default([]);
@@ -227,6 +269,11 @@ const eventPatternSchema = z.discriminatedUnion("event", [
     attribute: idSchema,
   }),
   z.strictObject({ event: z.literal("spaceCounterChanged"), spaceCounter: idSchema }),
+  z.strictObject({
+    event: z.literal("quantityDelivered"),
+    quantity: idSchema,
+    kind: optionalIdSchema,
+  }),
 ]);
 
 const spaceSchema = z.strictObject({
@@ -268,7 +315,30 @@ const cardSchema = z.strictObject({
   name: nameSchema,
   copies: z.int().min(1).default(1),
   playable: boolExprSchema.default(true),
+  cost: costListSchema,
   effects: effectListSchema,
+});
+
+const quantityTypeSchema = z.strictObject({
+  id: idSchema,
+  target: z.union([z.strictObject({ counter: idSchema }), z.strictObject({ attribute: idSchema })]),
+  direction: z.enum(["increase", "decrease"]),
+});
+
+const modifierSchema = z.strictObject({
+  id: idSchema,
+  quantity: idSchema,
+  priority: z.int().default(0),
+  condition: boolExprSchema.default(true),
+  optional: z.boolean().default(false),
+  action: z.union([
+    z.strictObject({ prevent: z.literal(true) }),
+    z.strictObject({ reduce: numExprSchema }),
+    z.strictObject({ increase: numExprSchema }),
+    z.strictObject({ convertTo: idSchema }),
+    z.strictObject({ substitute: effectListSchema }),
+  ]),
+  onApply: effectListSchema,
 });
 
 const stepSchema = z.strictObject({ id: idSchema, effects: effectListSchema });
@@ -322,6 +392,8 @@ const contentSchema = z.strictObject({
   counters: z.array(counterSchema).default([]),
   zones: z.array(zoneSchema).default([]),
   cards: z.array(cardSchema).default([]),
+  quantityTypes: z.array(quantityTypeSchema).default([]),
+  modifiers: z.array(modifierSchema).default([]),
   triggers: z.array(triggerSchema).default([]),
   checks: z.array(checkSchema).default([]),
   endConditions: z.array(endConditionSchema).default([]),
@@ -341,6 +413,8 @@ const removalSchema = z.strictObject({
   counters: idListSchema,
   zones: idListSchema,
   cards: idListSchema,
+  quantityTypes: idListSchema,
+  modifiers: idListSchema,
   triggers: idListSchema,
   checks: idListSchema,
   endConditions: idListSchema,

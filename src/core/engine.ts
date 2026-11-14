@@ -67,8 +67,12 @@ export function legalActions(state: GameState): Action[] {
     case "moveUnit":
       return withPass(
         pending.options.map((space): Action => ({ type: "moveTo", space })),
-        true,
+        pending.canPass,
       );
+    case "pickUnit":
+      return pending.options.map((unit): Action => ({ type: "pickUnit", unit }));
+    case "pickCard":
+      return pending.cards.map((card): Action => ({ type: "pickCard", card }));
     default:
       return assertNever(pending);
   }
@@ -84,6 +88,10 @@ function sameAction(legal: Action, candidate: Action): boolean {
       return candidate.type === "playCard" && candidate.card === legal.card;
     case "moveTo":
       return candidate.type === "moveTo" && candidate.space === legal.space;
+    case "pickUnit":
+      return candidate.type === "pickUnit" && candidate.unit === legal.unit;
+    case "pickCard":
+      return candidate.type === "pickCard" && candidate.card === legal.card;
     case "pass":
       return candidate.type === "pass";
     default:

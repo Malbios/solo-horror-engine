@@ -49,6 +49,10 @@ function describeAction(action: Action, state: GameState): string {
       return `Play ${action.card}`;
     case "moveTo":
       return `Move to ${action.space}`;
+    case "pickUnit":
+      return `Pick ${action.unit}`;
+    case "pickCard":
+      return `Pick ${action.card}`;
     case "pass":
       return "Pass";
     default:

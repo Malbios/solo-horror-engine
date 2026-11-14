@@ -11,7 +11,13 @@ import type {
 } from "./pack";
 import { assertNever } from "./result";
 
-export type ExpressionContext = { from: number; to: number; amount: number; self: string | null };
+export type ExpressionContext = {
+  from: number;
+  to: number;
+  amount: number;
+  self: string | null;
+  candidate: string | null;
+};
 
 export type World = {
   units: Readonly<Record<string, UnitState>>;
@@ -28,7 +34,13 @@ export type ExpressionScope = {
   context: ExpressionContext;
 };
 
-export const EMPTY_CONTEXT: ExpressionContext = { from: 0, to: 0, amount: 0, self: null };
+export const EMPTY_CONTEXT: ExpressionContext = {
+  from: 0,
+  to: 0,
+  amount: 0,
+  self: null,
+  candidate: null,
+};
 
 export const EMPTY_WORLD: World = {
   units: {},
@@ -86,6 +98,7 @@ export function resolveUnit(ref: UnitRef, scope: ExpressionScope): string | null
 }
 
 export function resolveSpace(ref: SpaceRef, scope: ExpressionScope): string | null {
+  if (ref === "candidate") return scope.context.candidate;
   if ("space" in ref) return ref.space;
   const unit = resolveUnit(ref.locationOf, scope);
   const space = unit === null ? null : spaceOfUnit(scope.world.units, unit);

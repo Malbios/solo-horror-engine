@@ -368,7 +368,7 @@ describe("unit attributes and space counters", () => {
           { type: "changeSpaceCounter", at: at("b"), spaceCounter: "noise", amount: 2 },
           {
             type: "forEachUnit",
-            kind: "piece",
+            units: { kind: "piece" },
             effects: [
               set("trace", {
                 add: [{ mul: [{ counter: "trace" }, 10] }, { attribute: "label", of: "self" }],

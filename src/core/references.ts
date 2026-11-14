@@ -8,7 +8,8 @@ type ReferenceKind =
   | "space"
   | "unitKind"
   | "edgeFilter"
-  | "spaceCounter";
+  | "spaceCounter"
+  | "quantityType";
 
 const REFERENCE_KEYS: ReadonlyMap<string, ReferenceKind> = new Map([
   ["counter", "counter"],
@@ -24,6 +25,8 @@ const REFERENCE_KEYS: ReadonlyMap<string, ReferenceKind> = new Map([
   ["kind", "unitKind"],
   ["filter", "edgeFilter"],
   ["spaceCounter", "spaceCounter"],
+  ["quantity", "quantityType"],
+  ["convertTo", "quantityType"],
 ]);
 
 const DEFINING_COLLECTIONS: ReadonlyMap<ReferenceKind, (typeof LAYERED_COLLECTIONS)[number]> =
@@ -36,6 +39,7 @@ const DEFINING_COLLECTIONS: ReadonlyMap<ReferenceKind, (typeof LAYERED_COLLECTIO
     ["unitKind", "unitKinds"],
     ["edgeFilter", "edgeFilters"],
     ["spaceCounter", "spaceCounters"],
+    ["quantityType", "quantityTypes"],
   ]);
 
 function referenceLabel(kind: ReferenceKind, id: string): string {

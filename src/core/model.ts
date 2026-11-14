@@ -1,6 +1,16 @@
 import type { ExpressionContext } from "./expressions";
 import type { UnitState } from "./graph";
-import type { BoolExpr, Edge, Effect, Outcome, Scope, SpaceRef } from "./pack";
+import type {
+  BoolExpr,
+  Cost,
+  Edge,
+  Effect,
+  Order,
+  Outcome,
+  Scope,
+  SpaceRef,
+  TieBreak,
+} from "./pack";
 import type { Rng } from "./rng";
 
 export type { UnitPlacement, UnitState } from "./graph";
@@ -40,12 +50,51 @@ export type MoveFrame = {
   mode: "toward" | "choose";
   target: SpaceRef | null;
   stopWhen: BoolExpr;
+  order: Order | null;
   context: ExpressionContext;
 };
 
-export type Frame = EffectsFrame | ScopeFrame | PlayWindowFrame | FinishFrame | MoveFrame;
+export type SelectFrame = {
+  kind: "select";
+  groups: string[][];
+  remaining: number | null;
+  tieBreak: TieBreak;
+  effects: Effect[];
+  context: ExpressionContext;
+};
 
-export type OptionView = { id: string; label: string; effects: Effect[] };
+export type DeliverFrame = {
+  kind: "deliver";
+  quantity: string;
+  amount: number;
+  recipient: string | null;
+  applied: string[];
+  declined: string[];
+  offering: boolean;
+  context: ExpressionContext;
+};
+
+export type Discarding = { from: string; to: string; remaining: number };
+
+export type PayFrame = {
+  kind: "pay";
+  costs: Cost[];
+  index: number;
+  discarding: Discarding | null;
+  context: ExpressionContext;
+};
+
+export type Frame =
+  | EffectsFrame
+  | ScopeFrame
+  | PlayWindowFrame
+  | FinishFrame
+  | MoveFrame
+  | SelectFrame
+  | DeliverFrame
+  | PayFrame;
+
+export type OptionView = { id: string; label: string; cost: Cost[]; effects: Effect[] };
 
 export type Decision =
   | { kind: "pickModule"; choice: string; options: string[]; canPass: boolean }
@@ -56,7 +105,9 @@ export type Decision =
       context: ExpressionContext;
     }
   | { kind: "playCard"; cards: string[] }
-  | { kind: "moveUnit"; unit: string; options: string[] };
+  | { kind: "moveUnit"; unit: string; options: string[]; canPass: boolean }
+  | { kind: "pickUnit"; options: string[] }
+  | { kind: "pickCard"; cards: string[] };
 
 export type GameOutcome = { result: Outcome; endCondition: string };
 
@@ -89,6 +140,8 @@ export type Action =
   | { type: "chooseOption"; option: string }
   | { type: "playCard"; card: string }
   | { type: "moveTo"; space: string }
+  | { type: "pickUnit"; unit: string }
+  | { type: "pickCard"; card: string }
   | { type: "pass" };
 
 export type GameEvent =
@@ -117,7 +170,14 @@ export type GameEvent =
       to: number;
     }
   | { type: "spaceCounterChanged"; space: string; spaceCounter: string; from: number; to: number }
-  | { type: "edgeChanged"; edge: string; change: "added" | "removed" | "retargeted" };
+  | { type: "edgeChanged"; edge: string; change: "added" | "removed" | "retargeted" }
+  | {
+      type: "quantityDelivered";
+      quantity: string;
+      unit: string | null;
+      kind: string | null;
+      amount: number;
+    };
 
 export type RuleError =
   | { type: "gameFinished" }

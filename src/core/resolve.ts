@@ -11,35 +11,50 @@ import {
   type ExpressionScope,
   type World,
 } from "./expressions";
-import { containsOrIs, distancesTo, neighbours, spaceOfUnit, type UnitPlacement } from "./graph";
+import {
+  containsOrIs,
+  distancesTo,
+  edgesBetween,
+  neighbours,
+  spaceOfUnit,
+  type Traversable,
+  type UnitPlacement,
+} from "./graph";
 import type {
   Action,
   Decision,
+  DeliverFrame,
   EffectsFrame,
   FinishFrame,
   Frame,
   GameEvent,
   GameState,
   MoveFrame,
+  PayFrame,
   PlayWindowFrame,
   ScopeFrame,
+  SelectFrame,
 } from "./model";
 import type {
   Card,
   CardPosition,
+  Cost,
   Counter,
   Edge,
   Effect,
   EventPattern,
+  Modifier,
+  Order,
   Outcome,
   OutcomeRule,
   Pack,
   Placement,
   Scope,
   ScopeHooks,
+  UnitSet,
 } from "./pack";
 import { assertNever, type Result } from "./result";
-import { shuffle } from "./rng";
+import { nextInt, shuffle } from "./rng";
 
 export const MAX_OPERATIONS_PER_CALL = 10_000;
 
@@ -100,6 +115,12 @@ function matchesPattern(pattern: EventPattern, event: GameEvent): boolean {
       );
     case "spaceCounterChanged":
       return event.type === "spaceCounterChanged" && event.spaceCounter === pattern.spaceCounter;
+    case "quantityDelivered":
+      return (
+        event.type === "quantityDelivered" &&
+        event.quantity === pattern.quantity &&
+        (pattern.kind === null || pattern.kind === event.kind)
+      );
     default:
       return assertNever(pattern);
   }
@@ -147,7 +168,7 @@ export function createResolver(
   }
 
   function contextFor(self: string | null, from = 0, to = 0, amount = 0): ExpressionContext {
-    return { from, to, amount, self };
+    return { from, to, amount, self, candidate: null };
   }
 
   function zoneCards(zoneId: string): string[] {
@@ -358,23 +379,319 @@ export function createResolver(
     );
   }
 
-  function forEachUnit(
-    effect: Extract<Effect, { type: "forEachUnit" }>,
-    context: ExpressionContext,
-  ): void {
-    const scope = scopeOf(context);
-    const space = effect.at === null ? null : resolveSpace(effect.at, scope);
-    if (effect.at !== null && space === null) return;
-    const selected = Object.keys(work.units)
+  function candidateUnits(units: UnitSet, context: ExpressionContext): string[] {
+    const space = units.at === null ? null : resolveSpace(units.at, scopeOf(context));
+    if (units.at !== null && space === null) return [];
+    return Object.keys(work.units)
       .sort()
       .filter(
         (unitId) =>
-          (effect.kind === null || work.units[unitId]?.kind === effect.kind) &&
-          (space === null || spaceOfUnit(work.units, unitId) === space),
+          (units.kind === null || work.units[unitId]?.kind === units.kind) &&
+          (space === null || spaceOfUnit(work.units, unitId) === space) &&
+          evaluateBoolean(units.where, scopeOf({ ...context, self: unitId })),
       );
-    for (const unitId of [...selected].reverse()) {
-      pushEffects(effect.effects, { ...context, self: unitId }, null);
+  }
+
+  function compareKeys(left: readonly number[], right: readonly number[]): number {
+    for (let index = 0; index < left.length; index++) {
+      const difference = (left[index] ?? 0) - (right[index] ?? 0);
+      if (difference !== 0) return difference;
     }
+    return 0;
+  }
+
+  /** Groups candidates by equal sort keys, best group first; `bind` gives each candidate's context. */
+  function orderedGroups(
+    candidates: readonly string[],
+    order: Order,
+    bind: (candidate: string) => ExpressionContext,
+  ): string[][] {
+    const keyed = candidates.map((candidate) => {
+      const scope = scopeOf(bind(candidate));
+      const keys = order.sortBy.map(({ key, direction }) => {
+        const value = evaluateNumber(key, scope);
+        return direction === "asc" ? value : -value;
+      });
+      return { candidate, keys };
+    });
+    keyed.sort((a, b) => compareKeys(a.keys, b.keys));
+    const groups: string[][] = [];
+    let previous: number[] | null = null;
+    for (const { candidate, keys } of keyed) {
+      const current = groups[groups.length - 1];
+      if (current !== undefined && previous !== null && compareKeys(previous, keys) === 0) {
+        current.push(candidate);
+      } else {
+        groups.push([candidate]);
+      }
+      previous = keys;
+    }
+    return groups;
+  }
+
+  function randomIndex(size: number): number {
+    if (size <= 1) return 0;
+    const [drawn, rng] = nextInt(work.rng, size);
+    work.rng = rng;
+    return drawn;
+  }
+
+  function startSelect(
+    units: UnitSet,
+    order: Order,
+    limit: number | null,
+    effects: Effect[],
+    context: ExpressionContext,
+  ): void {
+    if (limit !== null && limit <= 0) return;
+    const groups = orderedGroups(candidateUnits(units, context), order, (unitId) => ({
+      ...context,
+      self: unitId,
+    }));
+    if (groups.length === 0) return;
+    work.stack.push({
+      kind: "select",
+      groups,
+      remaining: limit,
+      tieBreak: order.tieBreak,
+      effects,
+      context,
+    });
+  }
+
+  function takePick(frame: SelectFrame, unitId: string): void {
+    const group = frame.groups[0] ?? fault("No units left to pick");
+    if (!group.includes(unitId)) fault(`Unit "${unitId}" is not among the tied units`);
+    frame.groups[0] = group.filter((candidate) => candidate !== unitId);
+    if (frame.remaining !== null) frame.remaining -= 1;
+    pushEffects(frame.effects, { ...frame.context, self: unitId }, null);
+  }
+
+  function runSelect(frame: SelectFrame): void {
+    frame.groups = frame.groups
+      .map((group) => group.filter((unitId) => work.units[unitId] !== undefined))
+      .filter((group) => group.length > 0);
+    const group = frame.groups[0];
+    if (group === undefined || frame.remaining === 0) {
+      work.stack.pop();
+      return;
+    }
+    if (group.length > 1 && frame.tieBreak === "decision") {
+      work.pending = { kind: "pickUnit", options: [...group] };
+      return;
+    }
+    const index = frame.tieBreak === "random" ? randomIndex(group.length) : 0;
+    takePick(frame, group[index] ?? fault("Random pick out of range"));
+  }
+
+  function startDelivery(
+    effect: Extract<Effect, { type: "deliver" }>,
+    context: ExpressionContext,
+  ): void {
+    const type =
+      requireRules().quantityTypeById.get(effect.quantity) ??
+      fault(`Unknown quantity type "${effect.quantity}"`);
+    if ("attribute" in type.target && effect.recipient === null) {
+      fault(`Quantity type "${type.id}" needs a recipient unit`);
+    }
+    const scope = scopeOf(context);
+    const recipient = effect.recipient === null ? null : resolveUnit(effect.recipient, scope);
+    if (effect.recipient !== null && recipient === null) return;
+    work.stack.push({
+      kind: "deliver",
+      quantity: type.id,
+      amount: evaluateNumber(effect.amount, scope),
+      recipient,
+      applied: [],
+      declined: [],
+      offering: false,
+      context,
+    });
+  }
+
+  function deliveryContext(frame: DeliverFrame): ExpressionContext {
+    return { ...frame.context, self: frame.recipient, amount: frame.amount };
+  }
+
+  function applyModifier(frame: DeliverFrame, modifier: Modifier): void {
+    const context = deliveryContext(frame);
+    const scope = scopeOf(context);
+    const action = modifier.action;
+    frame.applied.push(modifier.id);
+    if ("prevent" in action) {
+      frame.amount = 0;
+    } else if ("reduce" in action) {
+      frame.amount = Math.max(0, frame.amount - evaluateNumber(action.reduce, scope));
+    } else if ("increase" in action) {
+      frame.amount += evaluateNumber(action.increase, scope);
+    } else if ("convertTo" in action) {
+      if (!requireRules().quantityTypeById.has(action.convertTo)) {
+        fault(`Unknown quantity type "${action.convertTo}"`);
+      }
+      frame.quantity = action.convertTo;
+    } else {
+      work.stack.pop();
+      pushEffects(action.substitute, context, null);
+    }
+    pushEffects(modifier.onApply, context, null);
+  }
+
+  function completeDelivery(frame: DeliverFrame): void {
+    work.stack.pop();
+    const type =
+      requireRules().quantityTypeById.get(frame.quantity) ??
+      fault(`Unknown quantity type "${frame.quantity}"`);
+    const delta = type.direction === "increase" ? frame.amount : -frame.amount;
+    if ("counter" in type.target) {
+      const counterId = type.target.counter;
+      writeCounter(counterId, (work.counters[counterId] ?? 0) + delta);
+    } else {
+      const unitId = frame.recipient ?? fault(`Quantity type "${type.id}" needs a recipient unit`);
+      const attribute = type.target.attribute;
+      writeAttribute(unitId, attribute, (work.units[unitId]?.attributes[attribute] ?? 0) + delta);
+    }
+    emit(
+      {
+        type: "quantityDelivered",
+        quantity: type.id,
+        unit: frame.recipient,
+        kind: frame.recipient === null ? null : (work.units[frame.recipient]?.kind ?? null),
+        amount: frame.amount,
+      },
+      deliveryContext(frame),
+    );
+  }
+
+  function runDeliver(frame: DeliverFrame): void {
+    const recipientGone = frame.recipient !== null && work.units[frame.recipient] === undefined;
+    if (frame.amount <= 0 || recipientGone) {
+      work.stack.pop();
+      return;
+    }
+    const scope = scopeOf(deliveryContext(frame));
+    const applicable = requireRules()
+      .modifiers.filter(
+        (modifier) =>
+          modifier.quantity === frame.quantity &&
+          !frame.applied.includes(modifier.id) &&
+          !frame.declined.includes(modifier.id) &&
+          evaluateBoolean(modifier.condition, scope),
+      )
+      .sort((a, b) => a.priority - b.priority || (a.id < b.id ? -1 : 1));
+    const first = applicable[0];
+    if (first === undefined) {
+      completeDelivery(frame);
+      return;
+    }
+    const tier = applicable.filter((modifier) => modifier.priority === first.priority);
+    const mandatory = tier.find((modifier) => !modifier.optional);
+    if (mandatory !== undefined) {
+      applyModifier(frame, mandatory);
+      return;
+    }
+    frame.offering = true;
+    work.pending = {
+      kind: "chooseOption",
+      options: tier.map((modifier) => ({
+        id: modifier.id,
+        label: modifier.id,
+        cost: [],
+        effects: [],
+      })),
+      canPass: true,
+      context: deliveryContext(frame),
+    };
+  }
+
+  function costCounter(cost: Cost, context: ExpressionContext) {
+    const scope = scopeOf(context);
+    if ("counter" in cost) {
+      const definition =
+        requireRules().counterById.get(cost.counter) ?? fault(`Unknown counter "${cost.counter}"`);
+      return {
+        definition,
+        value: work.counters[cost.counter] ?? definition.start,
+        amount: evaluateNumber(cost.amount, scope),
+        unit: null,
+      };
+    }
+    if ("attribute" in cost) {
+      const unit = resolveUnit(cost.of, scope);
+      if (unit === null) return null;
+      const kind = work.units[unit]?.kind ?? "";
+      const definition =
+        requireRules()
+          .unitKindById.get(kind)
+          ?.attributes.find((attribute) => attribute.id === cost.attribute) ??
+        fault(`Unit kind "${kind}" has no attribute "${cost.attribute}"`);
+      return {
+        definition,
+        value: work.units[unit]?.attributes[cost.attribute] ?? definition.start,
+        amount: evaluateNumber(cost.amount, scope),
+        unit,
+      };
+    }
+    return null;
+  }
+
+  function isPayable(costs: readonly Cost[], context: ExpressionContext): boolean {
+    return costs.every((cost) => {
+      if ("discard" in cost) {
+        const count = evaluateNumber(cost.discard.count, scopeOf(context));
+        return zoneCards(cost.discard.from).length >= count;
+      }
+      const owed = costCounter(cost, context);
+      if (owed === null) return false;
+      const { definition, value, amount } = owed;
+      return definition.min === null || value - amount >= definition.min;
+    });
+  }
+
+  function startPayment(costs: Cost[], context: ExpressionContext): void {
+    if (costs.length === 0) return;
+    work.stack.push({ kind: "pay", costs, index: 0, discarding: null, context });
+  }
+
+  function runPay(frame: PayFrame): void {
+    if (frame.discarding !== null) {
+      const cards = zoneCards(frame.discarding.from);
+      if (frame.discarding.remaining > 0 && cards.length > 0) {
+        work.pending = { kind: "pickCard", cards: [...cards] };
+        return;
+      }
+      frame.discarding = null;
+    }
+    const cost = frame.costs[frame.index];
+    if (cost === undefined) {
+      work.stack.pop();
+      return;
+    }
+    frame.index += 1;
+    if ("discard" in cost) {
+      frame.discarding = {
+        from: cost.discard.from,
+        to: cost.discard.to,
+        remaining: evaluateNumber(cost.discard.count, scopeOf(frame.context)),
+      };
+      return;
+    }
+    const owed = costCounter(cost, frame.context);
+    if (owed === null) return;
+    if (owed.unit === null) {
+      writeCounter(owed.definition.id, owed.value - owed.amount);
+    } else {
+      writeAttribute(owed.unit, owed.definition.id, owed.value - owed.amount);
+    }
+  }
+
+  function discardPicked(frame: PayFrame, card: string): void {
+    const discarding = frame.discarding ?? fault("No discard is in progress");
+    const source = zoneCards(discarding.from);
+    if (!source.includes(card)) fault(`Card "${card}" is not in zone "${discarding.from}"`);
+    work.zones[discarding.from] = source.filter((candidate) => candidate !== card);
+    placeCards(discarding.to, [card], "top");
+    cardsMovedEvent(discarding.from, discarding.to, [card]);
+    discarding.remaining -= 1;
   }
 
   function changeEdges(
@@ -406,12 +723,40 @@ export function createResolver(
     work.stack.push({ kind: "move", unit, remaining: steps, ...frame });
   }
 
-  function takeStep(frame: MoveFrame, space: string): void {
+  function payableEdge(
+    frame: MoveFrame,
+    here: string,
+    next: string,
+    traversable: Traversable,
+  ): Edge | null {
+    const context = { ...frame.context, self: frame.unit };
+    return (
+      edgesBetween(work.edges, here, next, traversable).find((edge) =>
+        isPayable(edge.cost, context),
+      ) ?? null
+    );
+  }
+
+  function takeStep(frame: MoveFrame, space: string, edge: Edge): void {
     frame.remaining -= 1;
     setPlacement(frame.unit, { type: "space", space });
     if (evaluateBoolean(frame.stopWhen, scopeOf({ ...frame.context, self: frame.unit }))) {
       frame.remaining = 0;
     }
+    startPayment(edge.cost, { ...frame.context, self: frame.unit });
+  }
+
+  function chosenStep(frame: MoveFrame, space: string): void {
+    const here =
+      spaceOfUnit(work.units, frame.unit) ?? fault(`Unit "${frame.unit}" is off the map`);
+    const traversable = traversableFor(
+      frame.filter,
+      scopeOf({ ...frame.context, self: frame.unit }),
+    );
+    const edge =
+      payableEdge(frame, here, space, traversable) ??
+      fault(`No payable edge leads from "${here}" to "${space}"`);
+    takeStep(frame, space, edge);
   }
 
   function runMove(frame: MoveFrame): void {
@@ -423,28 +768,43 @@ export function createResolver(
     const scope = scopeOf({ ...frame.context, self: frame.unit });
     const traversable = traversableFor(frame.filter, scope);
     if (frame.mode === "choose") {
-      const options = neighbours(work.edges, here, traversable);
+      const options = neighbours(work.edges, here, traversable).filter(
+        (space) => payableEdge(frame, here, space, traversable) !== null,
+      );
       if (options.length === 0) {
         work.stack.pop();
         return;
       }
-      work.pending = { kind: "moveUnit", unit: frame.unit, options };
+      work.pending = { kind: "moveUnit", unit: frame.unit, options, canPass: true };
       return;
     }
     const target = frame.target === null ? null : resolveSpace(frame.target, scope);
     const towardTarget = target === null ? null : distancesTo(work.edges, target, traversable);
     const distance = towardTarget?.get(here);
-    const next =
+    const closer =
       distance === undefined || distance === 0
-        ? undefined
-        : neighbours(work.edges, here, traversable).find(
-            (space) => towardTarget?.get(space) === distance - 1,
+        ? []
+        : neighbours(work.edges, here, traversable).filter(
+            (space) =>
+              towardTarget?.get(space) === distance - 1 &&
+              payableEdge(frame, here, space, traversable) !== null,
           );
-    if (next === undefined) {
+    const order = frame.order ?? fault("Automatic movement needs an order");
+    const best = orderedGroups(closer, order, (space) => ({
+      ...frame.context,
+      self: frame.unit,
+      candidate: space,
+    }))[0];
+    if (best === undefined) {
       work.stack.pop();
       return;
     }
-    takeStep(frame, next);
+    if (best.length > 1 && order.tieBreak === "decision") {
+      work.pending = { kind: "moveUnit", unit: frame.unit, options: best, canPass: false };
+      return;
+    }
+    const next = best[order.tieBreak === "random" ? randomIndex(best.length) : 0];
+    chosenStep(frame, next ?? fault("No next step to take"));
   }
 
   function placeCards(zoneId: string, cards: readonly string[], position: CardPosition): void {
@@ -487,11 +847,13 @@ export function createResolver(
 
   function offerChoice(effect: Extract<Effect, { type: "choose" }>, context: ExpressionContext) {
     const scope = scopeOf(context);
-    const options = effect.options.filter((option) => evaluateBoolean(option.when, scope));
+    const options = effect.options.filter(
+      (option) => evaluateBoolean(option.when, scope) && isPayable(option.cost, context),
+    );
     if (options.length === 0) return;
     work.pending = {
       kind: "chooseOption",
-      options: options.map(({ id, label, effects }) => ({ id, label, effects })),
+      options: options.map(({ id, label, cost, effects }) => ({ id, label, cost, effects })),
       canPass: effect.optional,
       context,
     };
@@ -604,6 +966,7 @@ export function createResolver(
             mode: "toward",
             target: effect.target,
             stopWhen: effect.stopWhen,
+            order: effect.order,
             context,
           },
           effect.unit,
@@ -613,7 +976,14 @@ export function createResolver(
         return;
       case "stepMove":
         startMove(
-          { filter: effect.filter, mode: "choose", target: null, stopWhen: false, context },
+          {
+            filter: effect.filter,
+            mode: "choose",
+            target: null,
+            stopWhen: false,
+            order: null,
+            context,
+          },
           effect.unit,
           evaluateNumber(effect.steps, scope),
           scope,
@@ -648,7 +1018,19 @@ export function createResolver(
         return;
       }
       case "forEachUnit":
-        forEachUnit(effect, context);
+        startSelect(effect.units, effect.order, null, effect.effects, context);
+        return;
+      case "selectUnits":
+        startSelect(
+          effect.units,
+          effect.order,
+          evaluateNumber(effect.count, scope),
+          effect.effects,
+          context,
+        );
+        return;
+      case "deliver":
+        startDelivery(effect, context);
         return;
       case "addEdge":
         changeEdges(effect.edge.id, "added", effect.edge);
@@ -755,9 +1137,12 @@ export function createResolver(
 
   function openPlayWindow(frame: PlayWindowFrame): void {
     const scope = scopeOf(EMPTY_CONTEXT);
-    const cards = zoneCards(frame.from).filter((card) =>
-      evaluateBoolean(cardDefinition(card).playable, scope),
-    );
+    const cards = zoneCards(frame.from).filter((card) => {
+      const definition = cardDefinition(card);
+      return (
+        evaluateBoolean(definition.playable, scope) && isPayable(definition.cost, EMPTY_CONTEXT)
+      );
+    });
     work.pending = { kind: "playCard", cards };
   }
 
@@ -787,6 +1172,15 @@ export function createResolver(
         return;
       case "move":
         runMove(frame);
+        return;
+      case "select":
+        runSelect(frame);
+        return;
+      case "deliver":
+        runDeliver(frame);
+        return;
+      case "pay":
+        runPay(frame);
         return;
       default:
         assertNever(frame);
@@ -888,7 +1282,18 @@ export function createResolver(
     work.zones[window.from] = source.filter((candidate) => candidate !== card);
     placeCards(window.to, [card], "top");
     cardsMovedEvent(window.from, window.to, [card]);
-    pushEffects(cardDefinition(card).effects, EMPTY_CONTEXT, null);
+    const definition = cardDefinition(card);
+    pushEffects(definition.effects, EMPTY_CONTEXT, null);
+    startPayment(definition.cost, EMPTY_CONTEXT);
+  }
+
+  function topFrame(): Frame | undefined {
+    return work.stack[work.stack.length - 1];
+  }
+
+  function offeringDelivery(): DeliverFrame | null {
+    const frame = topFrame();
+    return frame?.kind === "deliver" && frame.offering ? frame : null;
   }
 
   function apply(action: Action): void {
@@ -899,16 +1304,44 @@ export function createResolver(
         work.modules.push(action.module);
         emit({ type: "moduleChosen", module: action.module }, EMPTY_CONTEXT);
         return;
-      case "pass":
+      case "pass": {
         if (pending.kind === "pickModule") work.choiceIndex += 1;
         if (pending.kind === "playCard" || pending.kind === "moveUnit") work.stack.pop();
+        const delivery = offeringDelivery();
+        if (pending.kind === "chooseOption" && delivery !== null) {
+          delivery.offering = false;
+          delivery.declined.push(...pending.options.map((option) => option.id));
+        }
         return;
+      }
       case "chooseOption": {
         if (pending.kind !== "chooseOption") fault("No option choice is pending");
         const option =
           pending.options.find((candidate) => candidate.id === action.option) ??
           fault(`Unknown option "${action.option}"`);
+        const delivery = offeringDelivery();
+        if (delivery !== null) {
+          delivery.offering = false;
+          const modifier =
+            requireRules().modifiers.find((candidate) => candidate.id === option.id) ??
+            fault(`Unknown modifier "${option.id}"`);
+          applyModifier(delivery, modifier);
+          return;
+        }
         pushEffects(option.effects, pending.context, null);
+        startPayment(option.cost, pending.context);
+        return;
+      }
+      case "pickUnit": {
+        const frame = topFrame();
+        if (frame?.kind !== "select") fault("No unit selection is in progress");
+        takePick(frame, action.unit);
+        return;
+      }
+      case "pickCard": {
+        const frame = topFrame();
+        if (frame?.kind !== "pay") fault("No discard is in progress");
+        discardPicked(frame, action.card);
         return;
       }
       case "playCard": {
@@ -920,7 +1353,7 @@ export function createResolver(
       case "moveTo": {
         const frame = work.stack[work.stack.length - 1];
         if (frame?.kind !== "move") fault("No movement is in progress");
-        takeStep(frame, action.space);
+        chosenStep(frame, action.space);
         return;
       }
       default:

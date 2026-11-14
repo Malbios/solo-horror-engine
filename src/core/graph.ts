@@ -44,6 +44,21 @@ export function neighbours(
   return adjacent(edges, space, traversable, "outgoing");
 }
 
+/** Traversable edges that lead from `from` to `to` in one step, sorted by id. */
+export function edgesBetween(
+  edges: Readonly<Record<string, Edge>>,
+  from: string,
+  to: string,
+  traversable: Traversable,
+): Edge[] {
+  return sortedEdges(edges).filter(
+    (edge) =>
+      traversable(edge) &&
+      ((edge.fromSpace === from && edge.toSpace === to) ||
+        (!edge.directed && edge.fromSpace === to && edge.toSpace === from)),
+  );
+}
+
 function breadthFirst(
   edges: Readonly<Record<string, Edge>>,
   start: string,
