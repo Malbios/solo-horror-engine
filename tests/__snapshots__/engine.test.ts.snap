@@ -5,6 +5,7 @@ exports[`engine on the demo pack > matches the initial state snapshot 1`] = `
   "cardSerials": {},
   "choiceIndex": 0,
   "counters": {},
+  "edges": {},
   "faceUp": {},
   "fault": null,
   "firedTriggers": [],
@@ -19,6 +20,7 @@ exports[`engine on the demo pack > matches the initial state snapshot 1`] = `
       "bonus-cards",
     ],
   },
+  "retiredUnits": [],
   "rng": {
     "a": 1197569939,
     "b": 3122121817,
@@ -26,9 +28,12 @@ exports[`engine on the demo pack > matches the initial state snapshot 1`] = `
     "d": 13,
   },
   "round": 0,
+  "spaceCounters": {},
   "stack": [],
   "stage": "choices",
   "status": "awaitingDecision",
+  "unitSerial": 0,
+  "units": {},
   "zones": {},
 }
 `;

@@ -1,6 +1,9 @@
 import type { ExpressionContext } from "./expressions";
-import type { Effect, Outcome, Scope } from "./pack";
+import type { UnitState } from "./graph";
+import type { BoolExpr, Edge, Effect, Outcome, Scope, SpaceRef } from "./pack";
 import type { Rng } from "./rng";
+
+export type { UnitPlacement, UnitState } from "./graph";
 
 export type GameStatus = "awaitingDecision" | "finished" | "faulted";
 
@@ -29,7 +32,18 @@ export type PlayWindowFrame = { kind: "playWindow"; from: string; to: string };
 
 export type FinishFrame = { kind: "finish"; endCondition: string };
 
-export type Frame = EffectsFrame | ScopeFrame | PlayWindowFrame | FinishFrame;
+export type MoveFrame = {
+  kind: "move";
+  unit: string;
+  remaining: number;
+  filter: string;
+  mode: "toward" | "choose";
+  target: SpaceRef | null;
+  stopWhen: BoolExpr;
+  context: ExpressionContext;
+};
+
+export type Frame = EffectsFrame | ScopeFrame | PlayWindowFrame | FinishFrame | MoveFrame;
 
 export type OptionView = { id: string; label: string; effects: Effect[] };
 
@@ -41,7 +55,8 @@ export type Decision =
       canPass: boolean;
       context: ExpressionContext;
     }
-  | { kind: "playCard"; cards: string[] };
+  | { kind: "playCard"; cards: string[] }
+  | { kind: "moveUnit"; unit: string; options: string[] };
 
 export type GameOutcome = { result: Outcome; endCondition: string };
 
@@ -59,6 +74,11 @@ export type GameState = {
   zones: Record<string, string[]>;
   faceUp: Record<string, boolean>;
   cardSerials: Record<string, number>;
+  units: Record<string, UnitState>;
+  unitSerial: number;
+  retiredUnits: string[];
+  edges: Record<string, Edge>;
+  spaceCounters: Record<string, Record<string, number>>;
   firedTriggers: string[];
   stack: Frame[];
   pending: Decision | null;
@@ -68,6 +88,7 @@ export type Action =
   | { type: "pickModule"; module: string }
   | { type: "chooseOption"; option: string }
   | { type: "playCard"; card: string }
+  | { type: "moveTo"; space: string }
   | { type: "pass" };
 
 export type GameEvent =
@@ -76,7 +97,27 @@ export type GameEvent =
   | { type: "cardsMoved"; from: string | null; to: string; cards: string[] }
   | { type: "scopeEntered"; scope: Scope; id: string }
   | { type: "scopeExited"; scope: Scope; id: string }
-  | { type: "gameFinished"; outcome: Outcome; endCondition: string };
+  | { type: "gameFinished"; outcome: Outcome; endCondition: string }
+  | { type: "unitCreated"; unit: string; kind: string }
+  | { type: "unitRemoved"; unit: string; kind: string }
+  | {
+      type: "unitMoved";
+      unit: string;
+      kind: string;
+      fromSpace: string | null;
+      toSpace: string | null;
+    }
+  | { type: "unitKindChanged"; unit: string; from: string; to: string }
+  | {
+      type: "attributeChanged";
+      unit: string;
+      kind: string;
+      attribute: string;
+      from: number;
+      to: number;
+    }
+  | { type: "spaceCounterChanged"; space: string; spaceCounter: string; from: number; to: number }
+  | { type: "edgeChanged"; edge: string; change: "added" | "removed" | "retargeted" };
 
 export type RuleError =
   | { type: "gameFinished" }

@@ -2,13 +2,20 @@ export { composeRules, type Rules } from "./compose";
 export { createEngine, legalActions, type Engine } from "./engine";
 export {
   EMPTY_CONTEXT,
+  EMPTY_WORLD,
   evaluateBoolean,
   evaluateNumber,
+  resolveSpace,
+  resolveUnit,
   type ExpressionContext,
   type ExpressionScope,
+  type World,
 } from "./expressions";
+export { distancesFrom, distancesTo, neighbours, spaceOfUnit } from "./graph";
 export type {
   Action,
+  UnitPlacement,
+  UnitState,
   Decision,
   Frame,
   GameEvent,

@@ -8,6 +8,8 @@ import {
   type Effect,
   type NumExpr,
   type Pack,
+  type SpaceRef,
+  type UnitRef,
 } from "../core";
 
 const MAX_PACK_DEPTH = 64;
@@ -21,9 +23,51 @@ function hasUniqueIds(items: readonly { id: string }[]): boolean {
   return new Set(items.map((item) => item.id)).size === items.length;
 }
 
+export const unitRefSchema: z.ZodType<UnitRef> = z.lazy(() =>
+  z.union([
+    z.literal("self"),
+    z.strictObject({ id: idSchema }),
+    z.strictObject({
+      closest: z.strictObject({ kind: idSchema, origin: spaceRefSchema, filter: idSchema }),
+    }),
+  ]),
+);
+
+export const spaceRefSchema: z.ZodType<SpaceRef> = z.lazy(() =>
+  z.union([
+    z.strictObject({ space: idSchema }),
+    z.strictObject({
+      locationOf: unitRefSchema,
+      fallback: spaceRefSchema.nullable().default(null),
+    }),
+  ]),
+);
+
+const placementSchema = z.union([
+  z.strictObject({ onSpace: spaceRefSchema }),
+  z.strictObject({ inside: unitRefSchema }),
+  z.strictObject({ offMap: z.literal(true) }),
+]);
+
 export const numExprSchema: z.ZodType<NumExpr> = z.lazy(() => {
   const pair = z.tuple([numExprSchema, numExprSchema]);
   return z.union([
+    z.strictObject({ attribute: idSchema, of: unitRefSchema }),
+    z.strictObject({ spaceCounter: idSchema, at: spaceRefSchema }),
+    z.strictObject({
+      countUnits: z.strictObject({
+        kind: idSchema.nullable().default(null),
+        at: spaceRefSchema.nullable().default(null),
+      }),
+    }),
+    z.strictObject({
+      distance: z.strictObject({
+        origin: spaceRefSchema,
+        destination: spaceRefSchema,
+        filter: idSchema,
+        ifUnreachable: numExprSchema,
+      }),
+    }),
     z.int(),
     z.strictObject({ counter: idSchema }),
     z.strictObject({ zoneCount: idSchema }),
@@ -40,6 +84,10 @@ export const boolExprSchema: z.ZodType<BoolExpr> = z.lazy(() => {
   const pair = z.tuple([numExprSchema, numExprSchema]);
   return z.union([
     z.boolean(),
+    z.strictObject({ unitExists: unitRefSchema }),
+    z.strictObject({ spaceHasTag: z.strictObject({ at: spaceRefSchema, tag: idSchema }) }),
+    z.strictObject({ unitIsKind: z.strictObject({ unit: unitRefSchema, kind: idSchema }) }),
+    z.strictObject({ sameSpace: z.tuple([unitRefSchema, unitRefSchema]) }),
     z.strictObject({ eq: pair }),
     z.strictObject({ ne: pair }),
     z.strictObject({ lt: pair }),
@@ -86,7 +134,76 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
     z.strictObject({ type: z.literal("playWindow"), from: idSchema, to: idSchema }),
     z.strictObject({ type: z.literal("endScope"), scope: scopeSchema }),
     z.strictObject({ type: z.literal("endGame"), endCondition: idSchema }),
+    z.strictObject({
+      type: z.literal("createUnit"),
+      kind: idSchema,
+      id: idSchema.nullable().default(null),
+      placement: placementSchema,
+    }),
+    z.strictObject({ type: z.literal("removeUnit"), unit: unitRefSchema }),
+    z.strictObject({ type: z.literal("changeKind"), unit: unitRefSchema, kind: idSchema }),
+    z.strictObject({
+      type: z.literal("placeUnit"),
+      unit: unitRefSchema,
+      placement: placementSchema,
+    }),
+    z.strictObject({
+      type: z.literal("moveToward"),
+      unit: unitRefSchema,
+      target: spaceRefSchema,
+      steps: numExprSchema,
+      filter: idSchema,
+      stopWhen: boolExprSchema.default(false),
+    }),
+    z.strictObject({
+      type: z.literal("stepMove"),
+      unit: unitRefSchema,
+      steps: numExprSchema,
+      filter: idSchema,
+    }),
+    z.strictObject({
+      type: z.literal("changeAttribute"),
+      unit: unitRefSchema,
+      attribute: idSchema,
+      amount: numExprSchema,
+    }),
+    z.strictObject({
+      type: z.literal("setAttribute"),
+      unit: unitRefSchema,
+      attribute: idSchema,
+      value: numExprSchema,
+    }),
+    z.strictObject({
+      type: z.literal("changeSpaceCounter"),
+      at: spaceRefSchema,
+      spaceCounter: idSchema,
+      amount: numExprSchema,
+    }),
+    z.strictObject({
+      type: z.literal("setSpaceCounter"),
+      at: spaceRefSchema,
+      spaceCounter: idSchema,
+      value: numExprSchema,
+    }),
+    z.strictObject({
+      type: z.literal("forEachUnit"),
+      kind: idSchema.nullable().default(null),
+      at: spaceRefSchema.nullable().default(null),
+      effects,
+    }),
+    z.strictObject({ type: z.literal("addEdge"), edge: edgeSchema }),
+    z.strictObject({ type: z.literal("removeEdge"), edge: idSchema }),
+    z.strictObject({ type: z.literal("retargetEdge"), edge: idSchema, toSpace: idSchema }),
   ]);
+});
+
+const edgeSchema = z.strictObject({
+  id: idSchema,
+  fromSpace: idSchema,
+  toSpace: idSchema,
+  directed: z.boolean().default(false),
+  tags: z.array(idSchema).default([]),
+  gate: boolExprSchema.default(true),
 });
 
 const effectListSchema = z.array(effectSchema).default([]);
@@ -97,7 +214,33 @@ const eventPatternSchema = z.discriminatedUnion("event", [
   z.strictObject({ event: z.literal("cardsMoved"), from: optionalIdSchema, to: optionalIdSchema }),
   z.strictObject({ event: z.literal("scopeEntered"), scope: scopeSchema, id: optionalIdSchema }),
   z.strictObject({ event: z.literal("scopeExited"), scope: scopeSchema, id: optionalIdSchema }),
+  z.strictObject({ event: z.literal("unitCreated"), kind: optionalIdSchema }),
+  z.strictObject({ event: z.literal("unitRemoved"), kind: optionalIdSchema }),
+  z.strictObject({
+    event: z.literal("unitMoved"),
+    kind: optionalIdSchema,
+    toSpace: optionalIdSchema,
+  }),
+  z.strictObject({
+    event: z.literal("attributeChanged"),
+    kind: optionalIdSchema,
+    attribute: idSchema,
+  }),
+  z.strictObject({ event: z.literal("spaceCounterChanged"), spaceCounter: idSchema }),
 ]);
+
+const spaceSchema = z.strictObject({
+  id: idSchema,
+  name: nameSchema,
+  tags: z.array(idSchema).default([]),
+});
+
+const edgeFilterSchema = z.strictObject({
+  id: idSchema,
+  requireTags: z.array(idSchema).default([]),
+  excludeTags: z.array(idSchema).default([]),
+  useGates: z.boolean().default(true),
+});
 
 const hooksSchema = z.strictObject({ onEnter: effectListSchema, onExit: effectListSchema });
 
@@ -161,7 +304,21 @@ const endConditionSchema = z.strictObject({
   ]),
 });
 
+const unitKindSchema = z.strictObject({
+  id: idSchema,
+  name: nameSchema,
+  attributes: z
+    .array(counterSchema)
+    .default([])
+    .refine(hasUniqueIds, "attribute ids must be unique"),
+});
+
 const contentSchema = z.strictObject({
+  spaces: z.array(spaceSchema).default([]),
+  edges: z.array(edgeSchema).default([]),
+  edgeFilters: z.array(edgeFilterSchema).default([]),
+  unitKinds: z.array(unitKindSchema).default([]),
+  spaceCounters: z.array(counterSchema).default([]),
   counters: z.array(counterSchema).default([]),
   zones: z.array(zoneSchema).default([]),
   cards: z.array(cardSchema).default([]),
@@ -176,6 +333,11 @@ const contentSchema = z.strictObject({
 const idListSchema = z.array(idSchema).default([]);
 
 const removalSchema = z.strictObject({
+  spaces: idListSchema,
+  edges: idListSchema,
+  edgeFilters: idListSchema,
+  unitKinds: idListSchema,
+  spaceCounters: idListSchema,
   counters: idListSchema,
   zones: idListSchema,
   cards: idListSchema,

@@ -1,6 +1,14 @@
 import { LAYERED_COLLECTIONS, type Content } from "./pack";
 
-type ReferenceKind = "counter" | "zone" | "card" | "endCondition";
+type ReferenceKind =
+  | "counter"
+  | "zone"
+  | "card"
+  | "endCondition"
+  | "space"
+  | "unitKind"
+  | "edgeFilter"
+  | "spaceCounter";
 
 const REFERENCE_KEYS: ReadonlyMap<string, ReferenceKind> = new Map([
   ["counter", "counter"],
@@ -10,6 +18,12 @@ const REFERENCE_KEYS: ReadonlyMap<string, ReferenceKind> = new Map([
   ["to", "zone"],
   ["card", "card"],
   ["endCondition", "endCondition"],
+  ["space", "space"],
+  ["fromSpace", "space"],
+  ["toSpace", "space"],
+  ["kind", "unitKind"],
+  ["filter", "edgeFilter"],
+  ["spaceCounter", "spaceCounter"],
 ]);
 
 const DEFINING_COLLECTIONS: ReadonlyMap<ReferenceKind, (typeof LAYERED_COLLECTIONS)[number]> =
@@ -18,6 +32,10 @@ const DEFINING_COLLECTIONS: ReadonlyMap<ReferenceKind, (typeof LAYERED_COLLECTIO
     ["zone", "zones"],
     ["card", "cards"],
     ["endCondition", "endConditions"],
+    ["space", "spaces"],
+    ["unitKind", "unitKinds"],
+    ["edgeFilter", "edgeFilters"],
+    ["spaceCounter", "spaceCounters"],
   ]);
 
 function referenceLabel(kind: ReferenceKind, id: string): string {

@@ -6,6 +6,13 @@ export type ContextKey = "from" | "to" | "amount";
 
 export type NumberPair = [NumExpr, NumExpr];
 
+export type UnitRef =
+  "self" | { id: string } | { closest: { kind: string; origin: SpaceRef; filter: string } };
+
+export type SpaceRef = { space: string } | { locationOf: UnitRef; fallback: SpaceRef | null };
+
+export type Placement = { onSpace: SpaceRef } | { inside: UnitRef } | { offMap: true };
+
 export type NumExpr =
   | number
   | { counter: string }
@@ -15,7 +22,13 @@ export type NumExpr =
   | { sub: NumberPair }
   | { mul: NumberPair }
   | { min: NumExpr[] }
-  | { max: NumExpr[] };
+  | { max: NumExpr[] }
+  | { attribute: string; of: UnitRef }
+  | { spaceCounter: string; at: SpaceRef }
+  | { countUnits: { kind: string | null; at: SpaceRef | null } }
+  | {
+      distance: { origin: SpaceRef; destination: SpaceRef; filter: string; ifUnreachable: NumExpr };
+    };
 
 export type BoolExpr =
   | boolean
@@ -27,7 +40,11 @@ export type BoolExpr =
   | { gte: NumberPair }
   | { and: BoolExpr[] }
   | { or: BoolExpr[] }
-  | { not: BoolExpr };
+  | { not: BoolExpr }
+  | { unitExists: UnitRef }
+  | { spaceHasTag: { at: SpaceRef; tag: string } }
+  | { unitIsKind: { unit: UnitRef; kind: string } }
+  | { sameSpace: [UnitRef, UnitRef] };
 
 export type ChooseOption = {
   id: string;
@@ -48,13 +65,57 @@ export type Effect =
   | { type: "choose"; optional: boolean; options: ChooseOption[] }
   | { type: "playWindow"; from: string; to: string }
   | { type: "endScope"; scope: Scope }
-  | { type: "endGame"; endCondition: string };
+  | { type: "endGame"; endCondition: string }
+  | { type: "createUnit"; kind: string; id: string | null; placement: Placement }
+  | { type: "removeUnit"; unit: UnitRef }
+  | { type: "changeKind"; unit: UnitRef; kind: string }
+  | { type: "placeUnit"; unit: UnitRef; placement: Placement }
+  | {
+      type: "moveToward";
+      unit: UnitRef;
+      target: SpaceRef;
+      steps: NumExpr;
+      filter: string;
+      stopWhen: BoolExpr;
+    }
+  | { type: "stepMove"; unit: UnitRef; steps: NumExpr; filter: string }
+  | { type: "changeAttribute"; unit: UnitRef; attribute: string; amount: NumExpr }
+  | { type: "setAttribute"; unit: UnitRef; attribute: string; value: NumExpr }
+  | { type: "changeSpaceCounter"; at: SpaceRef; spaceCounter: string; amount: NumExpr }
+  | { type: "setSpaceCounter"; at: SpaceRef; spaceCounter: string; value: NumExpr }
+  | { type: "forEachUnit"; kind: string | null; at: SpaceRef | null; effects: Effect[] }
+  | { type: "addEdge"; edge: Edge }
+  | { type: "removeEdge"; edge: string }
+  | { type: "retargetEdge"; edge: string; toSpace: string };
 
 export type EventPattern =
   | { event: "counterChanged"; counter: string }
   | { event: "cardsMoved"; from: string | null; to: string | null }
   | { event: "scopeEntered"; scope: Scope; id: string | null }
-  | { event: "scopeExited"; scope: Scope; id: string | null };
+  | { event: "scopeExited"; scope: Scope; id: string | null }
+  | { event: "unitCreated"; kind: string | null }
+  | { event: "unitRemoved"; kind: string | null }
+  | { event: "unitMoved"; kind: string | null; toSpace: string | null }
+  | { event: "attributeChanged"; kind: string | null; attribute: string }
+  | { event: "spaceCounterChanged"; spaceCounter: string };
+
+export type Space = { id: string; name: string; tags: string[] };
+
+export type Edge = {
+  id: string;
+  fromSpace: string;
+  toSpace: string;
+  directed: boolean;
+  tags: string[];
+  gate: BoolExpr;
+};
+
+export type EdgeFilter = {
+  id: string;
+  requireTags: string[];
+  excludeTags: string[];
+  useGates: boolean;
+};
 
 export type Counter = {
   id: string;
@@ -105,7 +166,14 @@ export type EndCondition = {
   outcome: OutcomeRule;
 };
 
+export type UnitKind = { id: string; name: string; attributes: Counter[] };
+
 export type Content = {
+  spaces: Space[];
+  edges: Edge[];
+  edgeFilters: EdgeFilter[];
+  unitKinds: UnitKind[];
+  spaceCounters: Counter[];
   counters: Counter[];
   zones: Zone[];
   cards: Card[];
@@ -118,6 +186,11 @@ export type Content = {
 };
 
 export const LAYERED_COLLECTIONS = [
+  "spaces",
+  "edges",
+  "edgeFilters",
+  "unitKinds",
+  "spaceCounters",
   "counters",
   "zones",
   "cards",

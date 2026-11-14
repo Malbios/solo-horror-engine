@@ -1,11 +1,17 @@
 import type { Rules } from "./compose";
 import {
   EMPTY_CONTEXT,
+  EMPTY_WORLD,
   evaluateBoolean,
   evaluateNumber,
+  resolveSpace,
+  resolveUnit,
+  traversableFor,
   type ExpressionContext,
   type ExpressionScope,
+  type World,
 } from "./expressions";
+import { containsOrIs, distancesTo, neighbours, spaceOfUnit, type UnitPlacement } from "./graph";
 import type {
   Action,
   Decision,
@@ -14,17 +20,21 @@ import type {
   Frame,
   GameEvent,
   GameState,
+  MoveFrame,
   PlayWindowFrame,
   ScopeFrame,
 } from "./model";
 import type {
   Card,
   CardPosition,
+  Counter,
+  Edge,
   Effect,
   EventPattern,
   Outcome,
   OutcomeRule,
   Pack,
+  Placement,
   Scope,
   ScopeHooks,
 } from "./pack";
@@ -72,6 +82,24 @@ function matchesPattern(pattern: EventPattern, event: GameEvent): boolean {
         event.scope === pattern.scope &&
         (pattern.id === null || pattern.id === event.id)
       );
+    case "unitCreated":
+      return event.type === "unitCreated" && (pattern.kind === null || pattern.kind === event.kind);
+    case "unitRemoved":
+      return event.type === "unitRemoved" && (pattern.kind === null || pattern.kind === event.kind);
+    case "unitMoved":
+      return (
+        event.type === "unitMoved" &&
+        (pattern.kind === null || pattern.kind === event.kind) &&
+        (pattern.toSpace === null || pattern.toSpace === event.toSpace)
+      );
+    case "attributeChanged":
+      return (
+        event.type === "attributeChanged" &&
+        event.attribute === pattern.attribute &&
+        (pattern.kind === null || pattern.kind === event.kind)
+      );
+    case "spaceCounterChanged":
+      return event.type === "spaceCounterChanged" && event.spaceCounter === pattern.spaceCounter;
     default:
       return assertNever(pattern);
   }
@@ -103,8 +131,23 @@ export function createResolver(
     return rules ?? fault("Rules are not composed yet");
   }
 
+  function worldView(): World {
+    if (rules === null) return EMPTY_WORLD;
+    return {
+      units: work.units,
+      edges: work.edges,
+      spaceCounters: work.spaceCounters,
+      filters: rules.edgeFilterById,
+      spaces: rules.spaceById,
+    };
+  }
+
   function scopeOf(context: ExpressionContext): ExpressionScope {
-    return { counters: work.counters, zones: work.zones, context };
+    return { counters: work.counters, zones: work.zones, world: worldView(), context };
+  }
+
+  function contextFor(self: string | null, from = 0, to = 0, amount = 0): ExpressionContext {
+    return { from, to, amount, self };
   }
 
   function zoneCards(zoneId: string): string[] {
@@ -142,29 +185,266 @@ export function createResolver(
     }
   }
 
-  function writeCounter(counterId: string, requested: number): void {
-    const definition =
-      requireRules().counterById.get(counterId) ?? fault(`Unknown counter "${counterId}"`);
-    const from = work.counters[counterId] ?? definition.start;
+  function writeBounded(
+    definition: Counter,
+    from: number,
+    requested: number,
+    self: string | null,
+    store: (value: number) => void,
+    announce: (from: number, to: number) => void,
+  ): void {
     const to = clamp(requested, definition.min, definition.max);
-    work.counters[counterId] = to;
+    store(to);
     const excess = requested - to;
     const boundEffects = excess > 0 ? definition.onOverflow : definition.onUnderflow;
     const repetitions = Math.abs(excess);
     if (boundEffects.length > 0 && repetitions > 0) {
       if (repetitions > MAX_OPERATIONS_PER_CALL) {
-        fault(`Counter "${counterId}" exceeded its bounds by ${repetitions}`);
+        fault(`Counter "${definition.id}" exceeded its bounds by ${repetitions}`);
       }
       for (let repetition = 0; repetition < repetitions; repetition++) {
-        pushEffects(boundEffects, EMPTY_CONTEXT, null);
+        pushEffects(boundEffects, contextFor(self), null);
       }
     }
-    if (from !== to) {
+    if (from !== to) announce(from, to);
+  }
+
+  function writeCounter(counterId: string, requested: number): void {
+    const definition =
+      requireRules().counterById.get(counterId) ?? fault(`Unknown counter "${counterId}"`);
+    writeBounded(
+      definition,
+      work.counters[counterId] ?? definition.start,
+      requested,
+      null,
+      (value) => {
+        work.counters[counterId] = value;
+      },
+      (from, to) => {
+        emit(
+          { type: "counterChanged", counter: counterId, from, to },
+          contextFor(null, from, to, to - from),
+        );
+      },
+    );
+  }
+
+  function writeAttribute(unitId: string, attribute: string, requested: number): void {
+    const unit = work.units[unitId] ?? fault(`Unknown unit "${unitId}"`);
+    const definition =
+      requireRules()
+        .unitKindById.get(unit.kind)
+        ?.attributes.find((candidate) => candidate.id === attribute) ??
+      fault(`Unit kind "${unit.kind}" has no attribute "${attribute}"`);
+    writeBounded(
+      definition,
+      unit.attributes[attribute] ?? definition.start,
+      requested,
+      unitId,
+      (value) => {
+        unit.attributes[attribute] = value;
+      },
+      (from, to) => {
+        emit(
+          { type: "attributeChanged", unit: unitId, kind: unit.kind, attribute, from, to },
+          contextFor(unitId, from, to, to - from),
+        );
+      },
+    );
+  }
+
+  function writeSpaceCounter(spaceId: string, counterId: string, requested: number): void {
+    const definition =
+      requireRules().spaceCounterById.get(counterId) ??
+      fault(`Unknown space counter "${counterId}"`);
+    const values = work.spaceCounters[spaceId] ?? fault(`Unknown space "${spaceId}"`);
+    writeBounded(
+      definition,
+      values[counterId] ?? definition.start,
+      requested,
+      null,
+      (value) => {
+        values[counterId] = value;
+      },
+      (from, to) => {
+        emit(
+          { type: "spaceCounterChanged", space: spaceId, spaceCounter: counterId, from, to },
+          contextFor(null, from, to, to - from),
+        );
+      },
+    );
+  }
+
+  function resolvePlacement(placement: Placement, scope: ExpressionScope): UnitPlacement | null {
+    if ("onSpace" in placement) {
+      const space = resolveSpace(placement.onSpace, scope);
+      return space === null ? null : { type: "space", space };
+    }
+    if ("inside" in placement) {
+      const unit = resolveUnit(placement.inside, scope);
+      return unit === null ? null : { type: "inside", unit };
+    }
+    return { type: "offMap" };
+  }
+
+  function setPlacement(unitId: string, placement: UnitPlacement): void {
+    const unit = work.units[unitId] ?? fault(`Unknown unit "${unitId}"`);
+    if (placement.type === "inside" && containsOrIs(work.units, unitId, placement.unit)) {
+      fault(`Unit "${unitId}" cannot be placed inside itself`);
+    }
+    const fromSpace = spaceOfUnit(work.units, unitId);
+    unit.placement = placement;
+    const toSpace = spaceOfUnit(work.units, unitId);
+    if (fromSpace !== toSpace) {
       emit(
-        { type: "counterChanged", counter: counterId, from, to },
-        { from, to, amount: to - from },
+        { type: "unitMoved", unit: unitId, kind: unit.kind, fromSpace, toSpace },
+        contextFor(unitId),
       );
     }
+  }
+
+  function createUnit(
+    effect: Extract<Effect, { type: "createUnit" }>,
+    scope: ExpressionScope,
+  ): void {
+    const kind =
+      requireRules().unitKindById.get(effect.kind) ?? fault(`Unknown unit kind "${effect.kind}"`);
+    const placement = resolvePlacement(effect.placement, scope);
+    if (placement === null) return;
+    if (effect.id === null) work.unitSerial += 1;
+    const unitId = effect.id ?? `${kind.id}#${work.unitSerial}`;
+    if (work.units[unitId] !== undefined || work.retiredUnits.includes(unitId)) {
+      fault(`Unit id "${unitId}" is already in use or retired`);
+    }
+    work.units[unitId] = {
+      id: unitId,
+      kind: kind.id,
+      placement: { type: "offMap" },
+      attributes: Object.fromEntries(
+        kind.attributes.map((attribute) => [attribute.id, attribute.start]),
+      ),
+    };
+    setPlacement(unitId, placement);
+    emit({ type: "unitCreated", unit: unitId, kind: kind.id }, contextFor(unitId));
+  }
+
+  function removeUnit(unitId: string): void {
+    const unit = work.units[unitId] ?? fault(`Unknown unit "${unitId}"`);
+    for (const inner of Object.values(work.units)) {
+      if (inner.placement.type === "inside" && inner.placement.unit === unitId) {
+        inner.placement = unit.placement;
+      }
+    }
+    delete work.units[unitId];
+    work.retiredUnits.push(unitId);
+    emit({ type: "unitRemoved", unit: unitId, kind: unit.kind }, contextFor(null));
+  }
+
+  function changeKind(unitId: string, kindId: string): void {
+    const unit = work.units[unitId] ?? fault(`Unknown unit "${unitId}"`);
+    const kind = requireRules().unitKindById.get(kindId) ?? fault(`Unknown unit kind "${kindId}"`);
+    if (unit.kind === kind.id) return;
+    const previous = unit.kind;
+    unit.attributes = Object.fromEntries(
+      kind.attributes.map((attribute) => [
+        attribute.id,
+        unit.attributes[attribute.id] ?? attribute.start,
+      ]),
+    );
+    unit.kind = kind.id;
+    emit(
+      { type: "unitKindChanged", unit: unitId, from: previous, to: kind.id },
+      contextFor(unitId),
+    );
+  }
+
+  function forEachUnit(
+    effect: Extract<Effect, { type: "forEachUnit" }>,
+    context: ExpressionContext,
+  ): void {
+    const scope = scopeOf(context);
+    const space = effect.at === null ? null : resolveSpace(effect.at, scope);
+    if (effect.at !== null && space === null) return;
+    const selected = Object.keys(work.units)
+      .sort()
+      .filter(
+        (unitId) =>
+          (effect.kind === null || work.units[unitId]?.kind === effect.kind) &&
+          (space === null || spaceOfUnit(work.units, unitId) === space),
+      );
+    for (const unitId of [...selected].reverse()) {
+      pushEffects(effect.effects, { ...context, self: unitId }, null);
+    }
+  }
+
+  function changeEdges(
+    edgeId: string,
+    change: "added" | "removed" | "retargeted",
+    edge: Edge | null,
+  ) {
+    if (change === "added") {
+      if (work.edges[edgeId] !== undefined) fault(`Edge "${edgeId}" already exists`);
+    } else if (work.edges[edgeId] === undefined) {
+      fault(`Unknown edge "${edgeId}"`);
+    }
+    if (edge === null) {
+      delete work.edges[edgeId];
+    } else {
+      work.edges[edgeId] = edge;
+    }
+    emit({ type: "edgeChanged", edge: edgeId, change }, contextFor(null));
+  }
+
+  function startMove(
+    frame: Omit<MoveFrame, "kind" | "unit" | "remaining">,
+    unitRef: Parameters<typeof resolveUnit>[0],
+    steps: number,
+    scope: ExpressionScope,
+  ): void {
+    const unit = resolveUnit(unitRef, scope);
+    if (unit === null || steps <= 0) return;
+    work.stack.push({ kind: "move", unit, remaining: steps, ...frame });
+  }
+
+  function takeStep(frame: MoveFrame, space: string): void {
+    frame.remaining -= 1;
+    setPlacement(frame.unit, { type: "space", space });
+    if (evaluateBoolean(frame.stopWhen, scopeOf({ ...frame.context, self: frame.unit }))) {
+      frame.remaining = 0;
+    }
+  }
+
+  function runMove(frame: MoveFrame): void {
+    const here = work.units[frame.unit] === undefined ? null : spaceOfUnit(work.units, frame.unit);
+    if (frame.remaining <= 0 || here === null) {
+      work.stack.pop();
+      return;
+    }
+    const scope = scopeOf({ ...frame.context, self: frame.unit });
+    const traversable = traversableFor(frame.filter, scope);
+    if (frame.mode === "choose") {
+      const options = neighbours(work.edges, here, traversable);
+      if (options.length === 0) {
+        work.stack.pop();
+        return;
+      }
+      work.pending = { kind: "moveUnit", unit: frame.unit, options };
+      return;
+    }
+    const target = frame.target === null ? null : resolveSpace(frame.target, scope);
+    const towardTarget = target === null ? null : distancesTo(work.edges, target, traversable);
+    const distance = towardTarget?.get(here);
+    const next =
+      distance === undefined || distance === 0
+        ? undefined
+        : neighbours(work.edges, here, traversable).find(
+            (space) => towardTarget?.get(space) === distance - 1,
+          );
+    if (next === undefined) {
+      work.stack.pop();
+      return;
+    }
+    takeStep(frame, next);
   }
 
   function placeCards(zoneId: string, cards: readonly string[], position: CardPosition): void {
@@ -175,7 +455,7 @@ export function createResolver(
   }
 
   function cardsMovedEvent(from: string | null, to: string, cards: string[]): void {
-    emit({ type: "cardsMoved", from, to, cards }, { from: 0, to: 0, amount: cards.length });
+    emit({ type: "cardsMoved", from, to, cards }, contextFor(null, 0, 0, cards.length));
   }
 
   function moveTopCards(from: string, to: string, count: number, position: CardPosition): void {
@@ -298,6 +578,89 @@ export function createResolver(
       case "endGame":
         beginEnd(effect.endCondition);
         return;
+      case "createUnit":
+        createUnit(effect, scope);
+        return;
+      case "removeUnit": {
+        const unit = resolveUnit(effect.unit, scope);
+        if (unit !== null) removeUnit(unit);
+        return;
+      }
+      case "changeKind": {
+        const unit = resolveUnit(effect.unit, scope);
+        if (unit !== null) changeKind(unit, effect.kind);
+        return;
+      }
+      case "placeUnit": {
+        const unit = resolveUnit(effect.unit, scope);
+        const placement = resolvePlacement(effect.placement, scope);
+        if (unit !== null && placement !== null) setPlacement(unit, placement);
+        return;
+      }
+      case "moveToward":
+        startMove(
+          {
+            filter: effect.filter,
+            mode: "toward",
+            target: effect.target,
+            stopWhen: effect.stopWhen,
+            context,
+          },
+          effect.unit,
+          evaluateNumber(effect.steps, scope),
+          scope,
+        );
+        return;
+      case "stepMove":
+        startMove(
+          { filter: effect.filter, mode: "choose", target: null, stopWhen: false, context },
+          effect.unit,
+          evaluateNumber(effect.steps, scope),
+          scope,
+        );
+        return;
+      case "changeAttribute":
+      case "setAttribute": {
+        const unit = resolveUnit(effect.unit, scope);
+        if (unit === null) return;
+        const current = work.units[unit]?.attributes[effect.attribute] ?? 0;
+        writeAttribute(
+          unit,
+          effect.attribute,
+          effect.type === "changeAttribute"
+            ? current + evaluateNumber(effect.amount, scope)
+            : evaluateNumber(effect.value, scope),
+        );
+        return;
+      }
+      case "changeSpaceCounter":
+      case "setSpaceCounter": {
+        const space = resolveSpace(effect.at, scope);
+        if (space === null) return;
+        const current = work.spaceCounters[space]?.[effect.spaceCounter] ?? 0;
+        writeSpaceCounter(
+          space,
+          effect.spaceCounter,
+          effect.type === "changeSpaceCounter"
+            ? current + evaluateNumber(effect.amount, scope)
+            : evaluateNumber(effect.value, scope),
+        );
+        return;
+      }
+      case "forEachUnit":
+        forEachUnit(effect, context);
+        return;
+      case "addEdge":
+        changeEdges(effect.edge.id, "added", effect.edge);
+        return;
+      case "removeEdge":
+        changeEdges(effect.edge, "removed", null);
+        return;
+      case "retargetEdge": {
+        const edge = work.edges[effect.edge] ?? fault(`Unknown edge "${effect.edge}"`);
+        changeEdges(effect.edge, "retargeted", { ...edge, toSpace: effect.toSpace });
+        return;
+      }
       default:
         assertNever(effect);
     }
@@ -422,6 +785,9 @@ export function createResolver(
       case "finish":
         finish(frame);
         return;
+      case "move":
+        runMove(frame);
+        return;
       default:
         assertNever(frame);
     }
@@ -459,6 +825,14 @@ export function createResolver(
       composed.counters.map((counter) => [counter.id, counter.start]),
     );
     work.zones = Object.fromEntries(composed.zones.map((zone) => [zone.id, [] as string[]]));
+    work.units = {};
+    work.edges = Object.fromEntries(composed.edges.map((edge) => [edge.id, edge]));
+    work.spaceCounters = Object.fromEntries(
+      composed.spaces.map((space) => [
+        space.id,
+        Object.fromEntries(composed.spaceCounters.map((counter) => [counter.id, counter.start])),
+      ]),
+    );
     work.stage = "setup";
     pushEffects(composed.setup, EMPTY_CONTEXT, null);
   }
@@ -527,7 +901,7 @@ export function createResolver(
         return;
       case "pass":
         if (pending.kind === "pickModule") work.choiceIndex += 1;
-        if (pending.kind === "playCard") work.stack.pop();
+        if (pending.kind === "playCard" || pending.kind === "moveUnit") work.stack.pop();
         return;
       case "chooseOption": {
         if (pending.kind !== "chooseOption") fault("No option choice is pending");
@@ -541,6 +915,12 @@ export function createResolver(
         const window = work.stack[work.stack.length - 1];
         if (window?.kind !== "playWindow") fault("No play window is open");
         playCard(window, action.card);
+        return;
+      }
+      case "moveTo": {
+        const frame = work.stack[work.stack.length - 1];
+        if (frame?.kind !== "move") fault("No movement is in progress");
+        takeStep(frame, action.space);
         return;
       }
       default:

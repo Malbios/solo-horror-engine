@@ -1,6 +1,25 @@
 {
-  "meta": { "id": "demo", "version": "2.0.0", "schemaVersion": 2, "name": "Demo Pack" },
+  "meta": { "id": "demo", "version": "2.1.0", "schemaVersion": 2, "name": "Demo Pack" },
   "base": {
+    "spaces": [
+      { "id": "north", "name": "North" },
+      { "id": "east", "name": "East" },
+      { "id": "south", "name": "South", "tags": ["goal"] },
+      { "id": "west", "name": "West" },
+      { "id": "centre", "name": "Centre" }
+    ],
+    "edges": [
+      { "id": "north-east", "fromSpace": "north", "toSpace": "east" },
+      { "id": "east-south", "fromSpace": "east", "toSpace": "south" },
+      { "id": "south-west", "fromSpace": "south", "toSpace": "west" },
+      { "id": "west-north", "fromSpace": "west", "toSpace": "north" },
+      { "id": "centre-north", "fromSpace": "centre", "toSpace": "north" },
+      { "id": "centre-south", "fromSpace": "centre", "toSpace": "south" }
+    ],
+    "edgeFilters": [{ "id": "walk" }],
+    "unitKinds": [
+      { "id": "walker", "name": "Walker", "attributes": [{ "id": "steps", "start": 0, "min": 0 }] }
+    ],
     "counters": [
       { "id": "score", "start": 0, "min": 0, "max": 10 },
       { "id": "rounds-left", "start": 6, "min": 0 },
@@ -58,6 +77,18 @@
     ],
     "triggers": [
       {
+        "id": "count-steps",
+        "on": { "event": "unitMoved", "kind": "walker" },
+        "effects": [
+          { "type": "changeAttribute", "unit": "self", "attribute": "steps", "amount": 1 }
+        ]
+      },
+      {
+        "id": "reach-goal",
+        "on": { "event": "unitMoved", "kind": "walker", "toSpace": "south" },
+        "effects": [{ "type": "changeCounter", "counter": "score", "amount": 1 }]
+      },
+      {
         "id": "count-plays",
         "on": { "event": "cardsMoved", "from": "hand", "to": "discard" },
         "effects": [{ "type": "changeCounter", "counter": "plays", "amount": 1 }]
@@ -98,7 +129,13 @@
       { "type": "createCards", "card": "green-triangle", "zone": "draw" },
       { "type": "createCards", "card": "yellow-star", "zone": "draw" },
       { "type": "createCards", "card": "orange-diamond", "zone": "draw" },
-      { "type": "shuffle", "zone": "draw" }
+      { "type": "shuffle", "zone": "draw" },
+      {
+        "type": "createUnit",
+        "kind": "walker",
+        "id": "runner",
+        "placement": { "onSpace": { "space": "north" } }
+      }
     ],
     "phases": [
       {
@@ -107,6 +144,17 @@
           {
             "id": "draw-cards",
             "effects": [{ "type": "moveCards", "from": "draw", "to": "hand", "count": 3 }]
+          }
+        ]
+      },
+      {
+        "id": "move",
+        "steps": [
+          {
+            "id": "walk",
+            "effects": [
+              { "type": "stepMove", "unit": { "id": "runner" }, "steps": 2, "filter": "walk" }
+            ]
           }
         ]
       },

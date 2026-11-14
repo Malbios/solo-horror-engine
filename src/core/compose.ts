@@ -1,4 +1,15 @@
-import type { Card, Content, Counter, EndCondition, Module, Pack, Phase } from "./pack";
+import type {
+  Card,
+  Content,
+  Counter,
+  EdgeFilter,
+  EndCondition,
+  Module,
+  Pack,
+  Phase,
+  Space,
+  UnitKind,
+} from "./pack";
 import { findMissingReferences } from "./references";
 import { err, ok, type Result } from "./result";
 
@@ -7,6 +18,10 @@ export type Rules = Content & {
   cardById: ReadonlyMap<string, Card>;
   endConditionById: ReadonlyMap<string, EndCondition>;
   phaseById: ReadonlyMap<string, Phase>;
+  spaceById: ReadonlyMap<string, Space>;
+  edgeFilterById: ReadonlyMap<string, EdgeFilter>;
+  unitKindById: ReadonlyMap<string, UnitKind>;
+  spaceCounterById: ReadonlyMap<string, Counter>;
 };
 
 function layer<T extends { id: string }>(
@@ -29,6 +44,11 @@ function layer<T extends { id: string }>(
 function applyModule(content: Content, module: Module): Content {
   const { content: added, remove } = module;
   return {
+    spaces: layer(content.spaces, added.spaces, remove.spaces),
+    edges: layer(content.edges, added.edges, remove.edges),
+    edgeFilters: layer(content.edgeFilters, added.edgeFilters, remove.edgeFilters),
+    unitKinds: layer(content.unitKinds, added.unitKinds, remove.unitKinds),
+    spaceCounters: layer(content.spaceCounters, added.spaceCounters, remove.spaceCounters),
     counters: layer(content.counters, added.counters, remove.counters),
     zones: layer(content.zones, added.zones, remove.zones),
     cards: layer(content.cards, added.cards, remove.cards),
@@ -70,5 +90,9 @@ export function composeRules(pack: Pack, moduleIds: readonly string[]): Result<R
     cardById: indexById(content.cards),
     endConditionById: indexById(content.endConditions),
     phaseById: indexById(content.phases),
+    spaceById: indexById(content.spaces),
+    edgeFilterById: indexById(content.edgeFilters),
+    unitKindById: indexById(content.unitKinds),
+    spaceCounterById: indexById(content.spaceCounters),
   });
 }

@@ -26,6 +26,11 @@ function createInitialState(pack: Pack, seed: number): GameState {
     zones: {},
     faceUp: {},
     cardSerials: {},
+    units: {},
+    unitSerial: 0,
+    retiredUnits: [],
+    edges: {},
+    spaceCounters: {},
     firedTriggers: [],
     stack: [],
     pending: null,
@@ -59,6 +64,11 @@ export function legalActions(state: GameState): Action[] {
         pending.cards.map((card): Action => ({ type: "playCard", card })),
         true,
       );
+    case "moveUnit":
+      return withPass(
+        pending.options.map((space): Action => ({ type: "moveTo", space })),
+        true,
+      );
     default:
       return assertNever(pending);
   }
@@ -72,6 +82,8 @@ function sameAction(legal: Action, candidate: Action): boolean {
       return candidate.type === "chooseOption" && candidate.option === legal.option;
     case "playCard":
       return candidate.type === "playCard" && candidate.card === legal.card;
+    case "moveTo":
+      return candidate.type === "moveTo" && candidate.space === legal.space;
     case "pass":
       return candidate.type === "pass";
     default:
