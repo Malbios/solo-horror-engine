@@ -1,29 +1,34 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`engine > matches the demo initial state snapshot 1`] = `
+exports[`engine on the demo pack > matches the initial state snapshot 1`] = `
 {
+  "cardSerials": {},
+  "choiceIndex": 0,
+  "counters": {},
+  "faceUp": {},
+  "fault": null,
+  "firedTriggers": [],
+  "modules": [],
+  "outcome": null,
   "packId": "demo",
-  "rng": {
-    "a": 4015017782,
-    "b": 2575631527,
-    "c": 1379834096,
-    "d": 18,
-  },
-  "status": "playing",
-  "tracks": {
-    "demo-track": 0,
-  },
-  "zones": {
-    "discard": [],
-    "draw": [
-      "orange-diamond",
-      "purple-hexagon",
-      "blue-square",
-      "red-circle",
-      "green-triangle",
-      "yellow-star",
+  "pending": {
+    "canPass": true,
+    "choice": "extras",
+    "kind": "pickModule",
+    "options": [
+      "bonus-cards",
     ],
-    "hand": [],
   },
+  "rng": {
+    "a": 1197569939,
+    "b": 3122121817,
+    "c": 3563649949,
+    "d": 13,
+  },
+  "round": 0,
+  "stack": [],
+  "stage": "choices",
+  "status": "awaitingDecision",
+  "zones": {},
 }
 `;

@@ -23,9 +23,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isAction(value: unknown): value is Action {
-  return (
-    isRecord(value) && value["type"] === "advanceTrack" && typeof value["trackId"] === "string"
-  );
+  if (!isRecord(value)) return false;
+  switch (value["type"]) {
+    case "pass":
+      return true;
+    case "pickModule":
+      return typeof value["module"] === "string";
+    case "chooseOption":
+      return typeof value["option"] === "string";
+    case "playCard":
+      return typeof value["card"] === "string";
+    default:
+      return false;
+  }
 }
 
 function isSave(value: unknown): value is Save {

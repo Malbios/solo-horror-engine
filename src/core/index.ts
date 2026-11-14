@@ -1,15 +1,29 @@
-export { createEngine, type Engine } from "./engine";
-export type { Action, GameEvent, GameState, GameStatus, RuleError, StepOutcome } from "./model";
+export { composeRules, type Rules } from "./compose";
+export { createEngine, legalActions, type Engine } from "./engine";
 export {
-  PACK_SCHEMA_VERSION,
-  type CardDefinition,
-  type DeckDefinition,
-  type Pack,
-  type PackMeta,
-  type TrackDefinition,
-  type ZoneDefinition,
-} from "./pack";
+  EMPTY_CONTEXT,
+  evaluateBoolean,
+  evaluateNumber,
+  type ExpressionContext,
+  type ExpressionScope,
+} from "./expressions";
+export type {
+  Action,
+  Decision,
+  Frame,
+  GameEvent,
+  GameOutcome,
+  GameState,
+  GameStatus,
+  OptionView,
+  RuleError,
+  Stage,
+  StepOutcome,
+} from "./model";
+export * from "./pack";
+export { findMissingReferences } from "./references";
 export { replay, undo, type ReplayError } from "./replay";
+export { MAX_OPERATIONS_PER_CALL } from "./resolve";
 export { assertNever, err, ok, type Result } from "./result";
 export { next, nextInt, seedRng, shuffle, type Rng } from "./rng";
 export { ENGINE_VERSION } from "./version";

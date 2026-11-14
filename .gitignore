@@ -6,3 +6,4 @@ dist-private/
 .private-terms.txt
 node_modules/
 coverage/
+.playwright-mcp/

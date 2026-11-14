@@ -28,7 +28,7 @@ const save: Save = {
   packId: "demo",
   packVersion: "1.0.0",
   seed: 42,
-  actions: [{ type: "advanceTrack", trackId: "demo-track" }],
+  actions: [{ type: "pickModule", module: "bonus-cards" }, { type: "pass" }],
 };
 
 describe("LocalStorageSaveStore", () => {

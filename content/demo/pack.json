@@ -1,25 +1,168 @@
 {
-  "meta": {
-    "id": "demo",
-    "version": "1.0.0",
-    "schemaVersion": 1,
-    "name": "Demo Pack"
-  },
-  "zones": [
-    { "id": "draw", "name": "Draw Pile" },
-    { "id": "hand", "name": "Hand" },
-    { "id": "discard", "name": "Discard Pile" }
-  ],
-  "deck": {
-    "startZone": "draw",
+  "meta": { "id": "demo", "version": "2.0.0", "schemaVersion": 2, "name": "Demo Pack" },
+  "base": {
+    "counters": [
+      { "id": "score", "start": 0, "min": 0, "max": 10 },
+      { "id": "rounds-left", "start": 6, "min": 0 },
+      { "id": "plays", "start": 0, "min": 0, "resetScope": "round" }
+    ],
+    "zones": [{ "id": "draw", "face": "down" }, { "id": "hand" }, { "id": "discard" }],
     "cards": [
-      { "id": "red-circle", "name": "Red Circle" },
-      { "id": "blue-square", "name": "Blue Square" },
-      { "id": "green-triangle", "name": "Green Triangle" },
-      { "id": "yellow-star", "name": "Yellow Star" },
-      { "id": "purple-hexagon", "name": "Purple Hexagon" },
-      { "id": "orange-diamond", "name": "Orange Diamond" }
+      {
+        "id": "red-circle",
+        "name": "Red Circle",
+        "copies": 2,
+        "effects": [{ "type": "changeCounter", "counter": "score", "amount": 1 }]
+      },
+      {
+        "id": "blue-square",
+        "name": "Blue Square",
+        "copies": 2,
+        "effects": [
+          { "type": "changeCounter", "counter": "score", "amount": 1 },
+          { "type": "moveCards", "from": "draw", "to": "hand", "count": 1 }
+        ]
+      },
+      {
+        "id": "green-triangle",
+        "name": "Green Triangle",
+        "effects": [{ "type": "changeCounter", "counter": "score", "amount": 2 }]
+      },
+      {
+        "id": "yellow-star",
+        "name": "Yellow Star",
+        "effects": [
+          {
+            "type": "choose",
+            "options": [
+              {
+                "id": "gain",
+                "label": "Gain 2",
+                "effects": [{ "type": "changeCounter", "counter": "score", "amount": 2 }]
+              },
+              {
+                "id": "extend",
+                "label": "Gain a round",
+                "effects": [{ "type": "changeCounter", "counter": "rounds-left", "amount": 1 }]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "orange-diamond",
+        "name": "Orange Diamond",
+        "playable": { "gte": [{ "counter": "plays" }, 1] },
+        "effects": [{ "type": "changeCounter", "counter": "score", "amount": 3 }]
+      }
+    ],
+    "triggers": [
+      {
+        "id": "count-plays",
+        "on": { "event": "cardsMoved", "from": "hand", "to": "discard" },
+        "effects": [{ "type": "changeCounter", "counter": "plays", "amount": 1 }]
+      }
+    ],
+    "checks": [
+      {
+        "id": "refill-draw",
+        "condition": {
+          "and": [{ "eq": [{ "zoneCount": "draw" }, 0] }, { "gt": [{ "zoneCount": "discard" }, 0] }]
+        },
+        "effects": [
+          {
+            "type": "moveCards",
+            "from": "discard",
+            "to": "draw",
+            "count": { "zoneCount": "discard" }
+          },
+          { "type": "shuffle", "zone": "draw" }
+        ]
+      }
+    ],
+    "endConditions": [
+      {
+        "id": "reached-goal",
+        "condition": { "gte": [{ "counter": "score" }, 10] },
+        "outcome": "win"
+      },
+      {
+        "id": "out-of-rounds",
+        "condition": { "lte": [{ "counter": "rounds-left" }, 0] },
+        "outcome": "loss"
+      }
+    ],
+    "setup": [
+      { "type": "createCards", "card": "red-circle", "zone": "draw" },
+      { "type": "createCards", "card": "blue-square", "zone": "draw" },
+      { "type": "createCards", "card": "green-triangle", "zone": "draw" },
+      { "type": "createCards", "card": "yellow-star", "zone": "draw" },
+      { "type": "createCards", "card": "orange-diamond", "zone": "draw" },
+      { "type": "shuffle", "zone": "draw" }
+    ],
+    "phases": [
+      {
+        "id": "draw",
+        "steps": [
+          {
+            "id": "draw-cards",
+            "effects": [{ "type": "moveCards", "from": "draw", "to": "hand", "count": 3 }]
+          }
+        ]
+      },
+      {
+        "id": "play",
+        "steps": [
+          {
+            "id": "play-cards",
+            "effects": [{ "type": "playWindow", "from": "hand", "to": "discard" }]
+          }
+        ]
+      },
+      {
+        "id": "cleanup",
+        "steps": [
+          {
+            "id": "discard-hand",
+            "effects": [
+              {
+                "type": "moveCards",
+                "from": "hand",
+                "to": "discard",
+                "count": { "zoneCount": "hand" }
+              }
+            ]
+          },
+          {
+            "id": "tick",
+            "effects": [{ "type": "changeCounter", "counter": "rounds-left", "amount": -1 }]
+          }
+        ]
+      }
     ]
   },
-  "tracks": [{ "id": "demo-track", "name": "Demo Track", "min": 0, "max": 5, "start": 0 }]
+  "modules": [
+    {
+      "id": "bonus-cards",
+      "kind": "extra-content",
+      "precedence": 1,
+      "content": {
+        "cards": [
+          {
+            "id": "purple-hexagon",
+            "name": "Purple Hexagon",
+            "effects": [
+              { "type": "changeCounter", "counter": "score", "amount": 2 },
+              { "type": "moveCards", "from": "draw", "to": "hand", "count": 1 }
+            ]
+          }
+        ],
+        "setup": [
+          { "type": "createCards", "card": "purple-hexagon", "zone": "draw" },
+          { "type": "shuffle", "zone": "draw" }
+        ]
+      }
+    }
+  ],
+  "choices": [{ "id": "extras", "options": ["bonus-cards"], "min": 0, "max": 1 }]
 }

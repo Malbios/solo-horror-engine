@@ -1,6 +1,7 @@
 import demoPackData from "../../content/demo/pack.json";
 import { parsePack } from "../content";
 import {
+  assertNever,
   createEngine,
   ENGINE_VERSION,
   replay,
@@ -32,9 +33,38 @@ function randomSeed(): number {
   return crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
 }
 
+function describeAction(action: Action, state: GameState): string {
+  switch (action.type) {
+    case "pickModule":
+      return `Add module ${action.module}`;
+    case "chooseOption": {
+      const pending = state.pending;
+      const option =
+        pending?.kind === "chooseOption"
+          ? pending.options.find((candidate) => candidate.id === action.option)
+          : undefined;
+      return option?.label ?? action.option;
+    }
+    case "playCard":
+      return `Play ${action.card}`;
+    case "pass":
+      return "Pass";
+    default:
+      return assertNever(action);
+  }
+}
+
+function describeState(state: GameState): string {
+  const counters = Object.entries(state.counters)
+    .map(([id, value]) => `${id} ${value}`)
+    .join(", ");
+  const outcome = state.outcome === null ? "" : ` Outcome: ${state.outcome.result}.`;
+  return `Round ${state.round}. ${counters}.${outcome}`;
+}
+
 function start(pack: Pack, engine: Engine, store: SaveStore): void {
   const statusText = requireElement("status", HTMLParagraphElement);
-  const actButton = requireElement("act", HTMLButtonElement);
+  const actionList = requireElement("actions", HTMLDivElement);
   const newGameButton = requireElement("new-game", HTMLButtonElement);
   const identity = {
     engineVersion: ENGINE_VERSION,
@@ -44,11 +74,38 @@ function start(pack: Pack, engine: Engine, store: SaveStore): void {
   let session: Session | null = null;
 
   function render(message: string): void {
-    statusText.textContent = message;
-    actButton.disabled = session === null || engine.legalActions(session.state).length === 0;
-    if (session !== null) {
-      console.log("state", session.state);
+    statusText.textContent =
+      session === null ? message : `${message} ${describeState(session.state)}`;
+    const current = session;
+    const buttons =
+      current === null
+        ? []
+        : engine.legalActions(current.state).map((action) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = describeAction(action, current.state);
+            button.addEventListener("click", () => {
+              take(action);
+            });
+            return button;
+          });
+    actionList.replaceChildren(...buttons);
+    if (current !== null) {
+      console.log("state", current.state);
     }
+  }
+
+  function take(action: Action): void {
+    if (session === null) return;
+    const outcome = engine.step(session.state, action);
+    if (!outcome.ok) {
+      render(`Action rejected: ${outcome.error.type}.`);
+      return;
+    }
+    session = { ...session, actions: [...session.actions, action], state: outcome.value.state };
+    persist(session);
+    console.log("events", outcome.value.events);
+    render(`Action ${session.actions.length} applied.`);
   }
 
   function persist(current: Session): void {
@@ -89,21 +146,6 @@ function start(pack: Pack, engine: Engine, store: SaveStore): void {
       }
     }
   }
-
-  actButton.addEventListener("click", () => {
-    if (session === null) return;
-    const [action] = engine.legalActions(session.state);
-    if (action === undefined) return;
-    const outcome = engine.step(session.state, action);
-    if (!outcome.ok) {
-      render(`Action rejected: ${outcome.error.type}`);
-      return;
-    }
-    session = { ...session, actions: [...session.actions, action], state: outcome.value.state };
-    persist(session);
-    console.log("events", outcome.value.events);
-    render(`Action ${session.actions.length} applied. Status: ${session.state.status}.`);
-  });
 
   newGameButton.addEventListener("click", newGame);
 
