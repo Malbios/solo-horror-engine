@@ -58,6 +58,14 @@ describe("check-leaks", () => {
     expect(result.stderr).toContain("zebra lantern");
   });
 
+  it("matches whole words and plurals, not fragments inside words", () => {
+    writeFileSync(join(repo, ".private-terms.txt"), "Lant\nZebra Lantern\n");
+    stage("ok.ts", "const lantern = slantedValue + zebraLanternish;\n");
+    expect(run(repo).status).toBe(0);
+    stage("bad.ts", "const count = zebraLanterns.length;\n");
+    expect(run(repo).status).toBe(1);
+  });
+
   it("fails on a staged path matching a term", () => {
     writeFileSync(join(repo, ".private-terms.txt"), `${syntheticTerm}\n`);
     stage("zebra_lantern.txt", "fine\n");

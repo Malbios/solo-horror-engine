@@ -33,6 +33,7 @@ function git(args) {
 function normalise(text) {
   return text
     .normalize("NFKC")
+    .replace(/(\p{Ll}|\p{N})(\p{Lu})/gu, "$1 $2")
     .toLowerCase()
     .replace(/['’]/g, "")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
@@ -56,7 +57,7 @@ function loadTerms(termsFile) {
 
 function findTerms(text, terms) {
   const haystack = ` ${normalise(text)} `;
-  return terms.filter((term) => haystack.includes(term));
+  return terms.filter((term) => haystack.includes(` ${term} `) || haystack.includes(` ${term}s `));
 }
 
 function stagedAddedLinesByFile() {
