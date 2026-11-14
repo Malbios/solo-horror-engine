@@ -1,0 +1,8 @@
+content/private/
+dist/
+dist-private/
+*.local
+.env*
+.private-terms.txt
+node_modules/
+coverage/
