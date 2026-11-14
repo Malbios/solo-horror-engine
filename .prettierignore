@@ -1,0 +1,7 @@
+content/private/
+dist/
+dist-private/
+coverage/
+pnpm-lock.yaml
+pnpm-workspace.yaml
+tests/__snapshots__/

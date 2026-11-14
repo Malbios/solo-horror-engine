@@ -1,0 +1,29 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`engine > matches the demo initial state snapshot 1`] = `
+{
+  "packId": "demo",
+  "rng": {
+    "a": 4015017782,
+    "b": 2575631527,
+    "c": 1379834096,
+    "d": 18,
+  },
+  "status": "playing",
+  "tracks": {
+    "demo-track": 0,
+  },
+  "zones": {
+    "discard": [],
+    "draw": [
+      "orange-diamond",
+      "purple-hexagon",
+      "blue-square",
+      "red-circle",
+      "green-triangle",
+      "yellow-star",
+    ],
+    "hand": [],
+  },
+}
+`;

@@ -1,0 +1,25 @@
+{
+  "meta": {
+    "id": "demo",
+    "version": "1.0.0",
+    "schemaVersion": 1,
+    "name": "Demo Pack"
+  },
+  "zones": [
+    { "id": "draw", "name": "Draw Pile" },
+    { "id": "hand", "name": "Hand" },
+    { "id": "discard", "name": "Discard Pile" }
+  ],
+  "deck": {
+    "startZone": "draw",
+    "cards": [
+      { "id": "red-circle", "name": "Red Circle" },
+      { "id": "blue-square", "name": "Blue Square" },
+      { "id": "green-triangle", "name": "Green Triangle" },
+      { "id": "yellow-star", "name": "Yellow Star" },
+      { "id": "purple-hexagon", "name": "Purple Hexagon" },
+      { "id": "orange-diamond", "name": "Orange Diamond" }
+    ]
+  },
+  "tracks": [{ "id": "demo-track", "name": "Demo Track", "min": 0, "max": 5, "start": 0 }]
+}
