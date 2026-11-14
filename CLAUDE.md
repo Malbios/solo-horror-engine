@@ -62,12 +62,12 @@ The game must be fully playable on desktop browsers and phones (portrait first, 
 ```
 content/demo/        invented demo pack (committed)
 content/private/     real content, gitignored (packs/, rules/, notes/)
-docs/                public, generic engine docs
+docs/                public, generic engine docs (design: docs/engine-plan.md)
 scripts/             check-leaks.mjs
 src/core/            pure engine: result, rng, pack types, model, engine, replay, version
 src/content/         Zod schema and parsePack
 src/ui/              browser entry point and save store
-tests/               Vitest suites (demo pack only)
+tests/               Vitest suites (demo pack and invented fixtures only)
 ```
 
 ## Commands
