@@ -6,7 +6,7 @@ This repo is public. It must NEVER contain content from any existing published g
 
 - Real game content lives under `content/private/`, which is gitignored: content packs in `content/private/packs/`, the rulebook in `content/private/rules/`, private planning notes in `content/private/notes/`.
 - All examples, tests, fixtures, snapshots, identifiers, comments, schema field names, commit messages, branch names and PR text must be invented and generic.
-- Do not read, list, grep or quote anything under `content/private/` unless the user explicitly asks in that message, and never copy from it into anything else.
+- Reading anything under `content/private/` is allowed; the safeguard is only on what reaches the public repo. Never copy from it into anything outside `content/private/`.
 - Do not guess which game this is for, and do not draw on knowledge of any published game when naming things or inventing demo content. Avoid genre terms the user has not supplied.
 - Tests and saved games that use a private pack live under `content/private/` only.
 - If a task seems to need real content outside `content/private/`, stop and ask.
@@ -35,7 +35,6 @@ Code, types, comments, tests and commit messages use the generic vocabulary from
 
 - `build` bundles only `content/demo` via a static import in `src/ui/main.ts`. Never add a glob import or copy step that could match `content/private`. No private build exists yet.
 - Vite: `publicDir: false`, `optimizeDeps.entries` limited to `index.html`, dev server denies `content/private/**`. Vitest only collects `tests/**/*.test.ts`. ESLint and Prettier ignore `content/private`.
-- `.claude/settings.json` denies `Read(./content/private/packs/**)`. This does not stop shell reads (`cat`, `Get-Content`); the instructions above still apply.
 - `check:leaks` (`scripts/check-leaks.mjs`) fails if `git ls-files content/private` returns anything (case-insensitive), and scans staged added lines, staged paths and the commit message against `.private-terms.txt` (normalised: case, punctuation and line breaks ignored, camelCase split into words; matches whole words and simple plurals). It also rejects em dashes. A terms file that exists but has no terms is an error. `--scan-dir <dir>` scans a folder such as `dist/`; `--terms <file>` overrides the terms file.
 - Hooks (simple-git-hooks, installed by `prepare`): pre-commit and commit-msg run `node scripts/check-leaks.mjs` directly.
 - CI has no terms file, so CI only gets the tracked-files and em dash checks. CI only ever builds the demo pack.

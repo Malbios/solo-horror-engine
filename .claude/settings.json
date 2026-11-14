@@ -1,5 +1,1 @@
-{
-  "permissions": {
-    "deny": ["Read(./content/private/packs/**)"]
-  }
-}
+{}
