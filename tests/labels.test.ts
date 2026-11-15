@@ -1,0 +1,106 @@
+import { describe, expect, it } from "vitest";
+import { createEngine, view, viewActions, viewEvents } from "../src/core";
+import {
+  createLabels,
+  describeAction,
+  describeEvent,
+  displayRules,
+  HIDDEN_CARD_NAME,
+} from "../src/ui/labels";
+import { fixturePack, loadDemoPack, PAUSE_PHASE } from "./helpers";
+
+const SECRET = "grey-oval";
+
+function hiddenPack() {
+  return fixturePack({
+    counters: [{ id: "tally", name: "Tally", start: 0 }],
+    zones: [
+      { id: "stack", name: "Stack", face: "down" },
+      { id: "spent", name: "Spent", face: "down" },
+    ],
+    cards: [{ id: SECRET, name: "Grey Oval", copies: 2 }],
+    setup: [{ type: "createCards", card: SECRET, zone: "stack" }],
+    phases: [
+      {
+        id: "play",
+        steps: [
+          {
+            id: "go",
+            effects: [
+              {
+                type: "choose",
+                options: [
+                  {
+                    id: "dump",
+                    label: "Dump",
+                    cost: [{ discard: { from: "stack", to: "spent", count: 1 } }],
+                    effects: [{ type: "changeCounter", counter: "tally", amount: 2 }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      PAUSE_PHASE,
+    ],
+  });
+}
+
+describe("labels", () => {
+  it("names counters, zones and changes from the pack", () => {
+    const pack = hiddenPack();
+    const engine = createEngine(pack);
+    const start = engine.init(3);
+    const outcome = engine.step(start, { type: "chooseOption", option: "dump" });
+    if (!outcome.ok) throw new Error("step failed");
+    const picked = viewActions(outcome.value.state)[0];
+    if (picked === undefined) throw new Error("no pick offered");
+    const finished = engine.step(outcome.value.state, picked);
+    if (!finished.ok) throw new Error("pick failed");
+    const shown = view(finished.value.state);
+    const labels = createLabels(displayRules(pack, shown.modules), shown);
+    const lines = viewEvents(finished.value.events, finished.value.state).map((event) =>
+      describeEvent(event, shown, labels),
+    );
+    expect(lines).toContain("1 card: Stack to Spent");
+    expect(lines).toContain("Tally +2 (now 2)");
+  });
+
+  it("never names a face-down card in actions or the log", () => {
+    const pack = hiddenPack();
+    const engine = createEngine(pack);
+    const outcome = engine.step(engine.init(3), { type: "chooseOption", option: "dump" });
+    if (!outcome.ok) throw new Error("step failed");
+    const { state, events } = outcome.value;
+    const shown = view(state);
+    const labels = createLabels(displayRules(pack, shown.modules), shown);
+    const text = JSON.stringify([
+      viewActions(state).map((action) => describeAction(action, shown, labels)),
+      viewEvents(events, state).map((event) => describeEvent(event, shown, labels)),
+    ]);
+    expect(text).not.toContain("Grey Oval");
+    expect(text).not.toContain(SECRET);
+    expect(text).toContain(HIDDEN_CARD_NAME);
+  });
+
+  it("uses names for the demo pack's spaces and pieces", () => {
+    const pack = loadDemoPack();
+    const engine = createEngine(pack);
+    let state = engine.init(5);
+    for (let attempt = 0; attempt < 10 && state.pending?.kind !== "moveUnit"; attempt++) {
+      const action = engine.legalActions(state)[0];
+      if (action === undefined) break;
+      const outcome = engine.step(state, action);
+      if (!outcome.ok) throw new Error("step failed");
+      state = outcome.value.state;
+    }
+    const shown = view(state);
+    const labels = createLabels(displayRules(pack, shown.modules), shown);
+    const moves = viewActions(state)
+      .filter((action) => action.type === "moveTo")
+      .map((action) => describeAction(action, shown, labels));
+    expect(moves.length).toBeGreaterThan(0);
+    expect(moves.every((line) => /^Move to [A-Z][a-z]+$/.test(line))).toBe(true);
+  });
+});

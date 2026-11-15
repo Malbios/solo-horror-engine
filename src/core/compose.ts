@@ -1,4 +1,5 @@
 import type {
+  Board,
   Card,
   Content,
   Counter,
@@ -16,6 +17,7 @@ import { findMissingReferences } from "./references";
 import { err, ok, type Result } from "./result";
 
 export type Rules = Content & {
+  boardById: ReadonlyMap<string, Board>;
   counterById: ReadonlyMap<string, Counter>;
   cardById: ReadonlyMap<string, Card>;
   endConditionById: ReadonlyMap<string, EndCondition>;
@@ -48,6 +50,7 @@ function layer<T extends { id: string }>(
 function applyModule(content: Content, module: Module): Content {
   const { content: added, remove } = module;
   return {
+    boards: layer(content.boards, added.boards, remove.boards),
     spaces: layer(content.spaces, added.spaces, remove.spaces),
     edges: layer(content.edges, added.edges, remove.edges),
     edgeFilters: layer(content.edgeFilters, added.edgeFilters, remove.edgeFilters),
@@ -104,5 +107,6 @@ export function composeRules(pack: Pack, moduleIds: readonly string[]): Result<R
     spaceCounterById: indexById(content.spaceCounters),
     quantityTypeById: indexById(content.quantityTypes),
     dieById: indexById(content.dice),
+    boardById: indexById(content.boards),
   });
 }

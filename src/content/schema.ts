@@ -5,11 +5,13 @@ import {
   PACK_SCHEMA_VERSION,
   type BoolExpr,
   type Content,
+  type Counter,
   type Effect,
   type NumExpr,
   type Pack,
   type SpaceRef,
   type UnitRef,
+  type Zone,
 } from "../core";
 
 const MAX_PACK_DEPTH = 64;
@@ -347,10 +349,25 @@ const eventPatternSchema = z.discriminatedUnion("event", [
   }),
 ]);
 
+const percentSchema = z.number().min(0).max(100);
+
 const spaceSchema = z.strictObject({
   id: idSchema,
   name: nameSchema,
   tags: z.array(idSchema).default([]),
+  position: z
+    .strictObject({ board: idSchema, x: percentSchema, y: percentSchema })
+    .nullable()
+    .default(null),
+});
+
+const imageSchema = z.string().min(1).nullable().default(null);
+
+const boardSchema = z.strictObject({
+  id: idSchema,
+  name: nameSchema,
+  image: imageSchema,
+  aspect: z.number().positive().default(1),
 });
 
 const edgeFilterSchema = z.strictObject({
@@ -365,6 +382,7 @@ const hooksSchema = z.strictObject({ onEnter: effectListSchema, onExit: effectLi
 const counterSchema = z
   .strictObject({
     id: idSchema,
+    name: nameSchema.optional(),
     start: z.int(),
     min: z.int().nullable().default(null),
     max: z.int().nullable().default(null),
@@ -377,13 +395,22 @@ const counterSchema = z
       (counter.min === null || counter.min <= counter.start) &&
       (counter.max === null || counter.start <= counter.max),
     "counter must satisfy min <= start <= max",
-  );
+  )
+  .transform(({ name, ...counter }): Counter => ({ ...counter, name: name ?? counter.id }));
 
-const zoneSchema = z.strictObject({ id: idSchema, face: z.enum(["up", "down"]).default("up") });
+const zoneSchema = z
+  .strictObject({
+    id: idSchema,
+    name: nameSchema.optional(),
+    face: z.enum(["up", "down"]).default("up"),
+  })
+  .transform(({ name, ...zone }): Zone => ({ ...zone, name: name ?? zone.id }));
 
 const cardSchema = z.strictObject({
   id: idSchema,
   name: nameSchema,
+  text: z.string().default(""),
+  image: imageSchema,
   copies: z.int().min(1).default(1),
   playable: boolExprSchema.default(true),
   cost: costListSchema,
@@ -462,6 +489,7 @@ const endConditionSchema = z.strictObject({
 const unitKindSchema = z.strictObject({
   id: idSchema,
   name: nameSchema,
+  image: imageSchema,
   attributes: z
     .array(counterSchema)
     .default([])
@@ -469,6 +497,7 @@ const unitKindSchema = z.strictObject({
 });
 
 const contentSchema = z.strictObject({
+  boards: z.array(boardSchema).default([]),
   spaces: z.array(spaceSchema).default([]),
   edges: z.array(edgeSchema).default([]),
   edgeFilters: z.array(edgeFilterSchema).default([]),
@@ -492,6 +521,7 @@ const contentSchema = z.strictObject({
 const idListSchema = z.array(idSchema).default([]);
 
 const removalSchema = z.strictObject({
+  boards: idListSchema,
   spaces: idListSchema,
   edges: idListSchema,
   edgeFilters: idListSchema,

@@ -135,7 +135,11 @@ export type EventPattern =
   | { event: "quantityDelivered"; quantity: string; kind: string | null }
   | { event: "diceRolled"; pool: string | null };
 
-export type Space = { id: string; name: string; tags: string[] };
+export type SpacePosition = { board: string; x: number; y: number };
+
+export type Space = { id: string; name: string; tags: string[]; position: SpacePosition | null };
+
+export type Board = { id: string; name: string; image: string | null; aspect: number };
 
 export type Edge = {
   id: string;
@@ -156,6 +160,7 @@ export type EdgeFilter = {
 
 export type Counter = {
   id: string;
+  name: string;
   start: number;
   min: number | null;
   max: number | null;
@@ -166,11 +171,13 @@ export type Counter = {
 
 export type ZoneFace = "up" | "down";
 
-export type Zone = { id: string; face: ZoneFace };
+export type Zone = { id: string; name: string; face: ZoneFace };
 
 export type Card = {
   id: string;
   name: string;
+  text: string;
+  image: string | null;
   copies: number;
   playable: BoolExpr;
   cost: Cost[];
@@ -233,9 +240,10 @@ export type EndCondition = {
   outcome: OutcomeRule;
 };
 
-export type UnitKind = { id: string; name: string; attributes: Counter[] };
+export type UnitKind = { id: string; name: string; image: string | null; attributes: Counter[] };
 
 export type Content = {
+  boards: Board[];
   spaces: Space[];
   edges: Edge[];
   edgeFilters: EdgeFilter[];
@@ -257,6 +265,7 @@ export type Content = {
 };
 
 export const LAYERED_COLLECTIONS = [
+  "boards",
   "spaces",
   "edges",
   "edgeFilters",

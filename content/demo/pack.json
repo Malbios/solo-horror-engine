@@ -1,12 +1,18 @@
 {
-  "meta": { "id": "demo", "version": "2.1.0", "schemaVersion": 2, "name": "Demo Pack" },
+  "meta": { "id": "demo", "version": "2.2.0", "schemaVersion": 2, "name": "Demo Pack" },
   "base": {
+    "boards": [{ "id": "plaza", "name": "Plaza", "aspect": 1 }],
     "spaces": [
-      { "id": "north", "name": "North" },
-      { "id": "east", "name": "East" },
-      { "id": "south", "name": "South", "tags": ["goal"] },
-      { "id": "west", "name": "West" },
-      { "id": "centre", "name": "Centre" }
+      { "id": "north", "name": "North", "position": { "board": "plaza", "x": 50, "y": 14 } },
+      { "id": "east", "name": "East", "position": { "board": "plaza", "x": 86, "y": 50 } },
+      {
+        "id": "south",
+        "name": "South",
+        "tags": ["goal"],
+        "position": { "board": "plaza", "x": 50, "y": 86 }
+      },
+      { "id": "west", "name": "West", "position": { "board": "plaza", "x": 14, "y": 50 } },
+      { "id": "centre", "name": "Centre", "position": { "board": "plaza", "x": 50, "y": 50 } }
     ],
     "edges": [
       { "id": "north-east", "fromSpace": "north", "toSpace": "east" },
@@ -18,24 +24,34 @@
     ],
     "edgeFilters": [{ "id": "walk" }],
     "unitKinds": [
-      { "id": "walker", "name": "Walker", "attributes": [{ "id": "steps", "start": 0, "min": 0 }] }
+      {
+        "id": "walker",
+        "name": "Walker",
+        "attributes": [{ "id": "steps", "name": "Steps", "start": 0, "min": 0 }]
+      }
     ],
     "counters": [
-      { "id": "score", "start": 0, "min": 0, "max": 10 },
-      { "id": "rounds-left", "start": 6, "min": 0 },
-      { "id": "plays", "start": 0, "min": 0, "resetScope": "round" }
+      { "id": "score", "name": "Score", "start": 0, "min": 0, "max": 10 },
+      { "id": "rounds-left", "name": "Rounds left", "start": 6, "min": 0 },
+      { "id": "plays", "name": "Plays this round", "start": 0, "min": 0, "resetScope": "round" }
     ],
-    "zones": [{ "id": "draw", "face": "down" }, { "id": "hand" }, { "id": "discard" }],
+    "zones": [
+      { "id": "draw", "name": "Draw pile", "face": "down" },
+      { "id": "hand", "name": "Hand" },
+      { "id": "discard", "name": "Discard pile" }
+    ],
     "cards": [
       {
         "id": "red-circle",
         "name": "Red Circle",
+        "text": "Gain 1 score.",
         "copies": 2,
         "effects": [{ "type": "changeCounter", "counter": "score", "amount": 1 }]
       },
       {
         "id": "blue-square",
         "name": "Blue Square",
+        "text": "Gain 1 score. Draw 1 card.",
         "copies": 2,
         "effects": [
           { "type": "changeCounter", "counter": "score", "amount": 1 },
@@ -45,11 +61,13 @@
       {
         "id": "green-triangle",
         "name": "Green Triangle",
+        "text": "Gain 2 score.",
         "effects": [{ "type": "changeCounter", "counter": "score", "amount": 2 }]
       },
       {
         "id": "yellow-star",
         "name": "Yellow Star",
+        "text": "Choose: gain 2 score, or gain 1 round.",
         "effects": [
           {
             "type": "choose",
@@ -71,6 +89,7 @@
       {
         "id": "orange-diamond",
         "name": "Orange Diamond",
+        "text": "Play only after another card this round. Gain 3 score.",
         "playable": { "gte": [{ "counter": "plays" }, 1] },
         "effects": [{ "type": "changeCounter", "counter": "score", "amount": 3 }]
       }
@@ -199,6 +218,7 @@
           {
             "id": "purple-hexagon",
             "name": "Purple Hexagon",
+            "text": "Gain 2 score. Draw 1 card.",
             "effects": [
               { "type": "changeCounter", "counter": "score", "amount": 2 },
               { "type": "moveCards", "from": "draw", "to": "hand", "count": 1 }

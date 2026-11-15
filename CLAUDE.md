@@ -35,6 +35,8 @@ Code, types, comments, tests and commit messages use the generic vocabulary from
 - **Hidden cards and projections.** Face-down cards are addressed by handles (`h<n>`), minted when a card goes face down and re-minted on shuffle; `peek` marks cards known until their zone is shuffled. The UI uses only the projections in `src/core/view.ts` (`view`, `viewActions`, `viewEvents`, `viewError`), never raw state; `step` accepts handles in actions. `viewActions` offers identical-looking visible cards once.
 - **Undo.** `StepOutcome.undoBarrier` is true when a step drew randomness or let the player identify a hidden card. `undo` replays the log and refuses (`undoBlocked`) when the last action was a barrier; `canUndo` asks the same.
 - **Pack format v2.** `{ meta, base, modules, choices }`. Modules patch the base by id in precedence order (`src/core/compose.ts`); choosing modules is the first decisions in the log. The design for later roadmap steps is in `docs/engine-plan.md`.
+- **Display data.** Optional pack fields used only by the UI: names for counters and zones, card `text` and `image`, unit kind `image`, and `boards` (a layered collection with `name`, `image`, `aspect`) with `Space.position { board, x, y }` in percent. Missing names fall back to ids. The engine never reads them.
+- **UI.** Vanilla TypeScript and DOM, no framework (`src/ui/dom.ts` has the `h` helper). The screen re-renders from `view`/`viewActions` after every action: `board.ts` (spaces as buttons over an SVG of the edges; legal moves are highlighted and tappable), `panels.ts` (tracks, zones, log), `decision.ts` (pinned bar with one button per offered action), `sheet.ts` (details in a modal bottom sheet). `labels.ts` turns ids into display text using rules composed for the chosen modules and only projected data, so it cannot name a hidden card. The log is per session and not saved.
 - **Data-driven.** The engine knows generic concepts; a content pack chooses which a game uses. Nothing game-specific is hardcoded. Packs are plain JSON plus asset files referenced by relative path, never code. `parsePack(input: unknown): Result<Pack, PackError>` takes already-fetched data.
 - **Layering:** `ui -> content -> core`. Core has plain TS pack types and zero runtime dependencies. Zod lives only in `src/content`, and the schema is checked against the core `Pack` type at compile time. Enforced by ESLint `no-restricted-imports` per directory; core also bans `Math.random`, `Date` and `performance`, and has its own `tsconfig.core.json` with `lib: ["ES2022"]` so DOM use fails typecheck.
 
@@ -73,7 +75,7 @@ docs/                public, generic engine docs (design: docs/engine-plan.md)
 scripts/             check-leaks.mjs
 src/core/            pure engine: result, rng, pack types, model, engine, replay, version
 src/content/         Zod schema and parsePack
-src/ui/              browser entry point and save store
+src/ui/              browser UI: screen, board, panels, labels, save store
 tests/               Vitest suites (demo pack and invented fixtures only)
 ```
 

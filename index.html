@@ -3,28 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
     <title>Solo Engine</title>
-    <style>
-      body {
-        margin: 0;
-        min-height: 100dvh;
-        padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-          max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-        box-sizing: border-box;
-        font-family: system-ui, sans-serif;
-      }
-      button {
-        min-width: 44px;
-        min-height: 44px;
-      }
-    </style>
   </head>
   <body>
-    <main>
-      <p id="status">Loading...</p>
-      <div id="actions"></div>
-      <button id="new-game" type="button">New game</button>
-    </main>
+    <div class="app">
+      <header class="topbar">
+        <span id="round" class="round"></span>
+        <div class="topbar-actions">
+          <button id="undo" type="button" class="icon-button" disabled>Undo</button>
+          <button id="menu" type="button" class="icon-button">Menu</button>
+        </div>
+      </header>
+      <p id="notice" class="notice" role="status" hidden></p>
+      <main class="table">
+        <section id="map" class="map" aria-label="Board"></section>
+        <section class="side">
+          <nav id="tabs" class="tabs" aria-label="Panels"></nav>
+          <div id="panels" class="panels"></div>
+        </section>
+      </main>
+      <footer id="decision" class="decision" aria-label="Your move"></footer>
+    </div>
+    <dialog id="sheet" class="sheet"></dialog>
     <script type="module" src="/src/ui/main.ts"></script>
   </body>
 </html>
