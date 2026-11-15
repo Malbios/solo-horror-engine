@@ -158,7 +158,9 @@ export function viewEvents(events: readonly GameEvent[], after: GameState): Game
     if (event.type === "cardsMoved") {
       return { ...event, cards: event.cards.map((card) => cardRef(after, card)) };
     }
-    if (event.type === "abilityUsed") return { ...event, card: cardRef(after, event.card) };
+    if (event.type === "abilityUsed" || event.type === "cardResolved") {
+      return { ...event, card: cardRef(after, event.card) };
+    }
     return event;
   });
 }

@@ -211,6 +211,7 @@ export type GameEvent =
   | { type: "edgeChanged"; edge: string; change: "added" | "removed" | "retargeted" }
   | { type: "diceRolled"; pool: string; dice: Die[] }
   | { type: "abilityUsed"; card: string; ability: string }
+  | { type: "cardResolved"; card: string }
   | {
       type: "quantityDelivered";
       quantity: string;

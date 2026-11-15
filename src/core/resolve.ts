@@ -993,6 +993,22 @@ export function createResolver(
     chosenStep(frame, next ?? fault("No next step to take"));
   }
 
+  function resolveTopCard(effect: Extract<Effect, { type: "resolveCard" }>): void {
+    const [top] = zoneCards(effect.zone);
+    if (top === undefined) {
+      pushEffects(effect.ifEmpty, EMPTY_CONTEXT, null);
+      return;
+    }
+    if (effect.to !== null) moveTopCards(effect.zone, effect.to, 1, "top");
+    const lyingIn = effect.to ?? effect.zone;
+    const zone =
+      requireRules().zones.find((candidate) => candidate.id === lyingIn) ??
+      fault(`Unknown zone "${lyingIn}"`);
+    emit({ type: "cardResolved", card: top }, EMPTY_CONTEXT);
+    const effects = work.faceUp[top] === true ? cardDefinition(top).effects : zone.backEffects;
+    pushEffects(effects, EMPTY_CONTEXT, null);
+  }
+
   function placeCards(zoneId: string, cards: readonly string[], position: CardPosition): void {
     const existing = zoneCards(zoneId);
     work.zones[zoneId] = position === "top" ? [...cards, ...existing] : [...existing, ...cards];
@@ -1166,6 +1182,9 @@ export function createResolver(
           abilitiesFrom: effect.abilitiesFrom,
           repeat: effect.repeat,
         });
+        return;
+      case "resolveCard":
+        resolveTopCard(effect);
         return;
       case "endScope":
         endScope(effect.scope);

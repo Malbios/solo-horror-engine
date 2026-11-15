@@ -165,6 +165,8 @@ export function describeEvent(event: GameEvent, shown: GameView, labels: Labels)
       return `A path was ${event.change}`;
     case "diceRolled":
       return `Rolled ${event.dice.map((die) => die.face).join(", ")}`;
+    case "cardResolved":
+      return `Resolved ${cardLabel(event.card, shown, labels)}`;
     case "abilityUsed":
       return `Used ${abilityLabel(event.card, event.ability, shown, labels)}`;
     case "quantityDelivered":

@@ -114,6 +114,7 @@ export type Effect =
   | { type: "if"; condition: BoolExpr; then: Effect[]; else: Effect[] }
   | { type: "choose"; optional: boolean; options: ChooseOption[] }
   | PlayWindowEffect
+  | { type: "resolveCard"; zone: string; to: string | null; ifEmpty: Effect[] }
   | { type: "endScope"; scope: Scope }
   | { type: "endGame"; endCondition: string }
   | { type: "createUnit"; kind: string; id: string | null; placement: Placement }
@@ -198,7 +199,7 @@ export type Counter = {
 
 export type ZoneFace = "up" | "down";
 
-export type Zone = { id: string; name: string; face: ZoneFace };
+export type Zone = { id: string; name: string; face: ZoneFace; backEffects: Effect[] };
 
 export type Card = {
   id: string;

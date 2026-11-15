@@ -192,6 +192,12 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       abilitiesFrom: z.array(idSchema).default([]),
       repeat: z.boolean().default(true),
     }),
+    z.strictObject({
+      type: z.literal("resolveCard"),
+      zone: idSchema,
+      to: idSchema.nullable().default(null),
+      ifEmpty: effects,
+    }),
     z.strictObject({ type: z.literal("endScope"), scope: scopeSchema }),
     z.strictObject({ type: z.literal("endGame"), endCondition: idSchema }),
     z.strictObject({
@@ -425,6 +431,7 @@ const zoneSchema = z
     id: idSchema,
     name: nameSchema.optional(),
     face: z.enum(["up", "down"]).default("up"),
+    backEffects: effectListSchema,
   })
   .transform(({ name, ...zone }): Zone => ({ ...zone, name: name ?? zone.id }));
 
