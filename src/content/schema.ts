@@ -3,6 +3,7 @@ import {
   findMissingReferences,
   LAYERED_COLLECTIONS,
   PACK_SCHEMA_VERSION,
+  procedureIssues,
   type BoolExpr,
   type Content,
   type Counter,
@@ -82,6 +83,7 @@ export const numExprSchema: z.ZodType<NumExpr> = z.lazy(() => {
     z.strictObject({ counter: idSchema }),
     z.strictObject({ zoneCount: idSchema }),
     z.strictObject({ context: z.enum(["from", "to", "amount"]) }),
+    z.strictObject({ arg: idSchema }),
     z.strictObject({ add: z.array(numExprSchema) }),
     z.strictObject({ sub: pair }),
     z.strictObject({ mul: pair }),
@@ -307,6 +309,11 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
     z.strictObject({ type: z.literal("addEdge"), edge: edgeSchema }),
     z.strictObject({ type: z.literal("removeEdge"), edge: idSchema }),
     z.strictObject({ type: z.literal("retargetEdge"), edge: idSchema, toSpace: idSchema }),
+    z.strictObject({
+      type: z.literal("call"),
+      procedure: idSchema,
+      args: z.record(idSchema, numExprSchema).default({}),
+    }),
   ]);
 });
 
@@ -486,6 +493,15 @@ const endConditionSchema = z.strictObject({
   ]),
 });
 
+const procedureSchema = z.strictObject({
+  id: idSchema,
+  params: z
+    .array(idSchema)
+    .default([])
+    .refine((params) => new Set(params).size === params.length, "params must be unique"),
+  effects: effectListSchema,
+});
+
 const unitKindSchema = z.strictObject({
   id: idSchema,
   name: nameSchema,
@@ -513,6 +529,7 @@ const contentSchema = z.strictObject({
   triggers: z.array(triggerSchema).default([]),
   checks: z.array(checkSchema).default([]),
   endConditions: z.array(endConditionSchema).default([]),
+  procedures: z.array(procedureSchema).default([]),
   setup: effectListSchema,
   round: hooksSchema.prefault({}),
   phases: z.array(phaseSchema).default([]),
@@ -537,6 +554,7 @@ const removalSchema = z.strictObject({
   triggers: idListSchema,
   checks: idListSchema,
   endConditions: idListSchema,
+  procedures: idListSchema,
   phases: idListSchema,
 });
 
@@ -638,6 +656,7 @@ function packIssues(pack: Pack): Issue[] {
       path: [],
       message: `undefined ${reference}`,
     })),
+    ...procedureIssues(contents).map((message) => ({ path: [], message })),
     ...(depthOf(pack) > MAX_PACK_DEPTH
       ? [{ path: [], message: `pack nesting deeper than ${MAX_PACK_DEPTH}` }]
       : []),

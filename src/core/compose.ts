@@ -9,10 +9,12 @@ import type {
   Module,
   Pack,
   Phase,
+  Procedure,
   QuantityType,
   Space,
   UnitKind,
 } from "./pack";
+import { procedureIssues } from "./procedures";
 import { findMissingReferences } from "./references";
 import { err, ok, type Result } from "./result";
 
@@ -28,6 +30,7 @@ export type Rules = Content & {
   spaceCounterById: ReadonlyMap<string, Counter>;
   quantityTypeById: ReadonlyMap<string, QuantityType>;
   dieById: ReadonlyMap<string, DieType>;
+  procedureById: ReadonlyMap<string, Procedure>;
 };
 
 function layer<T extends { id: string }>(
@@ -66,6 +69,7 @@ function applyModule(content: Content, module: Module): Content {
     triggers: layer(content.triggers, added.triggers, remove.triggers),
     checks: layer(content.checks, added.checks, remove.checks),
     endConditions: layer(content.endConditions, added.endConditions, remove.endConditions),
+    procedures: layer(content.procedures, added.procedures, remove.procedures),
     phases: layer(content.phases, added.phases, remove.phases),
     setup: [...content.setup, ...added.setup],
     round: {
@@ -95,6 +99,10 @@ export function composeRules(pack: Pack, moduleIds: readonly string[]): Result<R
   if (missing.length > 0) {
     return err(`Composed rules reference undefined ids: ${missing.join(", ")}`);
   }
+  const procedureProblems = procedureIssues([content]);
+  if (procedureProblems.length > 0) {
+    return err(`Composed procedures are invalid: ${procedureProblems.join("; ")}`);
+  }
   return ok({
     ...content,
     counterById: indexById(content.counters),
@@ -108,5 +116,6 @@ export function composeRules(pack: Pack, moduleIds: readonly string[]): Result<R
     quantityTypeById: indexById(content.quantityTypes),
     dieById: indexById(content.dice),
     boardById: indexById(content.boards),
+    procedureById: indexById(content.procedures),
   });
 }

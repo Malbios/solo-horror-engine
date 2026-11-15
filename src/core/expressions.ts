@@ -18,6 +18,7 @@ export type ExpressionContext = {
   amount: number;
   self: string | null;
   candidate: string | null;
+  args: Readonly<Record<string, number>>;
 };
 
 export type RolledDie = { die: string; face: string; role: string | null };
@@ -45,6 +46,7 @@ export const EMPTY_CONTEXT: ExpressionContext = {
   amount: 0,
   self: null,
   candidate: null,
+  args: {},
 };
 
 export const EMPTY_WORLD: World = {
@@ -160,6 +162,7 @@ export function evaluateNumber(expr: NumExpr, scope: ExpressionScope): number {
   if ("counter" in expr) return scope.counters[expr.counter] ?? 0;
   if ("zoneCount" in expr) return scope.zones[expr.zoneCount]?.length ?? 0;
   if ("context" in expr) return scope.context[expr.context];
+  if ("arg" in expr) return scope.context.args[expr.arg] ?? 0;
   if ("add" in expr) {
     return expr.add.reduce<number>((total, part) => total + evaluateNumber(part, scope), 0);
   }

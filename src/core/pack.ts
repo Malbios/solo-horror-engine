@@ -19,6 +19,7 @@ export type NumExpr =
   | { counter: string }
   | { zoneCount: string }
   | { context: ContextKey }
+  | { arg: string }
   | { add: NumExpr[] }
   | { sub: NumberPair }
   | { mul: NumberPair }
@@ -120,7 +121,8 @@ export type Effect =
   | { type: "randomTable"; entries: TableEntry[]; ifNone: Effect[] }
   | { type: "addEdge"; edge: Edge }
   | { type: "removeEdge"; edge: string }
-  | { type: "retargetEdge"; edge: string; toSpace: string };
+  | { type: "retargetEdge"; edge: string; toSpace: string }
+  | { type: "call"; procedure: string; args: Record<string, NumExpr> };
 
 export type EventPattern =
   | { event: "counterChanged"; counter: string }
@@ -227,6 +229,8 @@ export type Trigger = {
   once: boolean;
 };
 
+export type Procedure = { id: string; params: string[]; effects: Effect[] };
+
 export type Check = { id: string; condition: BoolExpr; effects: Effect[] };
 
 export type Outcome = "win" | "loss";
@@ -259,6 +263,7 @@ export type Content = {
   triggers: Trigger[];
   checks: Check[];
   endConditions: EndCondition[];
+  procedures: Procedure[];
   setup: Effect[];
   round: ScopeHooks;
   phases: Phase[];
@@ -281,6 +286,7 @@ export const LAYERED_COLLECTIONS = [
   "triggers",
   "checks",
   "endConditions",
+  "procedures",
   "phases",
 ] as const;
 

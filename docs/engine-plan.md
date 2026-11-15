@@ -55,6 +55,8 @@ Each entry ends with the invented fixture that tests it.
 
 20. **End sequences.** Win and loss are predicates checked as state-based checks. A pack may define an end sequence (a scored pass over zones or counters) that runs when a predicate fires. The finished state carries an `outcome`. _Fixture: a game that ends when a zone empties and scores two counters._
 
+21. **Procedures.** Packs define named effect lists with numeric parameters. An effect calls one with argument expressions, evaluated in the caller's context; inside, `{ arg }` reads them, and the caller's unit and amount pass through. Every call passes exactly the declared parameters, arguments are read only inside the procedure that declares them, and procedures never call themselves directly or indirectly. Modules patch procedures by id. _Fixture: two cards calling one procedure with different arguments._
+
 ## Decisions
 
 - **Undo stops at hidden information.** Undo is not allowed past any action whose resolution revealed something the player did not know before: a peek, a card or value turning face up, a die roll, a shuffle, or any other seeded random result. The engine marks such actions in the log as undo barriers; undo can only remove actions after the last barrier.
@@ -68,3 +70,4 @@ Each entry ends with the invented fixture that tests it.
 5. Hidden information, projections, and undo barriers.
 6. UI, following the platform constraints in CLAUDE.md.
 7. Loading packs at runtime from a file.
+8. Procedures.

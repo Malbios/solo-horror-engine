@@ -174,7 +174,7 @@ export function createResolver(
   }
 
   function contextFor(self: string | null, from = 0, to = 0, amount = 0): ExpressionContext {
-    return { from, to, amount, self, candidate: null };
+    return { from, to, amount, self, candidate: null, args: {} };
   }
 
   function zoneCards(zoneId: string): string[] {
@@ -1293,6 +1293,16 @@ export function createResolver(
       case "retargetEdge": {
         const edge = work.edges[effect.edge] ?? fault(`Unknown edge "${effect.edge}"`);
         changeEdges(effect.edge, "retargeted", { ...edge, toSpace: effect.toSpace });
+        return;
+      }
+      case "call": {
+        const procedure =
+          requireRules().procedureById.get(effect.procedure) ??
+          fault(`Unknown procedure "${effect.procedure}"`);
+        const args = Object.fromEntries(
+          Object.entries(effect.args).map(([name, value]) => [name, evaluateNumber(value, scope)]),
+        );
+        pushEffects(procedure.effects, { ...context, args }, null);
         return;
       }
       default:

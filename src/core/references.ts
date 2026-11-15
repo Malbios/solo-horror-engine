@@ -12,7 +12,8 @@ type ReferenceKind =
   | "quantityType"
   | "die"
   | "pool"
-  | "board";
+  | "board"
+  | "procedure";
 
 const REFERENCE_KEYS: ReadonlyMap<string, ReferenceKind> = new Map([
   ["counter", "counter"],
@@ -33,6 +34,7 @@ const REFERENCE_KEYS: ReadonlyMap<string, ReferenceKind> = new Map([
   ["die", "die"],
   ["pool", "pool"],
   ["board", "board"],
+  ["procedure", "procedure"],
 ]);
 
 const DEFINING_COLLECTIONS: ReadonlyMap<ReferenceKind, (typeof LAYERED_COLLECTIONS)[number]> =
@@ -49,6 +51,7 @@ const DEFINING_COLLECTIONS: ReadonlyMap<ReferenceKind, (typeof LAYERED_COLLECTIO
     ["die", "dice"],
     ["pool", "pools"],
     ["board", "boards"],
+    ["procedure", "procedures"],
   ]);
 
 function referenceLabel(kind: ReferenceKind, id: string): string {

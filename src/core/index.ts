@@ -29,6 +29,7 @@ export type {
   StepOutcome,
 } from "./model";
 export * from "./pack";
+export { procedureIssues } from "./procedures";
 export { findMissingReferences } from "./references";
 export { canUndo, replay, undo, type ReplayError, type UndoError } from "./replay";
 export { MAX_OPERATIONS_PER_CALL } from "./resolve";
