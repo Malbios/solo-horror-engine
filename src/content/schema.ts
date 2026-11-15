@@ -145,6 +145,20 @@ const orderSchema = z.strictObject({
   tieBreak: z.enum(["id", "random", "decision"]).default("id"),
 });
 
+const followersSchema = z
+  .strictObject({
+    units: z
+      .strictObject({
+        kind: idSchema.nullable().default(null),
+        where: boolExprSchema.default(true),
+      })
+      .prefault({}),
+    max: numExprSchema,
+    when: boolExprSchema.default(true),
+  })
+  .nullable()
+  .default(null);
+
 const unitSetSchema = z.strictObject({
   kind: idSchema.nullable().default(null),
   at: spaceRefSchema.nullable().default(null),
@@ -228,12 +242,14 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       filter: idSchema,
       stopWhen: boolExprSchema.default(false),
       order: orderSchema.prefault({}),
+      followers: followersSchema,
     }),
     z.strictObject({
       type: z.literal("stepMove"),
       unit: unitRefSchema,
       steps: numExprSchema,
       filter: idSchema,
+      followers: followersSchema,
     }),
     z.strictObject({
       type: z.literal("changeAttribute"),

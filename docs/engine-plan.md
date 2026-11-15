@@ -61,6 +61,8 @@ Each entry ends with the invented fixture that tests it.
 
 23. **Resolving cards.** An effect takes the top card of a zone, optionally moves it to another zone first (taking that zone's face), and runs its effects at once, without a decision and ignoring play conditions and costs. A card that is still face down runs its zone's shared back effects instead, so every hidden card in a zone acts the same and resolving one never reveals which it is. An empty zone runs a fallback effect list. _Fixture: a face-down card whose zone's back effect runs, then its own effect after it turns face up._
 
+24. **Followers.** A moving unit may take other units along: after each step, units of a given kind in the space it left may follow, up to a cap from an expression, unless a condition on the destination forbids it. The player picks followers one at a time and may stop at any point; followers are offered again on every step. Followers move like any unit, so their movement triggers fire. _Fixture: a mover leaving a space with three followers, taking two, and none into a blocked space._
+
 ## Decisions
 
 - **Undo stops at hidden information.** Undo is not allowed past any action whose resolution revealed something the player did not know before: a peek, a card or value turning face up, a die roll, a shuffle, or any other seeded random result. The engine marks such actions in the log as undo barriers; undo can only remove actions after the last barrier.
@@ -78,3 +80,4 @@ Each entry ends with the invented fixture that tests it.
 9. Rich windows: several kinds of offer per window, card tags and abilities with use limits.
 10. Resolving drawn and revealed cards.
 11. Card presence in expressions.
+12. Followers.

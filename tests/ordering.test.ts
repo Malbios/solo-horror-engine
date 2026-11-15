@@ -59,10 +59,14 @@ describe("ordering", () => {
       ),
     );
     let state = engine.init(1);
-    expect(state.pending).toEqual({ kind: "pickUnit", options: ["p1", "p2", "p3"] });
+    expect(state.pending).toEqual({
+      kind: "pickUnit",
+      options: ["p1", "p2", "p3"],
+      canPass: false,
+    });
     expect(engine.legalActions(state)).toHaveLength(3);
     state = pick(engine, state, "p3");
-    expect(state.pending).toEqual({ kind: "pickUnit", options: ["p1", "p2"] });
+    expect(state.pending).toEqual({ kind: "pickUnit", options: ["p1", "p2"], canPass: false });
     state = pick(engine, state, "p1");
     expect(state.counters["trace"]).toBe(312);
     expect(state.pending?.kind).toBe("chooseOption");
@@ -143,7 +147,7 @@ describe("ordering", () => {
     );
     let state = engine.init(1);
     expect(state.counters["trace"]).toBe(1);
-    expect(state.pending).toEqual({ kind: "pickUnit", options: ["p2", "p3"] });
+    expect(state.pending).toEqual({ kind: "pickUnit", options: ["p2", "p3"], canPass: false });
     state = pick(engine, state, "p3");
     expect(state.counters["trace"]).toBe(13);
     expect(state.pending?.kind).toBe("chooseOption");
@@ -252,7 +256,7 @@ describe("ordering", () => {
       ),
     );
     const initial = engine.init(9);
-    expect(initial.pending).toEqual({ kind: "pickUnit", options: ["p2", "p3"] });
+    expect(initial.pending).toEqual({ kind: "pickUnit", options: ["p2", "p3"], canPass: false });
     const actions: Action[] = [{ type: "pickUnit", unit: "p3" }, CONTINUE];
     let state = initial;
     for (const action of actions) state = act(engine, state, action);

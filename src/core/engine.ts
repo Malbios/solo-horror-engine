@@ -103,7 +103,10 @@ export function legalActions(state: GameState): Action[] {
         pending.canPass,
       );
     case "pickUnit":
-      return pending.options.map((unit): Action => ({ type: "pickUnit", unit }));
+      return withPass(
+        pending.options.map((unit): Action => ({ type: "pickUnit", unit })),
+        pending.canPass,
+      );
     case "pickCard":
       return pending.cards.map((card): Action => ({ type: "pickCard", card }));
     case "pickDie":

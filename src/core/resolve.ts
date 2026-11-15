@@ -29,6 +29,7 @@ import type {
   Die,
   EffectsFrame,
   FinishFrame,
+  FollowFrame,
   Frame,
   GameEvent,
   GameState,
@@ -45,6 +46,7 @@ import type {
   Ability,
   Card,
   CardFilter,
+  Followers,
   CardPosition,
   Cost,
   Counter,
@@ -500,7 +502,7 @@ export function createResolver(
       return;
     }
     if (group.length > 1 && frame.tieBreak === "decision") {
-      work.pending = { kind: "pickUnit", options: [...group] };
+      work.pending = { kind: "pickUnit", options: [...group], canPass: false };
       return;
     }
     const index = frame.tieBreak === "random" ? randomIndex(group.length) : 0;
@@ -937,12 +939,54 @@ export function createResolver(
     );
   }
 
+  function followerCandidates(frame: MoveFrame, left: string, followers: Followers): string[] {
+    return Object.values(work.units)
+      .filter(
+        (unit) =>
+          unit.id !== frame.unit &&
+          spaceOfUnit(work.units, unit.id) === left &&
+          (followers.units.kind === null || unit.kind === followers.units.kind) &&
+          evaluateBoolean(followers.units.where, scopeOf({ ...frame.context, self: unit.id })),
+      )
+      .map((unit) => unit.id)
+      .sort();
+  }
+
+  function startFollowing(frame: MoveFrame, left: string, arrived: string): void {
+    const followers = frame.followers;
+    if (followers === null) return;
+    const moverScope = scopeOf({ ...frame.context, self: frame.unit, candidate: arrived });
+    if (!evaluateBoolean(followers.when, moverScope)) return;
+    const remaining = evaluateNumber(followers.max, moverScope);
+    const candidates = followerCandidates(frame, left, followers);
+    if (remaining <= 0 || candidates.length === 0) return;
+    work.stack.push({ kind: "follow", to: arrived, candidates, remaining });
+  }
+
+  function runFollow(frame: FollowFrame): void {
+    frame.candidates = frame.candidates.filter((unit) => work.units[unit] !== undefined);
+    if (frame.remaining <= 0 || frame.candidates.length === 0) {
+      work.stack.pop();
+      return;
+    }
+    work.pending = { kind: "pickUnit", options: [...frame.candidates], canPass: true };
+  }
+
+  function takeFollower(frame: FollowFrame, unit: string): void {
+    if (!frame.candidates.includes(unit)) fault(`Unit "${unit}" cannot follow`);
+    frame.candidates = frame.candidates.filter((candidate) => candidate !== unit);
+    frame.remaining -= 1;
+    setPlacement(unit, { type: "space", space: frame.to });
+  }
+
   function takeStep(frame: MoveFrame, space: string, edge: Edge): void {
+    const left = spaceOfUnit(work.units, frame.unit);
     frame.remaining -= 1;
     setPlacement(frame.unit, { type: "space", space });
     if (evaluateBoolean(frame.stopWhen, scopeOf({ ...frame.context, self: frame.unit }))) {
       frame.remaining = 0;
     }
+    if (left !== null) startFollowing(frame, left, space);
     startPayment(edge.cost, { ...frame.context, self: frame.unit });
   }
 
@@ -1233,6 +1277,7 @@ export function createResolver(
             target: effect.target,
             stopWhen: effect.stopWhen,
             order: effect.order,
+            followers: effect.followers,
             context,
           },
           effect.unit,
@@ -1248,6 +1293,7 @@ export function createResolver(
             target: null,
             stopWhen: false,
             order: null,
+            followers: effect.followers,
             context,
           },
           effect.unit,
@@ -1520,6 +1566,9 @@ export function createResolver(
       case "move":
         runMove(frame);
         return;
+      case "follow":
+        runFollow(frame);
+        return;
       case "select":
         runSelect(frame);
         return;
@@ -1703,6 +1752,7 @@ export function createResolver(
       case "pass": {
         if (pending.kind === "pickModule") work.choiceIndex += 1;
         if (pending.kind === "window" || pending.kind === "moveUnit") work.stack.pop();
+        if (pending.kind === "pickUnit" && topFrame()?.kind === "follow") work.stack.pop();
         const rerolling = topFrame();
         if (pending.kind === "pickDie" && rerolling?.kind === "reroll") finishReroll(rerolling);
         const delivery = offeringDelivery();
@@ -1732,6 +1782,10 @@ export function createResolver(
       }
       case "pickUnit": {
         const frame = topFrame();
+        if (frame?.kind === "follow") {
+          takeFollower(frame, action.unit);
+          return;
+        }
         if (frame?.kind !== "select") fault("No unit selection is in progress");
         takePick(frame, action.unit);
         return;

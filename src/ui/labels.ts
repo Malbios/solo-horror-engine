@@ -198,7 +198,7 @@ export function describeDecision(shown: GameView, labels: Labels): string {
     case "moveUnit":
       return `Move ${labels.unit(pending.unit)}: tap a highlighted space`;
     case "pickUnit":
-      return "Pick a piece";
+      return pending.canPass ? "Pick a piece to come along, or pass" : "Pick a piece";
     case "pickDie":
       return "Pick a die";
     default:

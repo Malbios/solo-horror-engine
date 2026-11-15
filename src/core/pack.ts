@@ -58,6 +58,12 @@ export type Order = { sortBy: SortKey[]; tieBreak: TieBreak };
 
 export type UnitSet = { kind: string | null; at: SpaceRef | null; where: BoolExpr };
 
+export type Followers = {
+  units: { kind: string | null; where: BoolExpr };
+  max: NumExpr;
+  when: BoolExpr;
+};
+
 export type Cost =
   | { counter: string; amount: NumExpr }
   | { attribute: string; of: UnitRef; amount: NumExpr }
@@ -130,8 +136,15 @@ export type Effect =
       filter: string;
       stopWhen: BoolExpr;
       order: Order;
+      followers: Followers | null;
     }
-  | { type: "stepMove"; unit: UnitRef; steps: NumExpr; filter: string }
+  | {
+      type: "stepMove";
+      unit: UnitRef;
+      steps: NumExpr;
+      filter: string;
+      followers: Followers | null;
+    }
   | { type: "changeAttribute"; unit: UnitRef; attribute: string; amount: NumExpr }
   | { type: "setAttribute"; unit: UnitRef; attribute: string; value: NumExpr }
   | { type: "changeSpaceCounter"; at: SpaceRef; spaceCounter: string; amount: NumExpr }

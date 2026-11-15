@@ -5,6 +5,7 @@ import type {
   Cost,
   Edge,
   Effect,
+  Followers,
   Order,
   Outcome,
   PlayWindowEffect,
@@ -52,7 +53,15 @@ export type MoveFrame = {
   target: SpaceRef | null;
   stopWhen: BoolExpr;
   order: Order | null;
+  followers: Followers | null;
   context: ExpressionContext;
+};
+
+export type FollowFrame = {
+  kind: "follow";
+  to: string;
+  candidates: string[];
+  remaining: number;
 };
 
 export type SelectFrame = {
@@ -114,6 +123,7 @@ export type Frame =
   | PlayWindowFrame
   | FinishFrame
   | MoveFrame
+  | FollowFrame
   | SelectFrame
   | DeliverFrame
   | PayFrame
@@ -135,7 +145,7 @@ export type Decision =
     }
   | { kind: "window"; play: string[]; discard: string[]; abilities: AbilityOffer[] }
   | { kind: "moveUnit"; unit: string; options: string[]; canPass: boolean }
-  | { kind: "pickUnit"; options: string[] }
+  | { kind: "pickUnit"; options: string[]; canPass: boolean }
   | { kind: "pickCard"; cards: string[] }
   | { kind: "pickDie"; pool: string; dice: string[]; canPass: boolean };
 
