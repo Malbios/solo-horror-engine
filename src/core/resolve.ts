@@ -155,6 +155,8 @@ export function createResolver(
     return composed.ok ? composed.value : fault(composed.error);
   }
 
+  let cardTagsCache: { rules: Rules; tags: ReadonlyMap<string, readonly string[]> } | null = null;
+
   function requireRules(): Rules {
     return rules ?? fault("Rules are not composed yet");
   }
@@ -169,7 +171,19 @@ export function createResolver(
       spaces: rules.spaceById,
       pools: work.pools,
       dice: rules.dieById,
+      faceUp: work.faceUp,
+      cardTags: cardTagsOf(rules),
     };
+  }
+
+  function cardTagsOf(composed: Rules): ReadonlyMap<string, readonly string[]> {
+    if (cardTagsCache?.rules !== composed) {
+      cardTagsCache = {
+        rules: composed,
+        tags: new Map(composed.cards.map((card) => [card.id, card.tags])),
+      };
+    }
+    return cardTagsCache.tags;
   }
 
   function scopeOf(context: ExpressionContext): ExpressionScope {

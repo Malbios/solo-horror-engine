@@ -1,3 +1,4 @@
+import { cardDefinitionId } from "./cards";
 import { distancesFrom, spaceOfUnit, type Traversable, type UnitState } from "./graph";
 import type {
   BoolExpr,
@@ -31,6 +32,8 @@ export type World = {
   spaces: ReadonlyMap<string, Space>;
   pools: Readonly<Record<string, readonly RolledDie[]>>;
   dice: ReadonlyMap<string, DieType>;
+  faceUp: Readonly<Record<string, boolean>>;
+  cardTags: ReadonlyMap<string, readonly string[]>;
 };
 
 export type ExpressionScope = {
@@ -57,6 +60,8 @@ export const EMPTY_WORLD: World = {
   spaces: new Map(),
   pools: {},
   dice: new Map(),
+  faceUp: {},
+  cardTags: new Map(),
 };
 
 function extreme(pick: (...values: number[]) => number, values: readonly number[]): number {
@@ -142,6 +147,18 @@ function countUnits(kind: string | null, at: SpaceRef | null, scope: ExpressionS
   ).length;
 }
 
+function countCards(
+  query: Extract<NumExpr, { countCards: unknown }>["countCards"],
+  scope: ExpressionScope,
+): number {
+  return (scope.zones[query.zone] ?? []).filter((card) => {
+    if (scope.world.faceUp[card] !== true) return false;
+    const definition = cardDefinitionId(card);
+    if (query.card !== null && definition !== query.card) return false;
+    return query.tag === null || (scope.world.cardTags.get(definition) ?? []).includes(query.tag);
+  }).length;
+}
+
 function distance(
   query: Extract<NumExpr, { distance: unknown }>["distance"],
   scope: ExpressionScope,
@@ -197,6 +214,7 @@ export function evaluateNumber(expr: NumExpr, scope: ExpressionScope): number {
   if ("diceCount" in expr) return diceCount(expr.diceCount, scope);
   if ("countUnits" in expr) return countUnits(expr.countUnits.kind, expr.countUnits.at, scope);
   if ("distance" in expr) return distance(expr.distance, scope);
+  if ("countCards" in expr) return countCards(expr.countCards, scope);
   return assertNever(expr);
 }
 

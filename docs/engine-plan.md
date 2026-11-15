@@ -47,7 +47,7 @@ Each entry ends with the invented fixture that tests it.
 
 16. **Dice.** Pools whose size comes from expressions, custom face tables, rerolls, and modifiers that may change the pool's contents. Dice have stable ids within a roll. Assigning dice to roles is a decision. _Fixture: two dice assigned to two roles._
 
-17. **Cards and zones.** Zones hold ordered cards with a face state. Operations: draw, insert at a position, shuffle, peek, and move between zones at scope hooks. _Fixture: a discard zone emptied back into a draw zone at a scope exit._
+17. **Cards and zones.** Zones hold ordered cards with a face state. Operations: draw, insert at a position, shuffle, peek, and move between zones at scope hooks. Expressions count the face-up cards in a zone, optionally by card or by tag, so a card lying in a zone can switch triggers and modifiers on and off; face-down cards never count, so a condition cannot reveal a hidden card. _Fixture: a discard zone emptied back into a draw zone at a scope exit._
 
 18. **Modules and layering.** Modules have a pack-defined kind and a total precedence order. Later layers patch earlier ones by stable id (effect data, not text) when the rule set is composed, never at draw time. Unresolved conflicts are `parsePack` errors. _Fixture: a module that replaces one card of another module by id._
 
@@ -77,3 +77,4 @@ Each entry ends with the invented fixture that tests it.
 8. Procedures.
 9. Rich windows: several kinds of offer per window, card tags and abilities with use limits.
 10. Resolving drawn and revealed cards.
+11. Card presence in expressions.

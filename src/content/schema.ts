@@ -72,6 +72,13 @@ export const numExprSchema: z.ZodType<NumExpr> = z.lazy(() => {
       }),
     }),
     z.strictObject({
+      countCards: z.strictObject({
+        zone: idSchema,
+        card: idSchema.nullable().default(null),
+        tag: idSchema.nullable().default(null),
+      }),
+    }),
+    z.strictObject({
       distance: z.strictObject({
         origin: spaceRefSchema,
         destination: spaceRefSchema,

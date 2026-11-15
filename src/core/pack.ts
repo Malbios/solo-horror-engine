@@ -29,6 +29,7 @@ export type NumExpr =
   | { diceCount: { pool: string; symbol: string | null; role: string | null } }
   | { spaceCounter: string; at: SpaceRef }
   | { countUnits: { kind: string | null; at: SpaceRef | null } }
+  | { countCards: { zone: string; card: string | null; tag: string | null } }
   | {
       distance: { origin: SpaceRef; destination: SpaceRef; filter: string; ifUnreachable: NumExpr };
     };
