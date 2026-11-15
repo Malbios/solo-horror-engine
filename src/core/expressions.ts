@@ -1,6 +1,7 @@
 import { distancesFrom, spaceOfUnit, type Traversable, type UnitState } from "./graph";
 import type {
   BoolExpr,
+  DieType,
   Edge,
   EdgeFilter,
   NumberPair,
@@ -19,12 +20,16 @@ export type ExpressionContext = {
   candidate: string | null;
 };
 
+export type RolledDie = { die: string; face: string; role: string | null };
+
 export type World = {
   units: Readonly<Record<string, UnitState>>;
   edges: Readonly<Record<string, Edge>>;
   spaceCounters: Readonly<Record<string, Readonly<Record<string, number>>>>;
   filters: ReadonlyMap<string, EdgeFilter>;
   spaces: ReadonlyMap<string, Space>;
+  pools: Readonly<Record<string, readonly RolledDie[]>>;
+  dice: ReadonlyMap<string, DieType>;
 };
 
 export type ExpressionScope = {
@@ -48,6 +53,8 @@ export const EMPTY_WORLD: World = {
   spaceCounters: {},
   filters: new Map(),
   spaces: new Map(),
+  pools: {},
+  dice: new Map(),
 };
 
 function extreme(pick: (...values: number[]) => number, values: readonly number[]): number {
@@ -104,6 +111,23 @@ export function resolveSpace(ref: SpaceRef, scope: ExpressionScope): string | nu
   const space = unit === null ? null : spaceOfUnit(scope.world.units, unit);
   if (space !== null) return space;
   return ref.fallback === null ? null : resolveSpace(ref.fallback, scope);
+}
+
+function faceSymbols(rolled: RolledDie, scope: ExpressionScope): Record<string, number> {
+  const faces = scope.world.dice.get(rolled.die)?.faces ?? [];
+  return faces.find((face) => face.id === rolled.face)?.symbols ?? {};
+}
+
+function diceCount(
+  query: Extract<NumExpr, { diceCount: unknown }>["diceCount"],
+  scope: ExpressionScope,
+): number {
+  const dice = (scope.world.pools[query.pool] ?? []).filter(
+    (rolled) => query.role === null || rolled.role === query.role,
+  );
+  if (query.symbol === null) return dice.length;
+  const symbol = query.symbol;
+  return dice.reduce((total, rolled) => total + (faceSymbols(rolled, scope)[symbol] ?? 0), 0);
 }
 
 function countUnits(kind: string | null, at: SpaceRef | null, scope: ExpressionScope): number {
@@ -167,6 +191,7 @@ export function evaluateNumber(expr: NumExpr, scope: ExpressionScope): number {
     const space = resolveSpace(expr.at, scope);
     return space === null ? 0 : (scope.world.spaceCounters[space]?.[expr.spaceCounter] ?? 0);
   }
+  if ("diceCount" in expr) return diceCount(expr.diceCount, scope);
   if ("countUnits" in expr) return countUnits(expr.countUnits.kind, expr.countUnits.at, scope);
   if ("distance" in expr) return distance(expr.distance, scope);
   return assertNever(expr);

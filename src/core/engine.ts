@@ -31,6 +31,7 @@ function createInitialState(pack: Pack, seed: number): GameState {
     retiredUnits: [],
     edges: {},
     spaceCounters: {},
+    pools: {},
     firedTriggers: [],
     stack: [],
     pending: null,
@@ -73,6 +74,11 @@ export function legalActions(state: GameState): Action[] {
       return pending.options.map((unit): Action => ({ type: "pickUnit", unit }));
     case "pickCard":
       return pending.cards.map((card): Action => ({ type: "pickCard", card }));
+    case "pickDie":
+      return withPass(
+        pending.dice.map((die): Action => ({ type: "pickDie", die })),
+        pending.canPass,
+      );
     default:
       return assertNever(pending);
   }
@@ -92,6 +98,8 @@ function sameAction(legal: Action, candidate: Action): boolean {
       return candidate.type === "pickUnit" && candidate.unit === legal.unit;
     case "pickCard":
       return candidate.type === "pickCard" && candidate.card === legal.card;
+    case "pickDie":
+      return candidate.type === "pickDie" && candidate.die === legal.die;
     case "pass":
       return candidate.type === "pass";
     default:

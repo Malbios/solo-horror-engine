@@ -25,6 +25,7 @@ export type NumExpr =
   | { min: NumExpr[] }
   | { max: NumExpr[] }
   | { attribute: string; of: UnitRef }
+  | { diceCount: { pool: string; symbol: string | null; role: string | null } }
   | { spaceCounter: string; at: SpaceRef }
   | { countUnits: { kind: string | null; at: SpaceRef | null } }
   | {
@@ -70,6 +71,12 @@ export type ChooseOption = {
 
 export type CardPosition = "top" | "bottom";
 
+export type DiceRole = { role: string; count: NumExpr };
+
+export type LookupEntry = { min: number; max: number; effects: Effect[] };
+
+export type TableEntry = { id: string; weight: NumExpr; when: BoolExpr; effects: Effect[] };
+
 export type Effect =
   | { type: "changeCounter"; counter: string; amount: NumExpr }
   | { type: "setCounter"; counter: string; value: NumExpr }
@@ -102,6 +109,13 @@ export type Effect =
   | { type: "forEachUnit"; units: UnitSet; order: Order; effects: Effect[] }
   | { type: "selectUnits"; units: UnitSet; order: Order; count: NumExpr; effects: Effect[] }
   | { type: "deliver"; quantity: string; amount: NumExpr; recipient: UnitRef | null }
+  | { type: "rollDice"; pool: string; die: string; count: NumExpr }
+  | { type: "addDice"; pool: string; die: string; count: NumExpr }
+  | { type: "rerollDice"; pool: string; faces: string[] | null; mode: "all" | "choose" }
+  | { type: "setDieFace"; pool: string; faces: string[]; toFace: string; count: NumExpr }
+  | { type: "assignDice"; pool: string; roles: DiceRole[] }
+  | { type: "lookup"; value: NumExpr; entries: LookupEntry[]; otherwise: Effect[] }
+  | { type: "randomTable"; entries: TableEntry[]; ifNone: Effect[] }
   | { type: "addEdge"; edge: Edge }
   | { type: "removeEdge"; edge: string }
   | { type: "retargetEdge"; edge: string; toSpace: string };
@@ -116,7 +130,8 @@ export type EventPattern =
   | { event: "unitMoved"; kind: string | null; toSpace: string | null }
   | { event: "attributeChanged"; kind: string | null; attribute: string }
   | { event: "spaceCounterChanged"; spaceCounter: string }
-  | { event: "quantityDelivered"; quantity: string; kind: string | null };
+  | { event: "quantityDelivered"; quantity: string; kind: string | null }
+  | { event: "diceRolled"; pool: string | null };
 
 export type Space = { id: string; name: string; tags: string[] };
 
@@ -159,6 +174,12 @@ export type Card = {
   cost: Cost[];
   effects: Effect[];
 };
+
+export type DieFace = { id: string; symbols: Record<string, number> };
+
+export type DieType = { id: string; faces: DieFace[] };
+
+export type Pool = { id: string };
 
 export type QuantityType = {
   id: string;
@@ -223,6 +244,8 @@ export type Content = {
   cards: Card[];
   quantityTypes: QuantityType[];
   modifiers: Modifier[];
+  dice: DieType[];
+  pools: Pool[];
   triggers: Trigger[];
   checks: Check[];
   endConditions: EndCondition[];
@@ -242,6 +265,8 @@ export const LAYERED_COLLECTIONS = [
   "cards",
   "quantityTypes",
   "modifiers",
+  "dice",
+  "pools",
   "triggers",
   "checks",
   "endConditions",

@@ -84,6 +84,29 @@ export type PayFrame = {
   context: ExpressionContext;
 };
 
+export type Die = { id: string; die: string; face: string; role: string | null };
+
+export type RerollFrame = {
+  kind: "reroll";
+  pool: string;
+  faces: string[] | null;
+  marked: string[];
+};
+
+export type SetFaceFrame = {
+  kind: "setFace";
+  pool: string;
+  faces: string[];
+  toFace: string;
+  remaining: number;
+};
+
+export type AssignFrame = {
+  kind: "assign";
+  pool: string;
+  roles: { role: string; remaining: number }[];
+};
+
 export type Frame =
   | EffectsFrame
   | ScopeFrame
@@ -92,7 +115,10 @@ export type Frame =
   | MoveFrame
   | SelectFrame
   | DeliverFrame
-  | PayFrame;
+  | PayFrame
+  | RerollFrame
+  | SetFaceFrame
+  | AssignFrame;
 
 export type OptionView = { id: string; label: string; cost: Cost[]; effects: Effect[] };
 
@@ -107,7 +133,8 @@ export type Decision =
   | { kind: "playCard"; cards: string[] }
   | { kind: "moveUnit"; unit: string; options: string[]; canPass: boolean }
   | { kind: "pickUnit"; options: string[] }
-  | { kind: "pickCard"; cards: string[] };
+  | { kind: "pickCard"; cards: string[] }
+  | { kind: "pickDie"; pool: string; dice: string[]; canPass: boolean };
 
 export type GameOutcome = { result: Outcome; endCondition: string };
 
@@ -130,6 +157,7 @@ export type GameState = {
   retiredUnits: string[];
   edges: Record<string, Edge>;
   spaceCounters: Record<string, Record<string, number>>;
+  pools: Record<string, Die[]>;
   firedTriggers: string[];
   stack: Frame[];
   pending: Decision | null;
@@ -142,6 +170,7 @@ export type Action =
   | { type: "moveTo"; space: string }
   | { type: "pickUnit"; unit: string }
   | { type: "pickCard"; card: string }
+  | { type: "pickDie"; die: string }
   | { type: "pass" };
 
 export type GameEvent =
@@ -171,6 +200,7 @@ export type GameEvent =
     }
   | { type: "spaceCounterChanged"; space: string; spaceCounter: string; from: number; to: number }
   | { type: "edgeChanged"; edge: string; change: "added" | "removed" | "retargeted" }
+  | { type: "diceRolled"; pool: string; dice: Die[] }
   | {
       type: "quantityDelivered";
       quantity: string;

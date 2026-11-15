@@ -54,6 +54,13 @@ export const numExprSchema: z.ZodType<NumExpr> = z.lazy(() => {
   const pair = z.tuple([numExprSchema, numExprSchema]);
   return z.union([
     z.strictObject({ attribute: idSchema, of: unitRefSchema }),
+    z.strictObject({
+      diceCount: z.strictObject({
+        pool: idSchema,
+        symbol: idSchema.nullable().default(null),
+        role: idSchema.nullable().default(null),
+      }),
+    }),
     z.strictObject({ spaceCounter: idSchema, at: spaceRefSchema }),
     z.strictObject({
       countUnits: z.strictObject({
@@ -227,6 +234,62 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       effects,
     }),
     z.strictObject({
+      type: z.literal("rollDice"),
+      pool: idSchema,
+      die: idSchema,
+      count: numExprSchema,
+    }),
+    z.strictObject({
+      type: z.literal("addDice"),
+      pool: idSchema,
+      die: idSchema,
+      count: numExprSchema,
+    }),
+    z.strictObject({
+      type: z.literal("rerollDice"),
+      pool: idSchema,
+      faces: z.array(idSchema).nullable().default(null),
+      mode: z.enum(["all", "choose"]).default("all"),
+    }),
+    z.strictObject({
+      type: z.literal("setDieFace"),
+      pool: idSchema,
+      faces: z.array(idSchema).min(1),
+      toFace: idSchema,
+      count: numExprSchema.default(1),
+    }),
+    z.strictObject({
+      type: z.literal("assignDice"),
+      pool: idSchema,
+      roles: z.array(z.strictObject({ role: idSchema, count: numExprSchema.default(1) })).min(1),
+    }),
+    z.strictObject({
+      type: z.literal("lookup"),
+      value: numExprSchema,
+      entries: z
+        .array(z.strictObject({ min: z.int(), max: z.int(), effects }))
+        .refine(
+          (entries) => entries.every((entry) => entry.min <= entry.max),
+          "lookup entries need min <= max",
+        ),
+      otherwise: effects,
+    }),
+    z.strictObject({
+      type: z.literal("randomTable"),
+      entries: z
+        .array(
+          z.strictObject({
+            id: idSchema,
+            weight: numExprSchema.default(1),
+            when: boolExprSchema.default(true),
+            effects,
+          }),
+        )
+        .min(1)
+        .refine(hasUniqueIds, "table entry ids must be unique"),
+      ifNone: effects,
+    }),
+    z.strictObject({
       type: z.literal("deliver"),
       quantity: idSchema,
       amount: numExprSchema,
@@ -269,6 +332,7 @@ const eventPatternSchema = z.discriminatedUnion("event", [
     attribute: idSchema,
   }),
   z.strictObject({ event: z.literal("spaceCounterChanged"), spaceCounter: idSchema }),
+  z.strictObject({ event: z.literal("diceRolled"), pool: optionalIdSchema }),
   z.strictObject({
     event: z.literal("quantityDelivered"),
     quantity: idSchema,
@@ -318,6 +382,20 @@ const cardSchema = z.strictObject({
   cost: costListSchema,
   effects: effectListSchema,
 });
+
+const dieTypeSchema = z.strictObject({
+  id: idSchema,
+  faces: z
+    .array(
+      z.strictObject({
+        id: idSchema,
+        symbols: z.record(idSchema, z.int()).default({}),
+      }),
+    )
+    .min(1),
+});
+
+const poolSchema = z.strictObject({ id: idSchema });
 
 const quantityTypeSchema = z.strictObject({
   id: idSchema,
@@ -394,6 +472,8 @@ const contentSchema = z.strictObject({
   cards: z.array(cardSchema).default([]),
   quantityTypes: z.array(quantityTypeSchema).default([]),
   modifiers: z.array(modifierSchema).default([]),
+  dice: z.array(dieTypeSchema).default([]),
+  pools: z.array(poolSchema).default([]),
   triggers: z.array(triggerSchema).default([]),
   checks: z.array(checkSchema).default([]),
   endConditions: z.array(endConditionSchema).default([]),
@@ -415,6 +495,8 @@ const removalSchema = z.strictObject({
   cards: idListSchema,
   quantityTypes: idListSchema,
   modifiers: idListSchema,
+  dice: idListSchema,
+  pools: idListSchema,
   triggers: idListSchema,
   checks: idListSchema,
   endConditions: idListSchema,

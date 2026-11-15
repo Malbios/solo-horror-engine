@@ -20,6 +20,7 @@ exports[`engine on the demo pack > matches the initial state snapshot 1`] = `
       "bonus-cards",
     ],
   },
+  "pools": {},
   "retiredUnits": [],
   "rng": {
     "a": 1197569939,

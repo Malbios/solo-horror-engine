@@ -39,6 +39,8 @@ function isAction(value: unknown): value is Action {
       return typeof value["unit"] === "string";
     case "pickCard":
       return typeof value["card"] === "string";
+    case "pickDie":
+      return typeof value["die"] === "string";
     default:
       return false;
   }

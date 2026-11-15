@@ -22,8 +22,10 @@ import {
 } from "./graph";
 import type {
   Action,
+  AssignFrame,
   Decision,
   DeliverFrame,
+  Die,
   EffectsFrame,
   FinishFrame,
   Frame,
@@ -32,14 +34,17 @@ import type {
   MoveFrame,
   PayFrame,
   PlayWindowFrame,
+  RerollFrame,
   ScopeFrame,
   SelectFrame,
+  SetFaceFrame,
 } from "./model";
 import type {
   Card,
   CardPosition,
   Cost,
   Counter,
+  DieType,
   Edge,
   Effect,
   EventPattern,
@@ -115,6 +120,8 @@ function matchesPattern(pattern: EventPattern, event: GameEvent): boolean {
       );
     case "spaceCounterChanged":
       return event.type === "spaceCounterChanged" && event.spaceCounter === pattern.spaceCounter;
+    case "diceRolled":
+      return event.type === "diceRolled" && (pattern.pool === null || pattern.pool === event.pool);
     case "quantityDelivered":
       return (
         event.type === "quantityDelivered" &&
@@ -160,6 +167,8 @@ export function createResolver(
       spaceCounters: work.spaceCounters,
       filters: rules.edgeFilterById,
       spaces: rules.spaceById,
+      pools: work.pools,
+      dice: rules.dieById,
     };
   }
 
@@ -603,6 +612,183 @@ export function createResolver(
     };
   }
 
+  function dieType(dieId: string): DieType {
+    return requireRules().dieById.get(dieId) ?? fault(`Unknown die "${dieId}"`);
+  }
+
+  function rollFace(dieId: string): string {
+    const faces = dieType(dieId).faces;
+    const [index, rng] = nextInt(work.rng, faces.length);
+    work.rng = rng;
+    return faces[index]?.id ?? fault(`Die "${dieId}" rolled outside its faces`);
+  }
+
+  function poolDice(poolId: string): Die[] {
+    return work.pools[poolId] ?? [];
+  }
+
+  function announceRoll(poolId: string): void {
+    emit(
+      { type: "diceRolled", pool: poolId, dice: poolDice(poolId).map((die) => ({ ...die })) },
+      contextFor(null),
+    );
+  }
+
+  function rollIntoPool(poolId: string, dieId: string, count: number, replace: boolean): void {
+    dieType(dieId);
+    const existing = replace ? [] : poolDice(poolId);
+    const highest = existing.reduce((top, die) => Math.max(top, Number(die.id.slice(1))), 0);
+    const added = Array.from({ length: Math.max(0, count) }, (_, offset) => ({
+      id: `d${highest + offset + 1}`,
+      die: dieId,
+      face: rollFace(dieId),
+      role: null,
+    }));
+    work.pools[poolId] = [...existing, ...added];
+    announceRoll(poolId);
+  }
+
+  function showsFace(die: Die, faces: readonly string[] | null): boolean {
+    return faces === null || faces.includes(die.face);
+  }
+
+  function rerollMarked(poolId: string, marked: readonly string[]): void {
+    for (const die of poolDice(poolId)) {
+      if (marked.includes(die.id)) die.face = rollFace(die.die);
+    }
+    if (marked.length > 0) announceRoll(poolId);
+  }
+
+  function startReroll(effect: Extract<Effect, { type: "rerollDice" }>): void {
+    if (effect.mode === "all") {
+      const marked = poolDice(effect.pool)
+        .filter((die) => showsFace(die, effect.faces))
+        .map((die) => die.id);
+      rerollMarked(effect.pool, marked);
+      return;
+    }
+    work.stack.push({ kind: "reroll", pool: effect.pool, faces: effect.faces, marked: [] });
+  }
+
+  function finishReroll(frame: RerollFrame): void {
+    work.stack.pop();
+    rerollMarked(frame.pool, frame.marked);
+  }
+
+  function runReroll(frame: RerollFrame): void {
+    const eligible = poolDice(frame.pool).filter(
+      (die) => showsFace(die, frame.faces) && !frame.marked.includes(die.id),
+    );
+    if (eligible.length === 0) {
+      finishReroll(frame);
+      return;
+    }
+    work.pending = {
+      kind: "pickDie",
+      pool: frame.pool,
+      dice: eligible.map((die) => die.id),
+      canPass: true,
+    };
+  }
+
+  function runSetFace(frame: SetFaceFrame): void {
+    const eligible = poolDice(frame.pool).filter((die) => showsFace(die, frame.faces));
+    if (frame.remaining <= 0 || eligible.length === 0) {
+      work.stack.pop();
+      return;
+    }
+    work.pending = {
+      kind: "pickDie",
+      pool: frame.pool,
+      dice: eligible.map((die) => die.id),
+      canPass: false,
+    };
+  }
+
+  function startAssign(effect: Extract<Effect, { type: "assignDice" }>, scope: ExpressionScope) {
+    for (const die of poolDice(effect.pool)) die.role = null;
+    work.stack.push({
+      kind: "assign",
+      pool: effect.pool,
+      roles: effect.roles.map(({ role, count }) => ({
+        role,
+        remaining: evaluateNumber(count, scope),
+      })),
+    });
+  }
+
+  function runAssign(frame: AssignFrame): void {
+    const role = frame.roles.find((candidate) => candidate.remaining > 0);
+    const unassigned = poolDice(frame.pool).filter((die) => die.role === null);
+    if (role === undefined || unassigned.length === 0) {
+      work.stack.pop();
+      return;
+    }
+    work.pending = {
+      kind: "pickDie",
+      pool: frame.pool,
+      dice: unassigned.map((die) => die.id),
+      canPass: false,
+    };
+  }
+
+  function pickDie(dieId: string): void {
+    const frame = topFrame();
+    if (frame === undefined) fault("No dice choice is in progress");
+    const pool = "pool" in frame ? poolDice(frame.pool) : [];
+    const die = pool.find((candidate) => candidate.id === dieId) ?? fault(`Unknown die "${dieId}"`);
+    if (frame.kind === "reroll") {
+      frame.marked.push(die.id);
+    } else if (frame.kind === "setFace") {
+      if (!dieType(die.die).faces.some((face) => face.id === frame.toFace)) {
+        fault(`Die "${die.die}" has no face "${frame.toFace}"`);
+      }
+      die.face = frame.toFace;
+      frame.remaining -= 1;
+    } else if (frame.kind === "assign") {
+      const role =
+        frame.roles.find((candidate) => candidate.remaining > 0) ?? fault("No role to fill");
+      die.role = role.role;
+      role.remaining -= 1;
+    } else {
+      fault("No dice choice is in progress");
+    }
+  }
+
+  function lookup(effect: Extract<Effect, { type: "lookup" }>, context: ExpressionContext): void {
+    const value = evaluateNumber(effect.value, scopeOf(context));
+    const entry = effect.entries.find(
+      (candidate) => candidate.min <= value && value <= candidate.max,
+    );
+    pushEffects(entry?.effects ?? effect.otherwise, context, null);
+  }
+
+  function drawFromTable(
+    effect: Extract<Effect, { type: "randomTable" }>,
+    context: ExpressionContext,
+  ): void {
+    const scope = scopeOf(context);
+    const eligible = effect.entries
+      .map((entry) => ({ entry, weight: evaluateNumber(entry.weight, scope) }))
+      .filter(({ entry, weight }) => weight > 0 && evaluateBoolean(entry.when, scope));
+    const total = eligible.reduce((sum, { weight }) => sum + weight, 0);
+    if (total === 0) {
+      pushEffects(effect.ifNone, context, null);
+      return;
+    }
+    const [drawn, rng] = nextInt(work.rng, total);
+    work.rng = rng;
+    let remaining = drawn;
+    for (const { entry, weight } of eligible) {
+      if (remaining < weight) {
+        pushEffects(entry.effects, context, null);
+        return;
+      }
+      remaining -= weight;
+    }
+    fault("Random table draw fell outside its weights");
+  }
+
   function costCounter(cost: Cost, context: ExpressionContext) {
     const scope = scopeOf(context);
     if ("counter" in cost) {
@@ -1032,6 +1218,36 @@ export function createResolver(
       case "deliver":
         startDelivery(effect, context);
         return;
+      case "rollDice":
+      case "addDice":
+        rollIntoPool(
+          effect.pool,
+          effect.die,
+          evaluateNumber(effect.count, scope),
+          effect.type === "rollDice",
+        );
+        return;
+      case "rerollDice":
+        startReroll(effect);
+        return;
+      case "setDieFace":
+        work.stack.push({
+          kind: "setFace",
+          pool: effect.pool,
+          faces: effect.faces,
+          toFace: effect.toFace,
+          remaining: evaluateNumber(effect.count, scope),
+        });
+        return;
+      case "assignDice":
+        startAssign(effect, scope);
+        return;
+      case "lookup":
+        lookup(effect, context);
+        return;
+      case "randomTable":
+        drawFromTable(effect, context);
+        return;
       case "addEdge":
         changeEdges(effect.edge.id, "added", effect.edge);
         return;
@@ -1182,6 +1398,15 @@ export function createResolver(
       case "pay":
         runPay(frame);
         return;
+      case "reroll":
+        runReroll(frame);
+        return;
+      case "setFace":
+        runSetFace(frame);
+        return;
+      case "assign":
+        runAssign(frame);
+        return;
       default:
         assertNever(frame);
     }
@@ -1307,6 +1532,8 @@ export function createResolver(
       case "pass": {
         if (pending.kind === "pickModule") work.choiceIndex += 1;
         if (pending.kind === "playCard" || pending.kind === "moveUnit") work.stack.pop();
+        const rerolling = topFrame();
+        if (pending.kind === "pickDie" && rerolling?.kind === "reroll") finishReroll(rerolling);
         const delivery = offeringDelivery();
         if (pending.kind === "chooseOption" && delivery !== null) {
           delivery.offering = false;
@@ -1338,6 +1565,9 @@ export function createResolver(
         takePick(frame, action.unit);
         return;
       }
+      case "pickDie":
+        pickDie(action.die);
+        return;
       case "pickCard": {
         const frame = topFrame();
         if (frame?.kind !== "pay") fault("No discard is in progress");

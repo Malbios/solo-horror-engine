@@ -2,6 +2,7 @@ import type {
   Card,
   Content,
   Counter,
+  DieType,
   EdgeFilter,
   EndCondition,
   Module,
@@ -24,6 +25,7 @@ export type Rules = Content & {
   unitKindById: ReadonlyMap<string, UnitKind>;
   spaceCounterById: ReadonlyMap<string, Counter>;
   quantityTypeById: ReadonlyMap<string, QuantityType>;
+  dieById: ReadonlyMap<string, DieType>;
 };
 
 function layer<T extends { id: string }>(
@@ -56,6 +58,8 @@ function applyModule(content: Content, module: Module): Content {
     cards: layer(content.cards, added.cards, remove.cards),
     quantityTypes: layer(content.quantityTypes, added.quantityTypes, remove.quantityTypes),
     modifiers: layer(content.modifiers, added.modifiers, remove.modifiers),
+    dice: layer(content.dice, added.dice, remove.dice),
+    pools: layer(content.pools, added.pools, remove.pools),
     triggers: layer(content.triggers, added.triggers, remove.triggers),
     checks: layer(content.checks, added.checks, remove.checks),
     endConditions: layer(content.endConditions, added.endConditions, remove.endConditions),
@@ -99,5 +103,6 @@ export function composeRules(pack: Pack, moduleIds: readonly string[]): Result<R
     unitKindById: indexById(content.unitKinds),
     spaceCounterById: indexById(content.spaceCounters),
     quantityTypeById: indexById(content.quantityTypes),
+    dieById: indexById(content.dice),
   });
 }
