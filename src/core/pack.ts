@@ -72,6 +72,31 @@ export type ChooseOption = {
 
 export type CardPosition = "top" | "bottom";
 
+export type CardFilter = { requireTags: string[]; excludeTags: string[] };
+
+export type WindowDiscard = { from: string; to: string; effects: Effect[] };
+
+export type PlayWindowEffect = {
+  type: "playWindow";
+  from: string;
+  to: string;
+  cards: CardFilter;
+  discard: WindowDiscard | null;
+  abilitiesFrom: string[];
+  repeat: boolean;
+};
+
+export type UseLimit = { uses: number; per: Scope | "game" };
+
+export type Ability = {
+  id: string;
+  label: string;
+  when: BoolExpr;
+  cost: Cost[];
+  effects: Effect[];
+  limit: UseLimit | null;
+};
+
 export type DiceRole = { role: string; count: NumExpr };
 
 export type LookupEntry = { min: number; max: number; effects: Effect[] };
@@ -88,7 +113,7 @@ export type Effect =
   | { type: "turnCards"; zone: string; count: NumExpr; face: ZoneFace }
   | { type: "if"; condition: BoolExpr; then: Effect[]; else: Effect[] }
   | { type: "choose"; optional: boolean; options: ChooseOption[] }
-  | { type: "playWindow"; from: string; to: string }
+  | PlayWindowEffect
   | { type: "endScope"; scope: Scope }
   | { type: "endGame"; endCondition: string }
   | { type: "createUnit"; kind: string; id: string | null; placement: Placement }
@@ -181,9 +206,11 @@ export type Card = {
   text: string;
   image: string | null;
   copies: number;
+  tags: string[];
   playable: BoolExpr;
   cost: Cost[];
   effects: Effect[];
+  abilities: Ability[];
 };
 
 export type DieFace = { id: string; symbols: Record<string, number> };

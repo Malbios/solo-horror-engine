@@ -8,11 +8,18 @@ export type DecisionHandlers = {
   newGame: () => void;
 };
 
-function offeredCard(action: Action, shown: GameView): ViewCard | null {
-  if (action.type !== "playCard" && action.type !== "pickCard") return null;
+function offeredCards(shown: GameView): ViewCard[] {
   const pending = shown.pending;
-  if (pending?.kind !== "playCard" && pending?.kind !== "pickCard") return null;
-  return pending.cards.find((card) => card.ref === action.card) ?? { ref: action.card, card: null };
+  if (pending?.kind === "pickCard") return pending.cards;
+  if (pending?.kind === "window") return [...pending.play, ...pending.discard];
+  return Object.values(shown.zones).flat();
+}
+
+function offeredCard(action: Action, shown: GameView): ViewCard | null {
+  if (!("card" in action)) return null;
+  return (
+    offeredCards(shown).find((card) => card.ref === action.card) ?? { ref: action.card, card: null }
+  );
 }
 
 function actionLabel(action: Action, shown: GameView, labels: Labels): string {

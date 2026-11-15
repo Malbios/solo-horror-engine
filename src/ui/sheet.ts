@@ -62,6 +62,13 @@ export function cardDetails(card: ViewCard, labels: Labels): Child[] {
           className: "muted",
           text: `Cost: ${definition.cost.map((cost) => describeCost(cost, labels)).join(", ")}`,
         }),
+    definition.abilities.length === 0
+      ? null
+      : h(
+          "ul",
+          { className: "card-abilities" },
+          definition.abilities.map((ability) => h("li", { text: ability.label })),
+        ),
   ];
 }
 

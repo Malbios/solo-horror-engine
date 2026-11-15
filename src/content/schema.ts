@@ -122,6 +122,13 @@ const costSchema = z.union([
 
 const costListSchema = z.array(costSchema).default([]);
 
+const tagListSchema = z.array(idSchema).default([]);
+
+const cardFilterSchema = z.strictObject({
+  requireTags: tagListSchema,
+  excludeTags: tagListSchema,
+});
+
 const orderSchema = z.strictObject({
   sortBy: z
     .array(
@@ -176,7 +183,15 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       optional: z.boolean().default(false),
       options: z.array(option).min(1).refine(hasUniqueIds, "option ids must be unique"),
     }),
-    z.strictObject({ type: z.literal("playWindow"), from: idSchema, to: idSchema }),
+    z.strictObject({
+      type: z.literal("playWindow"),
+      from: idSchema,
+      to: idSchema,
+      cards: cardFilterSchema.default({ requireTags: [], excludeTags: [] }),
+      discard: z.strictObject({ from: idSchema, to: idSchema, effects }).nullable().default(null),
+      abilitiesFrom: z.array(idSchema).default([]),
+      repeat: z.boolean().default(true),
+    }),
     z.strictObject({ type: z.literal("endScope"), scope: scopeSchema }),
     z.strictObject({ type: z.literal("endGame"), endCondition: idSchema }),
     z.strictObject({
@@ -413,15 +428,29 @@ const zoneSchema = z
   })
   .transform(({ name, ...zone }): Zone => ({ ...zone, name: name ?? zone.id }));
 
+const abilitySchema = z.strictObject({
+  id: idSchema,
+  label: nameSchema,
+  when: boolExprSchema.default(true),
+  cost: costListSchema,
+  effects: effectListSchema,
+  limit: z
+    .strictObject({ uses: z.int().min(1), per: z.enum(["step", "phase", "round", "game"]) })
+    .nullable()
+    .default(null),
+});
+
 const cardSchema = z.strictObject({
   id: idSchema,
   name: nameSchema,
   text: z.string().default(""),
   image: imageSchema,
   copies: z.int().min(1).default(1),
+  tags: tagListSchema,
   playable: boolExprSchema.default(true),
   cost: costListSchema,
   effects: effectListSchema,
+  abilities: z.array(abilitySchema).default([]).refine(hasUniqueIds, "ability ids must be unique"),
 });
 
 const dieTypeSchema = z.strictObject({

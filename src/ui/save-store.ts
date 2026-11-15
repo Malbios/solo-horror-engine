@@ -32,7 +32,10 @@ function isAction(value: unknown): value is Action {
     case "chooseOption":
       return typeof value["option"] === "string";
     case "playCard":
+    case "discardCard":
       return typeof value["card"] === "string";
+    case "useAbility":
+      return typeof value["card"] === "string" && typeof value["ability"] === "string";
     case "moveTo":
       return typeof value["space"] === "string";
     case "pickUnit":

@@ -21,6 +21,7 @@ const REFERENCE_KEYS: ReadonlyMap<string, ReferenceKind> = new Map([
   ["zone", "zone"],
   ["from", "zone"],
   ["to", "zone"],
+  ["abilitiesFrom", "zone"],
   ["card", "card"],
   ["endCondition", "endCondition"],
   ["space", "space"],
@@ -58,6 +59,10 @@ function referenceLabel(kind: ReferenceKind, id: string): string {
   return `${kind} "${id}"`;
 }
 
+function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
+
 function collectReferences(value: unknown, found: Set<string>): void {
   if (Array.isArray(value)) {
     for (const item of value) collectReferences(item, found);
@@ -68,6 +73,8 @@ function collectReferences(value: unknown, found: Set<string>): void {
     const kind = REFERENCE_KEYS.get(key);
     if (kind !== undefined && typeof child === "string") {
       found.add(referenceLabel(kind, child));
+    } else if (kind !== undefined && Array.isArray(child) && child.every(isString)) {
+      for (const id of child) found.add(referenceLabel(kind, id));
     } else {
       collectReferences(child, found);
     }

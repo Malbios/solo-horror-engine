@@ -34,6 +34,7 @@ import type {
   GameState,
   MoveFrame,
   PayFrame,
+  AbilityOffer,
   PlayWindowFrame,
   RerollFrame,
   ScopeFrame,
@@ -41,7 +42,9 @@ import type {
   SetFaceFrame,
 } from "./model";
 import type {
+  Ability,
   Card,
+  CardFilter,
   CardPosition,
   Cost,
   Counter,
@@ -1154,7 +1157,15 @@ export function createResolver(
         offerChoice(effect, context);
         return;
       case "playWindow":
-        work.stack.push({ kind: "playWindow", from: effect.from, to: effect.to });
+        work.stack.push({
+          kind: "playWindow",
+          from: effect.from,
+          to: effect.to,
+          cards: effect.cards,
+          discard: effect.discard,
+          abilitiesFrom: effect.abilitiesFrom,
+          repeat: effect.repeat,
+        });
         return;
       case "endScope":
         endScope(effect.scope);
@@ -1390,6 +1401,7 @@ export function createResolver(
       case "closing":
         work.stack.pop();
         resetCounters(frame.scope);
+        clearAbilityUses(frame.scope);
         emit({ type: "scopeExited", scope: frame.scope, id: frame.id }, EMPTY_CONTEXT);
         return;
       default:
@@ -1397,15 +1409,55 @@ export function createResolver(
     }
   }
 
+  function passesFilter(card: string, filter: CardFilter): boolean {
+    const tags = cardDefinition(card).tags;
+    return (
+      filter.requireTags.every((tag) => tags.includes(tag)) &&
+      !filter.excludeTags.some((tag) => tags.includes(tag))
+    );
+  }
+
+  function abilityKey(card: string, ability: string): string {
+    return `${card}/${ability}`;
+  }
+
+  function hasUsesLeft(card: string, ability: Ability): boolean {
+    return (
+      ability.limit === null ||
+      (work.abilityUses[abilityKey(card, ability.id)] ?? 0) < ability.limit.uses
+    );
+  }
+
+  function abilityOffers(zones: readonly string[]): AbilityOffer[] {
+    const scope = scopeOf(EMPTY_CONTEXT);
+    return zones.flatMap((zone) =>
+      zoneCards(zone)
+        .filter((card) => work.faceUp[card] === true)
+        .flatMap((card) =>
+          cardDefinition(card)
+            .abilities.filter(
+              (ability) =>
+                hasUsesLeft(card, ability) &&
+                evaluateBoolean(ability.when, scope) &&
+                isPayable(ability.cost, EMPTY_CONTEXT),
+            )
+            .map((ability) => ({ card, ability: ability.id })),
+        ),
+    );
+  }
+
   function openPlayWindow(frame: PlayWindowFrame): void {
     const scope = scopeOf(EMPTY_CONTEXT);
-    const cards = zoneCards(frame.from).filter((card) => {
+    const play = zoneCards(frame.from).filter((card) => {
       const definition = cardDefinition(card);
       return (
-        evaluateBoolean(definition.playable, scope) && isPayable(definition.cost, EMPTY_CONTEXT)
+        passesFilter(card, frame.cards) &&
+        evaluateBoolean(definition.playable, scope) &&
+        isPayable(definition.cost, EMPTY_CONTEXT)
       );
     });
-    work.pending = { kind: "playCard", cards };
+    const discard = frame.discard === null ? [] : [...zoneCards(frame.discard.from)];
+    work.pending = { kind: "window", play, discard, abilities: abilityOffers(frame.abilitiesFrom) };
   }
 
   function runEffectsFrame(frame: EffectsFrame): void {
@@ -1547,15 +1599,55 @@ export function createResolver(
     }
   }
 
+  function moveOneCard(card: string, from: string, to: string): void {
+    const source = zoneCards(from);
+    if (!source.includes(card)) fault(`Card "${card}" is not in zone "${from}"`);
+    work.zones[from] = source.filter((candidate) => candidate !== card);
+    placeCards(to, [card], "top");
+    cardsMovedEvent(from, to, [card]);
+  }
+
   function playCard(window: PlayWindowFrame, card: string): void {
-    const source = zoneCards(window.from);
-    if (!source.includes(card)) fault(`Card "${card}" is not in zone "${window.from}"`);
-    work.zones[window.from] = source.filter((candidate) => candidate !== card);
-    placeCards(window.to, [card], "top");
-    cardsMovedEvent(window.from, window.to, [card]);
+    moveOneCard(card, window.from, window.to);
     const definition = cardDefinition(card);
     pushEffects(definition.effects, EMPTY_CONTEXT, null);
     startPayment(definition.cost, EMPTY_CONTEXT);
+  }
+
+  function discardCard(window: PlayWindowFrame, card: string): void {
+    const discard = window.discard ?? fault("This window offers no discard");
+    moveOneCard(card, discard.from, discard.to);
+    pushEffects(discard.effects, EMPTY_CONTEXT, null);
+  }
+
+  function useAbility(card: string, abilityId: string): void {
+    const ability =
+      cardDefinition(card).abilities.find((candidate) => candidate.id === abilityId) ??
+      fault(`Card "${card}" has no ability "${abilityId}"`);
+    const key = abilityKey(card, abilityId);
+    if (ability.limit !== null) work.abilityUses[key] = (work.abilityUses[key] ?? 0) + 1;
+    emit({ type: "abilityUsed", card, ability: abilityId }, EMPTY_CONTEXT);
+    pushEffects(ability.effects, EMPTY_CONTEXT, null);
+    startPayment(ability.cost, EMPTY_CONTEXT);
+  }
+
+  function openWindow(): PlayWindowFrame {
+    const window = topFrame();
+    if (window?.kind !== "playWindow") fault("No play window is open");
+    if (!window.repeat) work.stack.pop();
+    return window;
+  }
+
+  function limitScopeOf(key: string): Scope | "game" | null {
+    const [card = "", abilityId] = key.split("/");
+    const ability = cardDefinition(card).abilities.find((candidate) => candidate.id === abilityId);
+    return ability?.limit?.per ?? null;
+  }
+
+  function clearAbilityUses(scope: Scope): void {
+    work.abilityUses = Object.fromEntries(
+      Object.entries(work.abilityUses).filter(([key]) => limitScopeOf(key) !== scope),
+    );
   }
 
   function topFrame(): Frame | undefined {
@@ -1577,7 +1669,7 @@ export function createResolver(
         return;
       case "pass": {
         if (pending.kind === "pickModule") work.choiceIndex += 1;
-        if (pending.kind === "playCard" || pending.kind === "moveUnit") work.stack.pop();
+        if (pending.kind === "window" || pending.kind === "moveUnit") work.stack.pop();
         const rerolling = topFrame();
         if (pending.kind === "pickDie" && rerolling?.kind === "reroll") finishReroll(rerolling);
         const delivery = offeringDelivery();
@@ -1620,12 +1712,16 @@ export function createResolver(
         discardPicked(frame, action.card);
         return;
       }
-      case "playCard": {
-        const window = work.stack[work.stack.length - 1];
-        if (window?.kind !== "playWindow") fault("No play window is open");
-        playCard(window, action.card);
+      case "playCard":
+        playCard(openWindow(), action.card);
         return;
-      }
+      case "discardCard":
+        discardCard(openWindow(), action.card);
+        return;
+      case "useAbility":
+        openWindow();
+        useAbility(action.card, action.ability);
+        return;
       case "moveTo": {
         const frame = work.stack[work.stack.length - 1];
         if (frame?.kind !== "move") fault("No movement is in progress");

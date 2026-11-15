@@ -2,6 +2,7 @@ import { cardDefinitionId } from "./cards";
 import { legalActions } from "./engine";
 import type { UnitState } from "./graph";
 import type {
+  AbilityOffer,
   Action,
   Decision,
   Die,
@@ -21,9 +22,9 @@ export type ViewCard = { ref: string; card: string | null };
 export type OptionChoiceView = { id: string; label: string; cost: Cost[] };
 
 export type DecisionView =
-  | Exclude<Decision, { kind: "chooseOption" } | { kind: "playCard" } | { kind: "pickCard" }>
+  | Exclude<Decision, { kind: "chooseOption" } | { kind: "window" } | { kind: "pickCard" }>
   | { kind: "chooseOption"; options: OptionChoiceView[]; canPass: boolean }
-  | { kind: "playCard"; cards: ViewCard[] }
+  | { kind: "window"; play: ViewCard[]; discard: ViewCard[]; abilities: AbilityOffer[] }
   | { kind: "pickCard"; cards: ViewCard[] };
 
 export type GameView = {
@@ -81,7 +82,13 @@ function viewDecision(state: GameState, pending: Decision): DecisionView {
         options: pending.options.map(({ id, label, cost }) => ({ id, label, cost })),
         canPass: pending.canPass,
       };
-    case "playCard":
+    case "window":
+      return {
+        kind: "window",
+        play: pending.play.map((card) => viewCard(state, card)),
+        discard: pending.discard.map((card) => viewCard(state, card)),
+        abilities: pending.abilities,
+      };
     case "pickCard":
       return { kind: pending.kind, cards: pending.cards.map((card) => viewCard(state, card)) };
     case "pickModule":
@@ -123,17 +130,13 @@ export function view(state: GameState): GameView {
 }
 
 function viewAction(state: GameState, action: Action): Action {
-  if (action.type === "playCard" || action.type === "pickCard") {
-    return { ...action, card: cardRef(state, action.card) };
-  }
-  return action;
+  return "card" in action ? { ...action, card: cardRef(state, action.card) } : action;
 }
 
 function lookKey(state: GameState, action: Action): string | null {
-  if (action.type !== "playCard" && action.type !== "pickCard") return null;
-  return isIdentified(state, action.card)
-    ? `${action.type}:${cardDefinitionId(action.card)}`
-    : null;
+  if (!("card" in action) || !isIdentified(state, action.card)) return null;
+  const ability = action.type === "useAbility" ? `:${action.ability}` : "";
+  return `${action.type}:${cardDefinitionId(action.card)}${ability}`;
 }
 
 /** Legal actions as the player sees them; options that look identical are offered once. */
@@ -151,11 +154,13 @@ export function viewActions(state: GameState): Action[] {
 
 /** Events as the player sees them, judged against the state after the step. */
 export function viewEvents(events: readonly GameEvent[], after: GameState): GameEvent[] {
-  return events.map((event) =>
-    event.type === "cardsMoved"
-      ? { ...event, cards: event.cards.map((card) => cardRef(after, card)) }
-      : event,
-  );
+  return events.map((event) => {
+    if (event.type === "cardsMoved") {
+      return { ...event, cards: event.cards.map((card) => cardRef(after, card)) };
+    }
+    if (event.type === "abilityUsed") return { ...event, card: cardRef(after, event.card) };
+    return event;
+  });
 }
 
 export function viewError(error: RuleError, state: GameState): RuleError {

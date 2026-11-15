@@ -2,6 +2,7 @@
 
 exports[`engine on the demo pack > matches the initial state snapshot 1`] = `
 {
+  "abilityUses": {},
   "cardSerials": {},
   "choiceIndex": 0,
   "counters": {},

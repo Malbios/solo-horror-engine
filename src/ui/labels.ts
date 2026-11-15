@@ -69,6 +69,14 @@ export function createLabels(rules: Rules, shown: GameView): Labels {
   };
 }
 
+function abilityLabel(ref: string, ability: string, shown: GameView, labels: Labels): string {
+  const card = cardsByRef(shown).get(ref) ?? { ref, card: null };
+  const label =
+    labels.cardDefinition(card)?.abilities.find((candidate) => candidate.id === ability)?.label ??
+    ability;
+  return `${labels.card(card)}: ${label}`;
+}
+
 function cardLabel(ref: string, shown: GameView, labels: Labels): string {
   return labels.card(cardsByRef(shown).get(ref) ?? { ref, card: null });
 }
@@ -87,6 +95,10 @@ export function describeAction(action: Action, shown: GameView, labels: Labels):
     }
     case "playCard":
       return `Play ${cardLabel(action.card, shown, labels)}`;
+    case "discardCard":
+      return `Discard ${cardLabel(action.card, shown, labels)}`;
+    case "useAbility":
+      return `Use ${abilityLabel(action.card, action.ability, shown, labels)}`;
     case "pickCard":
       return `Pick ${cardLabel(action.card, shown, labels)}`;
     case "moveTo":
@@ -153,6 +165,8 @@ export function describeEvent(event: GameEvent, shown: GameView, labels: Labels)
       return `A path was ${event.change}`;
     case "diceRolled":
       return `Rolled ${event.dice.map((die) => die.face).join(", ")}`;
+    case "abilityUsed":
+      return `Used ${abilityLabel(event.card, event.ability, shown, labels)}`;
     case "quantityDelivered":
       return event.unit === null
         ? `${event.amount} ${event.quantity}`
@@ -175,8 +189,8 @@ export function describeDecision(shown: GameView, labels: Labels): string {
       return "Choose optional content";
     case "chooseOption":
       return "Choose one";
-    case "playCard":
-      return "Play a card or pass";
+    case "window":
+      return "Choose an action or pass";
     case "pickCard":
       return "Pick a card";
     case "moveUnit":

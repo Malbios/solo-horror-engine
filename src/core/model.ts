@@ -7,6 +7,7 @@ import type {
   Effect,
   Order,
   Outcome,
+  PlayWindowEffect,
   Scope,
   SpaceRef,
   TieBreak,
@@ -38,7 +39,7 @@ export type ScopeFrame = {
   status: ScopeStatus;
 };
 
-export type PlayWindowFrame = { kind: "playWindow"; from: string; to: string };
+export type PlayWindowFrame = Omit<PlayWindowEffect, "type"> & { kind: "playWindow" };
 
 export type FinishFrame = { kind: "finish"; endCondition: string };
 
@@ -120,6 +121,8 @@ export type Frame =
   | SetFaceFrame
   | AssignFrame;
 
+export type AbilityOffer = { card: string; ability: string };
+
 export type OptionView = { id: string; label: string; cost: Cost[]; effects: Effect[] };
 
 export type Decision =
@@ -130,7 +133,7 @@ export type Decision =
       canPass: boolean;
       context: ExpressionContext;
     }
-  | { kind: "playCard"; cards: string[] }
+  | { kind: "window"; play: string[]; discard: string[]; abilities: AbilityOffer[] }
   | { kind: "moveUnit"; unit: string; options: string[]; canPass: boolean }
   | { kind: "pickUnit"; options: string[] }
   | { kind: "pickCard"; cards: string[] }
@@ -162,6 +165,7 @@ export type GameState = {
   spaceCounters: Record<string, Record<string, number>>;
   pools: Record<string, Die[]>;
   firedTriggers: string[];
+  abilityUses: Record<string, number>;
   stack: Frame[];
   pending: Decision | null;
 };
@@ -170,6 +174,8 @@ export type Action =
   | { type: "pickModule"; module: string }
   | { type: "chooseOption"; option: string }
   | { type: "playCard"; card: string }
+  | { type: "discardCard"; card: string }
+  | { type: "useAbility"; card: string; ability: string }
   | { type: "moveTo"; space: string }
   | { type: "pickUnit"; unit: string }
   | { type: "pickCard"; card: string }
@@ -204,6 +210,7 @@ export type GameEvent =
   | { type: "spaceCounterChanged"; space: string; spaceCounter: string; from: number; to: number }
   | { type: "edgeChanged"; edge: string; change: "added" | "removed" | "retargeted" }
   | { type: "diceRolled"; pool: string; dice: Die[] }
+  | { type: "abilityUsed"; card: string; ability: string }
   | {
       type: "quantityDelivered";
       quantity: string;

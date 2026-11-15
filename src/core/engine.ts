@@ -36,6 +36,7 @@ function createInitialState(pack: Pack, seed: number): GameState {
     spaceCounters: {},
     pools: {},
     firedTriggers: [],
+    abilityUses: {},
     stack: [],
     pending: null,
   };
@@ -47,7 +48,7 @@ function cloneState(state: GameState): GameState {
 
 /** Maps a card handle in a submitted action back to the card it stands for. */
 function resolveActionRefs(state: GameState, action: Action): Action {
-  if (action.type !== "playCard" && action.type !== "pickCard") return action;
+  if (!("card" in action)) return action;
   const match = Object.entries(state.handles).find(([, handle]) => handle === action.card);
   return match === undefined ? action : { ...action, card: match[0] };
 }
@@ -87,9 +88,13 @@ export function legalActions(state: GameState): Action[] {
         pending.options.map((option): Action => ({ type: "chooseOption", option: option.id })),
         pending.canPass,
       );
-    case "playCard":
+    case "window":
       return withPass(
-        pending.cards.map((card): Action => ({ type: "playCard", card })),
+        [
+          ...pending.play.map((card): Action => ({ type: "playCard", card })),
+          ...pending.discard.map((card): Action => ({ type: "discardCard", card })),
+          ...pending.abilities.map((offer): Action => ({ type: "useAbility", ...offer })),
+        ],
         true,
       );
     case "moveUnit":
@@ -119,6 +124,14 @@ function sameAction(legal: Action, candidate: Action): boolean {
       return candidate.type === "chooseOption" && candidate.option === legal.option;
     case "playCard":
       return candidate.type === "playCard" && candidate.card === legal.card;
+    case "discardCard":
+      return candidate.type === "discardCard" && candidate.card === legal.card;
+    case "useAbility":
+      return (
+        candidate.type === "useAbility" &&
+        candidate.card === legal.card &&
+        candidate.ability === legal.ability
+      );
     case "moveTo":
       return candidate.type === "moveTo" && candidate.space === legal.space;
     case "pickUnit":

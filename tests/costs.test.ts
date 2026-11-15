@@ -75,7 +75,12 @@ describe("costs", () => {
     );
     const engine = createEngine(pack);
     const window = engine.init(1);
-    expect(window.pending).toEqual({ kind: "playCard", cards: ["cheap:1"] });
+    expect(window.pending).toEqual({
+      kind: "window",
+      play: ["cheap:1"],
+      discard: [],
+      abilities: [],
+    });
     const played = act(engine, window, { type: "playCard", card: "cheap:1" });
     expect(played.counters["coins"]).toBe(0);
     expect(played.zones["played"]).toEqual(["cheap:1"]);

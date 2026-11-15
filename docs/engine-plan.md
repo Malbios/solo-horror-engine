@@ -57,6 +57,8 @@ Each entry ends with the invented fixture that tests it.
 
 21. **Procedures.** Packs define named effect lists with numeric parameters. An effect calls one with argument expressions, evaluated in the caller's context; inside, `{ arg }` reads them, and the caller's unit and amount pass through. Every call passes exactly the declared parameters, arguments are read only inside the procedure that declares them, and procedures never call themselves directly or indirectly. Modules patch procedures by id. _Fixture: two cards calling one procedure with different arguments._
 
+22. **Windows.** A window offers several kinds of action in one decision: play a card from a zone (optionally only cards with or without given tags), discard any card from a zone for a fixed effect, and use an ability of a face-up card lying in a listed zone, plus pass. Abilities have a condition, a cost and an optional use limit per step, phase, round or game; using one does not move the card. A window either stays open until pass or closes after one action. Abilities of face-down cards are never offered, so nothing hidden is revealed. _Fixture: one window offering a play, a discard and an ability limited to one use per phase._
+
 ## Decisions
 
 - **Undo stops at hidden information.** Undo is not allowed past any action whose resolution revealed something the player did not know before: a peek, a card or value turning face up, a die roll, a shuffle, or any other seeded random result. The engine marks such actions in the log as undo barriers; undo can only remove actions after the last barrier.
@@ -71,3 +73,4 @@ Each entry ends with the invented fixture that tests it.
 6. UI, following the platform constraints in CLAUDE.md.
 7. Loading packs at runtime from a file.
 8. Procedures.
+9. Rich windows: several kinds of offer per window, card tags and abilities with use limits.
