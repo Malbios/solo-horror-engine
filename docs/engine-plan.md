@@ -29,7 +29,7 @@ Each entry ends with the invented fixture that tests it.
 
 7. **Counters.** One primitive for every number: an owner (global, space, unit or card), optional bounds, threshold triggers, overflow and underflow effects, and an optional reset scope. The counter declares its reset scope and the scope's exit performs the reset; resets cannot be intercepted by modifiers. Fired-once flags and per-scope accumulators are counters. Unit attributes are counters too. _Fixture: a counter with a maximum of 7 whose overflow increments a second counter._
 
-8. **State-based checks.** After each frame is popped, pack-ordered checks run, repeating until nothing changes (bounded by the same cap as 5): removal predicates, threshold promotions, win and loss predicates. Simultaneous results are ordered per Ordering (14). A win and a loss firing together are always ordered by the pack, never by a decision. _Fixture: two units reaching zero at the same time._
+8. **State-based checks.** After each frame is popped, pack-ordered checks run, repeating until nothing changes (bounded by the same cap as 5): removal predicates, threshold promotions, win and loss predicates. Simultaneous results are ordered per Ordering (14). A win and a loss firing together are always ordered by the pack, never by a decision. Checks stop once the game is ending, so a check that ends the game cannot fire again while the end resolves. _Fixture: two units reaching zero at the same time._
 
 9. **Modifiers.** Replacement modifiers act on pending effects in pack priority order, with ties per Ordering (14): prevent, reduce, convert or substitute. Continuous modifiers change counter values or rules for a scope duration. _Fixture: a modifier that reduces each incoming quantity by one for one round._
 

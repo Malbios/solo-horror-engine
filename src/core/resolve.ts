@@ -1531,6 +1531,7 @@ export function createResolver(
 
   function runStateChecks(): boolean {
     if (rules === null || work.stage !== "rounds") return false;
+    if (work.stack.some((frame) => frame.kind === "finish")) return false;
     const scope = scopeOf(EMPTY_CONTEXT);
     const checkResolving = work.stack.some(
       (frame) => frame.kind === "effects" && frame.source?.startsWith(CHECK_SOURCE_PREFIX),
@@ -1545,7 +1546,6 @@ export function createResolver(
         }
       }
     }
-    if (work.stack.some((frame) => frame.kind === "finish")) return false;
     const end = rules.endConditions.find((candidate) =>
       evaluateBoolean(candidate.condition, scope),
     );

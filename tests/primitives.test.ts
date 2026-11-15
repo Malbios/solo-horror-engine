@@ -356,6 +356,26 @@ describe("state-based checks", () => {
     expect(engine.init(1).counters["trace"]).toBe(12);
   });
 
+  it("stops running checks once the game is ending", () => {
+    const engine = createEngine(
+      fixturePack({
+        counters: [{ id: "x", start: 0 }],
+        endConditions: [{ id: "over", condition: false, outcome: "loss" }],
+        checks: [
+          {
+            id: "still-true",
+            condition: { gte: [{ counter: "x" }, 0] },
+            effects: [{ type: "endGame", endCondition: "over" }],
+          },
+        ],
+        phases: [PAUSE_PHASE],
+      }),
+    );
+    const state = engine.init(1);
+    expect(state.status).toBe("finished");
+    expect(state.outcome).toEqual({ result: "loss", endCondition: "over" });
+  });
+
   it.each([
     ["loss", "win"],
     ["win", "loss"],
