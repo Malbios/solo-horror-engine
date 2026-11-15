@@ -5,9 +5,14 @@ import {
   createEngine,
   ENGINE_VERSION,
   replay,
+  view,
+  viewActions,
+  viewError,
+  viewEvents,
   type Action,
   type Engine,
   type GameState,
+  type GameView,
   type Pack,
 } from "../core";
 import {
@@ -33,12 +38,12 @@ function randomSeed(): number {
   return crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
 }
 
-function describeAction(action: Action, state: GameState): string {
+function describeAction(action: Action, shown: GameView): string {
   switch (action.type) {
     case "pickModule":
       return `Add module ${action.module}`;
     case "chooseOption": {
-      const pending = state.pending;
+      const pending = shown.pending;
       const option =
         pending?.kind === "chooseOption"
           ? pending.options.find((candidate) => candidate.id === action.option)
@@ -62,12 +67,12 @@ function describeAction(action: Action, state: GameState): string {
   }
 }
 
-function describeState(state: GameState): string {
-  const counters = Object.entries(state.counters)
+function describeState(shown: GameView): string {
+  const counters = Object.entries(shown.counters)
     .map(([id, value]) => `${id} ${value}`)
     .join(", ");
-  const outcome = state.outcome === null ? "" : ` Outcome: ${state.outcome.result}.`;
-  return `Round ${state.round}. ${counters}.${outcome}`;
+  const outcome = shown.outcome === null ? "" : ` Outcome: ${shown.outcome.result}.`;
+  return `Round ${shown.round}. ${counters}.${outcome}`;
 }
 
 function start(pack: Pack, engine: Engine, store: SaveStore): void {
@@ -82,24 +87,24 @@ function start(pack: Pack, engine: Engine, store: SaveStore): void {
   let session: Session | null = null;
 
   function render(message: string): void {
-    statusText.textContent =
-      session === null ? message : `${message} ${describeState(session.state)}`;
+    const shown = session === null ? null : view(session.state);
+    statusText.textContent = shown === null ? message : `${message} ${describeState(shown)}`;
     const current = session;
     const buttons =
-      current === null
+      current === null || shown === null
         ? []
-        : engine.legalActions(current.state).map((action) => {
+        : viewActions(current.state).map((action) => {
             const button = document.createElement("button");
             button.type = "button";
-            button.textContent = describeAction(action, current.state);
+            button.textContent = describeAction(action, shown);
             button.addEventListener("click", () => {
               take(action);
             });
             return button;
           });
     actionList.replaceChildren(...buttons);
-    if (current !== null) {
-      console.log("state", current.state);
+    if (shown !== null) {
+      console.log("view", shown);
     }
   }
 
@@ -107,12 +112,12 @@ function start(pack: Pack, engine: Engine, store: SaveStore): void {
     if (session === null) return;
     const outcome = engine.step(session.state, action);
     if (!outcome.ok) {
-      render(`Action rejected: ${outcome.error.type}.`);
+      render(`Action rejected: ${viewError(outcome.error, session.state).type}.`);
       return;
     }
     session = { ...session, actions: [...session.actions, action], state: outcome.value.state };
     persist(session);
-    console.log("events", outcome.value.events);
+    console.log("events", viewEvents(outcome.value.events, outcome.value.state));
     render(`Action ${session.actions.length} applied.`);
   }
 

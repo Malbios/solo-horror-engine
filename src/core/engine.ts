@@ -25,6 +25,9 @@ function createInitialState(pack: Pack, seed: number): GameState {
     counters: {},
     zones: {},
     faceUp: {},
+    handles: {},
+    handleSerial: 0,
+    known: {},
     cardSerials: {},
     units: {},
     unitSerial: 0,
@@ -40,6 +43,30 @@ function createInitialState(pack: Pack, seed: number): GameState {
 
 function cloneState(state: GameState): GameState {
   return JSON.parse(JSON.stringify(state)) as GameState;
+}
+
+/** Maps a card handle in a submitted action back to the card it stands for. */
+function resolveActionRefs(state: GameState, action: Action): Action {
+  if (action.type !== "playCard" && action.type !== "pickCard") return action;
+  const match = Object.entries(state.handles).find(([, handle]) => handle === action.card);
+  return match === undefined ? action : { ...action, card: match[0] };
+}
+
+function identifiedCards(state: GameState): Set<string> {
+  return new Set(
+    [...Object.keys(state.faceUp), ...Object.keys(state.known)].filter(
+      (card) => state.faceUp[card] === true || state.known[card] === true,
+    ),
+  );
+}
+
+/** True when a step drew randomness or let the player identify a card they could not before. */
+function isUndoBarrier(before: GameState, after: GameState): boolean {
+  if (JSON.stringify(before.rng) !== JSON.stringify(after.rng)) return true;
+  const identifiedBefore = identifiedCards(before);
+  return [...identifiedCards(after)].some(
+    (card) => card in before.faceUp && !identifiedBefore.has(card),
+  );
 }
 
 function withPass(actions: Action[], canPass: boolean): Action[] {
@@ -145,17 +172,18 @@ export function createEngine(pack: Pack): Engine {
       return err({ type: "engineFault", reason: state.fault ?? "Game is faulted" });
     }
     if (state.pending === null) return err({ type: "notPending" });
-    if (!legalActions(state).some((legal) => sameAction(legal, action))) {
+    const resolved = resolveActionRefs(state, action);
+    if (!legalActions(state).some((legal) => sameAction(legal, resolved))) {
       return err({ type: "illegalAction", action });
     }
     const work = cloneState(state);
     const events: GameEvent[] = [];
     const fault = settle(work, events, (resolver) => {
-      resolver.apply(action);
+      resolver.apply(resolved);
       resolver.run();
     });
     return fault === null
-      ? ok({ state: work, events })
+      ? ok({ state: work, events, undoBarrier: isUndoBarrier(state, work) })
       : err({ type: "engineFault", reason: fault });
   }
 

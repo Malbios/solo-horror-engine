@@ -17,6 +17,7 @@ export type {
   UnitPlacement,
   UnitState,
   Decision,
+  Die,
   Frame,
   GameEvent,
   GameOutcome,
@@ -29,8 +30,20 @@ export type {
 } from "./model";
 export * from "./pack";
 export { findMissingReferences } from "./references";
-export { replay, undo, type ReplayError } from "./replay";
+export { canUndo, replay, undo, type ReplayError, type UndoError } from "./replay";
 export { MAX_OPERATIONS_PER_CALL } from "./resolve";
 export { assertNever, err, ok, type Result } from "./result";
 export { next, nextInt, seedRng, shuffle, type Rng } from "./rng";
 export { ENGINE_VERSION } from "./version";
+export { cardDefinitionId } from "./cards";
+export {
+  cardRef,
+  view,
+  viewActions,
+  viewError,
+  viewEvents,
+  type DecisionView,
+  type GameView,
+  type OptionChoiceView,
+  type ViewCard,
+} from "./view";

@@ -83,6 +83,8 @@ export type Effect =
   | { type: "moveCards"; from: string; to: string; count: NumExpr; position: CardPosition }
   | { type: "createCards"; card: string; zone: string }
   | { type: "shuffle"; zone: string }
+  | { type: "peek"; zone: string; count: NumExpr }
+  | { type: "turnCards"; zone: string; count: NumExpr; face: ZoneFace }
   | { type: "if"; condition: BoolExpr; then: Effect[]; else: Effect[] }
   | { type: "choose"; optional: boolean; options: ChooseOption[] }
   | { type: "playWindow"; from: string; to: string }

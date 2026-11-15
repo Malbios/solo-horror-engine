@@ -154,6 +154,13 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
     }),
     z.strictObject({ type: z.literal("createCards"), card: idSchema, zone: idSchema }),
     z.strictObject({ type: z.literal("shuffle"), zone: idSchema }),
+    z.strictObject({ type: z.literal("peek"), zone: idSchema, count: numExprSchema.default(1) }),
+    z.strictObject({
+      type: z.literal("turnCards"),
+      zone: idSchema,
+      count: numExprSchema.default(1),
+      face: z.enum(["up", "down"]),
+    }),
     z.strictObject({
       type: z.literal("if"),
       condition: boolExprSchema,

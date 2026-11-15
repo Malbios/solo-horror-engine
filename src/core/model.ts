@@ -151,6 +151,9 @@ export type GameState = {
   counters: Record<string, number>;
   zones: Record<string, string[]>;
   faceUp: Record<string, boolean>;
+  handles: Record<string, string>;
+  handleSerial: number;
+  known: Record<string, true>;
   cardSerials: Record<string, number>;
   units: Record<string, UnitState>;
   unitSerial: number;
@@ -215,4 +218,4 @@ export type RuleError =
   | { type: "illegalAction"; action: Action }
   | { type: "engineFault"; reason: string };
 
-export type StepOutcome = { state: GameState; events: GameEvent[] };
+export type StepOutcome = { state: GameState; events: GameEvent[]; undoBarrier: boolean };

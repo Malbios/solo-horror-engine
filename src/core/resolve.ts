@@ -1,3 +1,4 @@
+import { cardDefinitionId } from "./cards";
 import type { Rules } from "./compose";
 import {
   EMPTY_CONTEXT,
@@ -131,10 +132,6 @@ function matchesPattern(pattern: EventPattern, event: GameEvent): boolean {
     default:
       return assertNever(pattern);
   }
-}
-
-function cardDefinitionId(cardInstance: string): string {
-  return cardInstance.slice(0, cardInstance.lastIndexOf(":"));
 }
 
 /**
@@ -997,7 +994,35 @@ export function createResolver(
     const existing = zoneCards(zoneId);
     work.zones[zoneId] = position === "top" ? [...cards, ...existing] : [...existing, ...cards];
     const faceUp = requireRules().zones.find((zone) => zone.id === zoneId)?.face !== "down";
-    for (const card of cards) work.faceUp[card] = faceUp;
+    for (const card of cards) setCardFace(card, faceUp);
+  }
+
+  function mintHandle(card: string): void {
+    work.handleSerial += 1;
+    work.handles[card] = `h${work.handleSerial}`;
+  }
+
+  function setCardFace(card: string, faceUp: boolean): void {
+    const wasFaceUp = work.faceUp[card] === true;
+    work.faceUp[card] = faceUp;
+    if (faceUp) {
+      delete work.handles[card];
+      return;
+    }
+    if (wasFaceUp) work.known[card] = true;
+    if (wasFaceUp || work.handles[card] === undefined) mintHandle(card);
+  }
+
+  function topCards(zoneId: string, count: number): string[] {
+    return zoneCards(zoneId).slice(0, Math.max(0, count));
+  }
+
+  function peek(zoneId: string, count: number): void {
+    for (const card of topCards(zoneId, count)) work.known[card] = true;
+  }
+
+  function turnCards(zoneId: string, count: number, faceUp: boolean): void {
+    for (const card of topCards(zoneId, count)) setCardFace(card, faceUp);
   }
 
   function cardsMovedEvent(from: string | null, to: string, cards: string[]): void {
@@ -1029,6 +1054,11 @@ export function createResolver(
     const [shuffled, rng] = shuffle(work.rng, zoneCards(zoneId));
     work.zones[zoneId] = shuffled;
     work.rng = rng;
+    for (const card of shuffled) {
+      if (work.faceUp[card] === true) continue;
+      delete work.known[card];
+      mintHandle(card);
+    }
   }
 
   function offerChoice(effect: Extract<Effect, { type: "choose" }>, context: ExpressionContext) {
@@ -1106,6 +1136,12 @@ export function createResolver(
         return;
       case "shuffle":
         shuffleZone(effect.zone);
+        return;
+      case "peek":
+        peek(effect.zone, evaluateNumber(effect.count, scope));
+        return;
+      case "turnCards":
+        turnCards(effect.zone, evaluateNumber(effect.count, scope), effect.face === "up");
         return;
       case "if":
         pushEffects(
