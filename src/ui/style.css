@@ -86,6 +86,12 @@ h3 {
   margin: 0;
 }
 
+.sheet-error {
+  color: var(--accent);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .app {
   container-type: inline-size;
   display: grid;

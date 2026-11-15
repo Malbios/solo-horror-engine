@@ -28,11 +28,15 @@ import {
   type Save,
   type SaveStore,
 } from "./save-store";
+import { LocalStoragePackStore, parsePackText, type PackStore } from "./pack-store";
 import { cardDetails, createSheet, spaceDetails } from "./sheet";
 import "./style.css";
 
-const SAVE_KEY = "solo-horror-engine:save";
+const PACK_KEY = "solo-horror-engine:pack";
+const SAVE_KEY_PREFIX = "solo-horror-engine:save:";
 const LOG_LIMIT = 100;
+
+type ActivePack = { pack: Pack; fromFile: boolean; notice: string };
 const PANELS = ["tracks", "cards", "log"] as const;
 type Panel = (typeof PANELS)[number];
 const PANEL_TITLES: Record<Panel, string> = { tracks: "Tracks", cards: "Cards", log: "Log" };
@@ -49,7 +53,8 @@ function randomSeed(): number {
   return crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
 }
 
-function start(pack: Pack, engine: Engine, store: SaveStore): void {
+function start(active: ActivePack, packStore: PackStore, engine: Engine, store: SaveStore): void {
+  const { pack } = active;
   const roundText = requireElement("round", HTMLSpanElement);
   const undoButton = requireElement("undo", HTMLButtonElement);
   const menuButton = requireElement("menu", HTMLButtonElement);
@@ -233,14 +238,50 @@ function start(pack: Pack, engine: Engine, store: SaveStore): void {
     ]);
   }
 
-  function openMenu(): void {
+  function openMenu(message: readonly string[] = []): void {
+    const fileInput = h("input", {
+      attrs: { type: "file", accept: ".json,application/json", hidden: "" },
+    });
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      if (file !== undefined) void loadPackFile(file);
+    });
     sheet.open("Menu", [
       h("p", { text: `${pack.meta.name} ${pack.meta.version}` }),
       h("p", { className: "muted", text: `Engine ${ENGINE_VERSION}` }),
+      ...message.map((line) => h("p", { className: "sheet-error", text: line })),
       h("div", { className: "actions" }, [
         h("button", { className: "action", text: "New game", onClick: confirmNewGame }),
+        h("button", {
+          className: "action",
+          text: "Load pack file",
+          onClick: () => fileInput.click(),
+        }),
+        active.fromFile
+          ? h("button", { className: "action", text: "Use demo pack", onClick: useDemoPack })
+          : null,
       ]),
+      fileInput,
     ]);
+  }
+
+  async function loadPackFile(file: File): Promise<void> {
+    const text = await file.text();
+    const parsed = parsePackText(text);
+    if (!parsed.ok) {
+      openMenu(parsed.error);
+      return;
+    }
+    if (!packStore.save(text)) {
+      openMenu(["The pack is too large for this browser to remember."]);
+      return;
+    }
+    location.reload();
+  }
+
+  function useDemoPack(): void {
+    packStore.clear();
+    location.reload();
   }
 
   function resume(): void {
@@ -248,6 +289,7 @@ function start(pack: Pack, engine: Engine, store: SaveStore): void {
     switch (loaded.type) {
       case "none":
         newGame();
+        if (active.notice !== "") render(active.notice);
         return;
       case "corrupt":
         render("The saved game is unreadable. Start a new game.");
@@ -271,25 +313,41 @@ function start(pack: Pack, engine: Engine, store: SaveStore): void {
           undoable: canUndo(engine, seed, actions),
           log: [{ title: `Resumed after ${actions.length} actions`, lines: [] }],
         };
-        render();
+        render(active.notice);
         return;
       }
     }
   }
 
   undoButton.addEventListener("click", takeBack);
-  menuButton.addEventListener("click", openMenu);
+  menuButton.addEventListener("click", () => openMenu());
 
   resume();
 }
 
-const parsed = parsePack(demoPackData);
-if (parsed.ok) {
+function choosePack(packStore: PackStore): ActivePack | null {
+  const stored = packStore.load();
+  let notice = "";
+  if (stored !== null) {
+    const parsed = parsePackText(stored);
+    if (parsed.ok) return { pack: parsed.value, fromFile: true, notice };
+    notice = "The remembered pack could not be read, so the demo pack is used.";
+  }
+  const demo = parsePack(demoPackData);
+  if (!demo.ok) {
+    console.error("Demo pack is invalid", demo.error);
+    return null;
+  }
+  return { pack: demo.value, fromFile: false, notice };
+}
+
+const packStore = new LocalStoragePackStore(PACK_KEY, localStorage);
+const active = choosePack(packStore);
+if (active !== null) {
   start(
-    parsed.value,
-    createEngine(parsed.value),
-    new LocalStorageSaveStore(SAVE_KEY, localStorage),
+    active,
+    packStore,
+    createEngine(active.pack),
+    new LocalStorageSaveStore(SAVE_KEY_PREFIX + active.pack.meta.id, localStorage),
   );
-} else {
-  console.error("Demo pack is invalid", parsed.error);
 }

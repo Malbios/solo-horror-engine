@@ -42,7 +42,7 @@ Code, types, comments, tests and commit messages use the generic vocabulary from
 
 ## Build and leak safety
 
-- `build` bundles only `content/demo` via a static import in `src/ui/main.ts`. Never add a glob import or copy step that could match `content/private`. No private build exists yet.
+- `build` bundles only `content/demo` via a static import in `src/ui/main.ts`. Never add a glob import or copy step that could match `content/private`. There is no private build: other packs are loaded at runtime from a file the player picks (menu, "Load pack file"), parsed with `parsePackText` and kept in the browser by `PackStore` (`src/ui/pack-store.ts`, `localStorage`); the page then reloads with that pack. Pack images are not loaded this way yet.
 - Vite: `publicDir: false`, `optimizeDeps.entries` limited to `index.html`, dev server denies `content/private/**`. Vitest only collects `tests/**/*.test.ts`. ESLint and Prettier ignore `content/private`.
 - `check:leaks` (`scripts/check-leaks.mjs`) fails if `git ls-files content/private` returns anything (case-insensitive), and scans staged added lines, staged paths and the commit message against `.private-terms.txt` (normalised: case, punctuation and line breaks ignored, camelCase split into words; matches whole words and simple plurals). It also rejects em dashes. A terms file that exists but has no terms is an error. `--scan-dir <dir>` scans a folder such as `dist/`; `--terms <file>` overrides the terms file.
 - Hooks (simple-git-hooks, installed by `prepare`): pre-commit and commit-msg run `node scripts/check-leaks.mjs` directly.
@@ -64,7 +64,7 @@ The game must be fully playable on desktop browsers and phones (portrait first, 
 
 ## Saves
 
-`SaveStore` (`src/ui/save-store.ts`) with a `localStorage` implementation. A save is `{ engineVersion, packId, packVersion, seed, actions }`, written after every action. On reload the game resumes by replay. On any version mismatch it does not replay; it reports the mismatch and offers a new game. A replay failure is treated as a corrupt save.
+`SaveStore` (`src/ui/save-store.ts`) with a `localStorage` implementation. A save is `{ engineVersion, packId, packVersion, seed, actions }`, written after every action under a key per pack id. On reload the game resumes by replay. On any version mismatch it does not replay; it reports the mismatch and offers a new game. A replay failure is treated as a corrupt save.
 
 ## Layout
 

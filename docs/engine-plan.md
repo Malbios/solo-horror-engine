@@ -67,3 +67,4 @@ Each entry ends with the invented fixture that tests it.
 4. Dice and random selection.
 5. Hidden information, projections, and undo barriers.
 6. UI, following the platform constraints in CLAUDE.md.
+7. Loading packs at runtime from a file.
