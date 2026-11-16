@@ -203,3 +203,38 @@ describe("rich windows", () => {
     });
   });
 });
+
+describe("window closing condition", () => {
+  const untilScore = (score: number) => ({
+    type: "playWindow",
+    play: { from: "hand", to: "pile" },
+    until: { gte: [{ counter: "score" }, score] },
+  });
+  const pausePhase = {
+    id: "pause",
+    steps: [{ id: "wait", effects: [{ type: "choose", options: [{ id: "on", label: "On" }] }] }],
+  };
+
+  it("lets the action that meets it resolve, then closes without asking", () => {
+    const engine = createEngine(
+      windowPack(untilScore(2), {
+        phases: [{ id: "act", steps: [{ id: "act", effects: [untilScore(2)] }] }, pausePhase],
+      }),
+    );
+    let state = engine.init(1);
+    expect(state.pending?.kind).toBe("window");
+    state = act(engine, state, { type: "playCard", card: "spark:1" });
+    expect(state.counters["score"]).toBe(2);
+    expect(state.pending?.kind).toBe("chooseOption");
+    expect(state.zones["hand"]).toEqual(["stone:1"]);
+  });
+
+  it("never asks when it holds from the start", () => {
+    const engine = createEngine(
+      windowPack(untilScore(0), {
+        phases: [{ id: "act", steps: [{ id: "act", effects: [untilScore(0)] }] }, pausePhase],
+      }),
+    );
+    expect(engine.init(1).pending?.kind).toBe("chooseOption");
+  });
+});

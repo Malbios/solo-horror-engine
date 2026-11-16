@@ -1319,6 +1319,7 @@ export function createResolver(
           buy: effect.buy,
           abilitiesFrom: effect.abilitiesFrom,
           repeat: effect.repeat,
+          until: effect.until,
         });
         return;
       case "resolveCard":
@@ -1639,6 +1640,10 @@ export function createResolver(
   }
 
   function openPlayWindow(frame: PlayWindowFrame): void {
+    if (evaluateBoolean(frame.until, scopeOf(EMPTY_CONTEXT))) {
+      work.stack.pop();
+      return;
+    }
     const discard = frame.discard === null ? [] : [...zoneCards(frame.discard.from)];
     work.pending = {
       kind: "window",

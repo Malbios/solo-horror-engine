@@ -109,6 +109,8 @@ export type PlayWindowEffect = {
   buy: WindowBuy | null;
   abilitiesFrom: string[];
   repeat: boolean;
+  /** When this holds as the window would open (again), it closes without a decision. */
+  until: BoolExpr;
 };
 
 export type UseLimit = { uses: number; per: Scope | "game" };
