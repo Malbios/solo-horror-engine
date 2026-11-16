@@ -754,26 +754,10 @@ export function createResolver(
     };
   }
 
-  /** True when choosing among these dice cannot change the outcome. */
-  function interchangeable(dice: readonly Die[]): boolean {
-    const [first, ...rest] = dice;
-    return (
-      first !== undefined &&
-      rest.every(
-        (die) => die.die === first.die && die.face === first.face && die.role === first.role,
-      )
-    );
-  }
-
   function runSetFace(frame: SetFaceFrame): void {
     const eligible = poolDice(frame.pool).filter((die) => showsFace(die, frame.faces));
     if (frame.remaining <= 0 || eligible.length === 0) {
       work.stack.pop();
-      return;
-    }
-    const [first] = eligible;
-    if (first !== undefined && interchangeable(eligible)) {
-      pickDie(first.id);
       return;
     }
     work.pending = {
@@ -801,11 +785,6 @@ export function createResolver(
     const unassigned = poolDice(frame.pool).filter((die) => die.role === null);
     if (role === undefined || unassigned.length === 0) {
       work.stack.pop();
-      return;
-    }
-    const [first] = unassigned;
-    if (first !== undefined && interchangeable(unassigned)) {
-      pickDie(first.id);
       return;
     }
     work.pending = {

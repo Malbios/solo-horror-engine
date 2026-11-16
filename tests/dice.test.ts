@@ -102,7 +102,8 @@ describe("dice", () => {
       canPass: false,
     });
     state = act(engine, state, { type: "pickDie", die: "d2" });
-    expect(state.pending?.kind).not.toBe("pickDie");
+    expect(state.pending).toEqual({ kind: "pickDie", pool: "pool", dice: ["d1"], canPass: false });
+    state = act(engine, state, { type: "pickDie", die: "d1" });
     expect(state.pools["pool"]?.map((die) => [die.id, die.role])).toEqual([
       ["d1", "guide"],
       ["d2", "aim"],
@@ -184,7 +185,7 @@ describe("dice", () => {
       },
     );
     const engine = createEngine(pack);
-    let state = engine.init(13);
+    let state = engine.init(8);
     const before = faces(state).filter((face) => face === "hit").length;
     expect(state.pending?.kind).toBe("pickDie");
     const legal = engine.legalActions(state);
@@ -192,18 +193,6 @@ describe("dice", () => {
     if (choice?.type !== "pickDie") throw new Error("expected a die to pick");
     state = act(engine, state, choice);
     expect(state.counters["hits"]).toBe(before + 1);
-  });
-
-  it("changes a face without asking when every eligible die looks the same", () => {
-    const pack = dicePack([
-      { type: "rollDice", pool: "pool", die: "six", count: 4 },
-      { type: "setDieFace", pool: "pool", faces: ["dud", "half"], toFace: "hit" },
-      set("hits", count("hit")),
-    ]);
-    const state = createEngine(pack).init(8);
-    expect(faces(state)).toEqual(["hit", "hit", "hit", "half"]);
-    expect(state.counters["hits"]).toBe(3);
-    expect(state.pending?.kind).not.toBe("pickDie");
   });
 
   it("replays dice decisions from the log", () => {
