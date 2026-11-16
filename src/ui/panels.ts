@@ -61,17 +61,43 @@ export function renderTracks(shown: GameView, labels: Labels): HTMLElement {
   ]);
 }
 
-export function cardTile(card: ViewCard, labels: Labels, onOpen: CardHandler): HTMLButtonElement {
+export type CardGroup = { card: ViewCard; copies: number };
+
+/** Face-up cards that look the same (definition and counters) as one group, in first-seen order. */
+export function groupCopies(cards: readonly ViewCard[]): CardGroup[] {
+  const groups = new Map<string, CardGroup>();
+  for (const card of cards) {
+    const key =
+      card.card === null
+        ? `hidden:${card.ref}`
+        : `${card.card}:${JSON.stringify(card.counters ?? {})}`;
+    const group = groups.get(key);
+    if (group === undefined) groups.set(key, { card, copies: 1 });
+    else group.copies += 1;
+  }
+  return [...groups.values()];
+}
+
+export function cardTile(
+  card: ViewCard,
+  labels: Labels,
+  onOpen: CardHandler,
+  copies = 1,
+): HTMLButtonElement {
   const definition = labels.cardDefinition(card);
+  const copiesText = copies > 1 ? `, ${copies} copies` : "";
   return h(
     "button",
     {
       className: card.card === null ? "card card-back" : "card",
-      attrs: { "aria-label": `${labels.card(card)}, details` },
+      attrs: { "aria-label": `${labels.card(card)}${copiesText}, details` },
       onClick: () => onOpen(card),
     },
     [
-      h("span", { className: "card-name", text: labels.card(card) }),
+      h("span", { className: "card-name" }, [
+        labels.card(card),
+        copies > 1 ? h("span", { className: "card-copies", text: `×${copies}` }) : null,
+      ]),
       definition === null || definition.text === ""
         ? null
         : h("span", { className: "card-text", text: definition.text }),
@@ -93,7 +119,7 @@ function zoneSection(
     : h(
         "div",
         { className: "card-row" },
-        cards.map((card) => cardTile(card, labels, onOpen)),
+        groupCopies(cards).map(({ card, copies }) => cardTile(card, labels, onOpen, copies)),
       );
   return h("section", { className: "zone" }, [
     h("h3", {}, [labels.zone(zone), h("span", { className: "count", text: ` ${cards.length}` })]),

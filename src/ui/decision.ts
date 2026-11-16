@@ -22,7 +22,30 @@ function offeredCard(action: Action, shown: GameView): ViewCard | null {
   );
 }
 
-function actionLabel(action: Action, shown: GameView, labels: Labels): string {
+/** The cards an action of this type chooses among, so copies can be counted. */
+function cardsChosenAmong(action: Action, shown: GameView): readonly ViewCard[] {
+  const pending = shown.pending;
+  if (pending?.kind === "pickCard") return pending.cards;
+  if (pending?.kind !== "window") return [];
+  switch (action.type) {
+    case "playCard":
+      return pending.play;
+    case "discardCard":
+      return pending.discard;
+    case "buyCard":
+      return pending.buy;
+    default:
+      return [];
+  }
+}
+
+function copiesOffered(action: Action, shown: GameView): number {
+  const card = offeredCard(action, shown);
+  if (card === null || card.card === null) return 0;
+  return cardsChosenAmong(action, shown).filter((other) => other.card === card.card).length;
+}
+
+export function actionLabel(action: Action, shown: GameView, labels: Labels): string {
   const pending = shown.pending;
   if (action.type === "pickDie" && pending?.kind === "pickDie") {
     const die = shown.pools[pending.pool]?.find((candidate) => candidate.id === action.die);
@@ -30,7 +53,33 @@ function actionLabel(action: Action, shown: GameView, labels: Labels): string {
       ? describeAction(action, shown, labels)
       : `Pick ${die.face} (${die.id})`;
   }
-  return describeAction(action, shown, labels);
+  const label = describeAction(action, shown, labels);
+  const copies = copiesOffered(action, shown);
+  return copies > 1 ? `${label} (${copies})` : label;
+}
+
+/**
+ * Keeps the engine's grouping by action type but orders card actions by name, so a card keeps its
+ * place when one of its copies is taken.
+ */
+export function stableOrder(actions: readonly Action[], shown: GameView, labels: Labels): Action[] {
+  const typeRank = new Map<string, number>();
+  actions.forEach((action, index) => {
+    if (!typeRank.has(action.type)) typeRank.set(action.type, index);
+  });
+  const cardName = (action: Action): string => {
+    const card = offeredCard(action, shown);
+    return card === null ? "" : labels.card(card);
+  };
+  return actions
+    .map((action, index) => ({ action, index, name: cardName(action) }))
+    .sort(
+      (a, b) =>
+        (typeRank.get(a.action.type) ?? 0) - (typeRank.get(b.action.type) ?? 0) ||
+        (a.name === "" || b.name === "" ? 0 : a.name.localeCompare(b.name)) ||
+        a.index - b.index,
+    )
+    .map(({ action }) => action);
 }
 
 function actionControl(
@@ -100,7 +149,9 @@ export function renderDecision(
     h(
       "div",
       { className: "actions" },
-      actions.map((action) => actionControl(action, shown, labels, handlers)),
+      stableOrder(actions, shown, labels).map((action) =>
+        actionControl(action, shown, labels, handlers),
+      ),
     ),
   ];
 }
