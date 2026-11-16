@@ -20,7 +20,7 @@ function moveTargets(actions: readonly Action[]): Map<string, Action> {
 }
 
 function unitChip(unit: UnitState, labels: Labels): HTMLElement {
-  const name = labels.unit(unit.id);
+  const name = labels.piece(unit.id);
   return h("span", { className: "unit-chip", text: name.slice(0, 1), attrs: { title: name } });
 }
 
@@ -50,7 +50,7 @@ function spaceButton(
   const units = unitsOn(shown, space.id);
   const marks = marksAt(space.id, labels);
   const target = targets.get(space.id);
-  const unitNames = units.map((unit) => labels.unit(unit.id));
+  const unitNames = units.map((unit) => labels.piece(unit.id));
   const markNames = marks.map((marked) => describeMarkFrom(marked, space.id, labels));
   const description = [space.name, ...unitNames, ...markNames].join(", ");
   const button = h(

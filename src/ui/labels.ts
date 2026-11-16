@@ -25,7 +25,11 @@ export type Labels = {
   spaceCounter(id: string): string;
   card(card: ViewCard): string;
   cardDefinition(card: ViewCard): Card | null;
+  /** A piece named so the player can tell it apart, e.g. "Walker 2 at Mill". */
   unit(id: string): string;
+  /** A piece named among those on its own space, e.g. "Walker 2". */
+  piece(id: string): string;
+  unitKind(kind: string): string;
   attribute(kind: string, id: string): string;
   boards(): Board[];
   markedEdges(): MarkedEdge[];
@@ -79,10 +83,25 @@ export function createLabels(
   shown: GameView,
   modules: ReadonlyMap<string, ModuleInfo> = new Map(),
 ): Labels {
+  const kindName = (kind: string): string => rules.unitKindById.get(kind)?.name ?? kind;
+  const spaceName = (id: string): string => rules.spaceById.get(id)?.name ?? id;
+  const spaceOf = (unit: UnitState): string | null =>
+    unit.placement.type === "space" ? unit.placement.space : null;
+  const sameKindAs = (unit: UnitState): UnitState[] =>
+    Object.values(shown.units).filter((other) => other.kind === unit.kind);
+  const pieceName = (unit: UnitState): string => {
+    const neighbours = sameKindAs(unit)
+      .filter((other) => spaceOf(other) === spaceOf(unit))
+      .sort((a, b) => (a.id < b.id ? -1 : 1));
+    const name = kindName(unit.kind);
+    return neighbours.length > 1 ? `${name} ${neighbours.indexOf(unit) + 1}` : name;
+  };
   const unitName = (unit: UnitState): string => {
-    const kindName = rules.unitKindById.get(unit.kind)?.name ?? unit.kind;
-    const sameKind = Object.values(shown.units).filter((other) => other.kind === unit.kind);
-    return sameKind.length > 1 ? `${kindName} (${unit.id})` : kindName;
+    const space = spaceOf(unit);
+    const name = pieceName(unit);
+    return space === null || sameKindAs(unit).length === 1
+      ? name
+      : `${name} at ${spaceName(space)}`;
   };
   const cardDefinition = (card: ViewCard): Card | null =>
     card.card === null ? null : (rules.cardById.get(card.card) ?? null);
@@ -108,6 +127,11 @@ export function createLabels(
       const unit = shown.units[id];
       return unit === undefined ? id : unitName(unit);
     },
+    piece: (id) => {
+      const unit = shown.units[id];
+      return unit === undefined ? id : pieceName(unit);
+    },
+    unitKind: kindName,
     attribute: (kind, id) =>
       rules.unitKindById.get(kind)?.attributes.find((attribute) => attribute.id === id)?.name ?? id,
     boards: () => rules.boards,
@@ -203,11 +227,15 @@ export function describeEvent(event: GameEvent, shown: GameView, labels: Labels)
     case "unitCreated":
       return `${labels.unit(event.unit)} appears`;
     case "unitRemoved":
-      return `${event.unit} removed`;
-    case "unitMoved":
+      return event.fromSpace === null
+        ? `${labels.unitKind(event.kind)} removed`
+        : `${labels.unitKind(event.kind)} removed from ${labels.space(event.fromSpace)}`;
+    case "unitMoved": {
+      const from = event.fromSpace === null ? "" : ` from ${labels.space(event.fromSpace)}`;
       return event.toSpace === null
-        ? `${labels.unit(event.unit)} leaves the board`
-        : `${labels.unit(event.unit)} moves to ${labels.space(event.toSpace)}`;
+        ? `${labels.unitKind(event.kind)} leaves the board${from}`
+        : `${labels.unitKind(event.kind)} moves${from} to ${labels.space(event.toSpace)}`;
+    }
     case "unitKindChanged":
       return `${labels.unit(event.unit)} changes`;
     case "attributeChanged":

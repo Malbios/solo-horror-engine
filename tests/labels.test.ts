@@ -98,6 +98,48 @@ describe("labels", () => {
     expect([...moduleInfo(plain).values()].every((info) => info.note === null)).toBe(true);
   });
 
+  it("names pieces by kind and space, never by id", () => {
+    const create = (id: string, kind: string, space: string) => ({
+      type: "createUnit",
+      kind,
+      id,
+      placement: { onSpace: { space } },
+    });
+    const pack = fixturePack({
+      spaces: [
+        { id: "mill", name: "Mill" },
+        { id: "pond", name: "Pond" },
+      ],
+      edges: [{ id: "mp", fromSpace: "mill", toSpace: "pond" }],
+      unitKinds: [
+        { id: "walker", name: "Walker" },
+        { id: "guide", name: "Guide" },
+      ],
+      setup: [
+        create("guide-a", "guide", "pond"),
+        create("w1", "walker", "mill"),
+        create("w2", "walker", "mill"),
+        create("w3", "walker", "pond"),
+      ],
+      phases: [PAUSE_PHASE],
+    });
+    const engine = createEngine(pack);
+    const state = engine.init(1);
+    const shown = view(state);
+    const labels = createLabels(displayRules(pack, shown.modules), shown);
+    expect(labels.unit("guide-a")).toBe("Guide");
+    expect(labels.unit("w2")).toBe("Walker 2 at Mill");
+    expect(labels.unit("w3")).toBe("Walker at Pond");
+    expect(labels.piece("w1")).toBe("Walker 1");
+    expect(
+      describeEvent(
+        { type: "unitMoved", unit: "w3", kind: "walker", fromSpace: "mill", toSpace: "pond" },
+        shown,
+        labels,
+      ),
+    ).toBe("Walker moves from Mill to Pond");
+  });
+
   it("uses names for the demo pack's spaces and pieces", () => {
     const pack = loadDemoPack();
     const engine = createEngine(pack);

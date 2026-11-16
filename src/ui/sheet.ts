@@ -90,7 +90,10 @@ export function spaceDetails(space: Space, shown: GameView, labels: Labels): Chi
       : h(
           "ul",
           { className: "plain-list" },
-          units.map((unit) => h("li", { text: labels.unit(unit.id) })),
+          units
+            .map((unit) => labels.piece(unit.id))
+            .sort((a, b) => a.localeCompare(b))
+            .map((name) => h("li", { text: name })),
         ),
     marks.length === 0
       ? null
