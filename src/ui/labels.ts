@@ -154,10 +154,18 @@ function cardLabel(ref: string, shown: GameView, labels: Labels): string {
   return labels.card(cardsByRef(shown).get(ref) ?? { ref, card: null });
 }
 
+function choiceName(choice: string): string {
+  const words = choice.replaceAll("-", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 export function describeAction(action: Action, shown: GameView, labels: Labels): string {
   switch (action.type) {
-    case "pickModule":
-      return `Add ${labels.module(action.module)}`;
+    case "pickModule": {
+      const pending = shown.pending;
+      const module = labels.module(action.module);
+      return pending?.kind === "pickModule" ? `${choiceName(pending.choice)}: ${module}` : module;
+    }
     case "chooseOption": {
       const pending = shown.pending;
       const option =
@@ -209,8 +217,9 @@ function signed(from: number, to: number): string {
 export function describeEvent(event: GameEvent, shown: GameView, labels: Labels): string | null {
   switch (event.type) {
     case "moduleChosen":
-      return `Added ${labels.module(event.module)}`;
+      return null;
     case "counterChanged":
+      if (labels.rules.counterById.get(event.counter)?.hidden === true) return null;
       return `${labels.counter(event.counter)} ${signed(event.from, event.to)} (now ${event.to})`;
     case "cardsMoved": {
       const cards = describeCards(event.cards, shown, labels);

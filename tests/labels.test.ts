@@ -68,6 +68,16 @@ describe("labels", () => {
     expect(lines).toContain("Tally +2 (now 2)");
   });
 
+  it("leaves changes to hidden counters out of the log", () => {
+    const pack = fixturePack({
+      counters: [{ id: "tally", name: "Tally", start: 0, hidden: true }],
+    });
+    const shown = view(createEngine(pack).init(3));
+    const labels = createLabels(displayRules(pack, shown.modules), shown);
+    const change = { type: "counterChanged", counter: "tally", from: 0, to: 1 } as const;
+    expect(describeEvent(change, shown, labels)).toBeNull();
+  });
+
   it("never names a face-down card in actions or the log", () => {
     const pack = hiddenPack();
     const engine = createEngine(pack);

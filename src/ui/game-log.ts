@@ -18,6 +18,16 @@ export const LOG_LIMIT = 100;
 
 export type LabelsFor = (shown: GameView) => Labels;
 
+const isRoundStart = (event: GameEvent): boolean =>
+  event.type === "scopeEntered" && event.scope === "round";
+
+/** Setup bookkeeping is left out: from an action taken during setup, only the first round onward. */
+function shownEvents(events: readonly GameEvent[], before: GameView): readonly GameEvent[] {
+  if (before.round > 0) return events;
+  const roundStart = events.findIndex(isRoundStart);
+  return roundStart === -1 ? [] : events.slice(roundStart);
+}
+
 export function logEntry(
   action: Action,
   before: GameState,
@@ -29,7 +39,7 @@ export function logEntry(
   const title = describeAction(action, shownBefore, labelsFor(shownBefore));
   const shownAfter = view(after);
   const labels = labelsFor(shownAfter);
-  const lines = viewEvents(events, after).flatMap((event) => {
+  const lines = shownEvents(viewEvents(events, after), shownBefore).flatMap((event) => {
     const line = describeEvent(event, shownAfter, labels);
     return line === null ? [] : [line];
   });

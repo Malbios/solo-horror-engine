@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEngine, viewActions, type Action, type GameView } from "../src/core";
+import { createEngine, view, viewActions, type Action, type GameView } from "../src/core";
 import { logEntry, replayWithLog } from "../src/ui/game-log";
 import { createLabels, displayRules, moduleInfo } from "../src/ui/labels";
 import { loadDemoPack } from "./helpers";
@@ -36,6 +36,27 @@ describe("replayWithLog", () => {
     expect(replayed.value.log).toEqual(live);
     expect(replayed.value.log).toHaveLength(actions.length);
     expect(replayed.value.state).toEqual(state);
+  });
+
+  it("names the chosen modules and leaves setup bookkeeping out", () => {
+    const { engine, labelsFor } = setup();
+    const actions: Action[] = [];
+    let state = engine.init(SEED);
+    while (view(state).round === 0) {
+      const action = viewActions(state)[0];
+      if (action === undefined) break;
+      const outcome = engine.step(state, action);
+      if (!outcome.ok) throw new Error("demo action refused");
+      actions.push(action);
+      state = outcome.value.state;
+    }
+    const replayed = replayWithLog(engine, SEED, actions, labelsFor);
+    if (!replayed.ok) throw new Error("replay failed");
+    const picks = replayed.value.log.filter((_, index) => actions[index]?.type === "pickModule");
+    expect(picks.length).toBeGreaterThan(0);
+    for (const pick of picks) expect(pick.title).toMatch(/^[A-Z][^:]*: \S/);
+    const setupLines = replayed.value.log.flatMap((entry) => entry.lines);
+    expect(setupLines[0]).toMatch(/^Round 1 begins$/);
   });
 
   it("names the action that no longer replays", () => {
