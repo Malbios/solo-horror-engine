@@ -259,6 +259,8 @@ export type Counter = {
   name: string;
   /** Display only: bookkeeping the player does not need to see. */
   hidden: boolean;
+  /** Display only: where the value is shown. */
+  show: CounterShow;
   start: number;
   min: number | null;
   max: number | null;
@@ -267,9 +269,24 @@ export type Counter = {
   onUnderflow: Effect[];
 };
 
+/**
+ * Display only. main: in the status strip at the top; normal: in the panels; flag: in the strip,
+ * by name, only while not 0; minor: one compact row under More.
+ */
+export type CounterShow = "main" | "normal" | "flag" | "minor";
+
+/** Display only. main: first in the cards panel; minor: one compact row under More. */
+export type ZoneShow = "main" | "normal" | "minor";
+
 export type ZoneFace = "up" | "down";
 
-export type Zone = { id: string; name: string; face: ZoneFace; backEffects: Effect[] };
+export type Zone = {
+  id: string;
+  name: string;
+  face: ZoneFace;
+  backEffects: Effect[];
+  show: ZoneShow;
+};
 
 export type Card = {
   id: string;
@@ -302,7 +319,7 @@ export type DieSymbol = { id: string; name: string; plural: string | null };
 
 export type DieType = { id: string; faces: DieFace[]; symbols: DieSymbol[] };
 
-export type Pool = { id: string };
+export type Pool = { id: string; name: string };
 
 export type QuantityType = {
   id: string;

@@ -21,7 +21,8 @@ import { renderDecision } from "./decision";
 import { h, requireElement } from "./dom";
 import { logEntry, replayWithLog, withEntry } from "./game-log";
 import { createLabels, displayRules, moduleInfo, type Labels } from "./labels";
-import { renderLog, renderTracks, renderZones, type LogEntry } from "./panels";
+import { renderLog, renderTracks, renderZones, type LogEntry, type MoreState } from "./panels";
+import { renderStatus } from "./status";
 import {
   describeSaveMismatch,
   LocalStorageSaveStore,
@@ -54,7 +55,7 @@ const ADD_ONS_KEY = "solo-horror-engine:add-ons";
 const SAVE_KEY_PREFIX = "solo-horror-engine:save:";
 
 type ActivePack = { pack: Pack; fromFile: boolean; addOns: AddOn[]; notice: string };
-const PANELS = ["tracks", "cards"] as const;
+const PANELS = ["cards", "tracks"] as const;
 type Panel = (typeof PANELS)[number];
 const PANEL_TITLES: Record<Panel, string> = { tracks: "Tracks", cards: "Cards" };
 
@@ -82,6 +83,15 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
   const panels = requireElement("panels", HTMLElement);
   const decisionBar = requireElement("decision", HTMLElement);
   const notice = requireElement("notice", HTMLParagraphElement);
+  const statusStrip = requireElement("status", HTMLDivElement);
+  const openMore = new Set<string>();
+  const more: MoreState = {
+    isOpen: (key) => openMore.has(key),
+    setOpen: (key, open) => {
+      if (open) openMore.add(key);
+      else openMore.delete(key);
+    },
+  };
   const sheetDialog = requireElement("sheet", HTMLDialogElement);
   const sheet = createSheet(sheetDialog);
   const logDrawer = requireElement("log-drawer", HTMLElement);
@@ -134,6 +144,8 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     );
     showNewestLogEntry();
     if (current === null) {
+      statusStrip.replaceChildren();
+      statusStrip.hidden = true;
       roundText.textContent = "";
       undoButton.disabled = true;
       mapArea.replaceChildren();
@@ -151,6 +163,8 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     const openCard = (card: Parameters<typeof cardDetails>[0]) =>
       sheet.open(labels.card(card), cardDetails(card, labels));
     roundText.textContent = shown.round > 0 ? `Round ${shown.round}` : "Setup";
+    statusStrip.replaceChildren(...renderStatus(shown, labels));
+    statusStrip.hidden = statusStrip.childElementCount === 0;
     undoButton.disabled = !current.undoable;
     mapArea.replaceChildren(
       ...renderMap(shown, actions, labels, {
@@ -159,8 +173,8 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
       }),
     );
     panels.replaceChildren(
-      panelSection("tracks", renderTracks(shown, labels)),
-      panelSection("cards", renderZones(shown, labels, openCard)),
+      panelSection("cards", renderZones(shown, labels, openCard, more)),
+      panelSection("tracks", renderTracks(shown, labels, more)),
     );
     decisionBar.replaceChildren(
       ...renderDecision(shown, actions, labels, {

@@ -216,7 +216,7 @@ function signed(from: number, to: number): string {
 }
 
 /** "1 success, 0 partials": each symbol the rolled die types name, summed over the dice. */
-function symbolCounts(dice: readonly Die[], rules: Rules): string {
+export function symbolCounts(dice: readonly Die[], rules: Rules): string {
   const totals = new Map<DieSymbol, number>();
   for (const die of dice) {
     const type = rules.dieById.get(die.die);

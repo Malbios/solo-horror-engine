@@ -16,6 +16,7 @@ import {
   type Module,
   type NumExpr,
   type Pack,
+  type Pool,
   type SpaceRef,
   type UnitRef,
   type Zone,
@@ -507,6 +508,7 @@ const counterSchema = z
     id: idSchema,
     name: nameSchema.optional(),
     hidden: z.boolean().default(false),
+    show: z.enum(["main", "normal", "flag", "minor"]).default("normal"),
     start: z.int(),
     min: z.int().nullable().default(null),
     max: z.int().nullable().default(null),
@@ -528,6 +530,7 @@ const zoneSchema = z
     name: nameSchema.optional(),
     face: z.enum(["up", "down"]).default("up"),
     backEffects: effectListSchema,
+    show: z.enum(["main", "normal", "minor"]).default("normal"),
   })
   .transform(({ name, ...zone }): Zone => ({ ...zone, name: name ?? zone.id }));
 
@@ -599,7 +602,9 @@ const dieTypeSchema = z.strictObject({
     .refine(hasUniqueIds, "die symbol ids must be unique"),
 });
 
-const poolSchema = z.strictObject({ id: idSchema });
+const poolSchema = z
+  .strictObject({ id: idSchema, name: nameSchema.optional() })
+  .transform(({ name, ...pool }): Pool => ({ ...pool, name: name ?? pool.id }));
 
 const quantityTypeSchema = z.strictObject({
   id: idSchema,
