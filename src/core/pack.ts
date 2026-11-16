@@ -257,6 +257,8 @@ export type EdgeFilter = {
 export type Counter = {
   id: string;
   name: string;
+  /** Display only: bookkeeping the player does not need to see. */
+  hidden: boolean;
   start: number;
   min: number | null;
   max: number | null;
@@ -357,6 +359,8 @@ export type UnitKind = {
   image: string | null;
   /** Display only: the colour of this kind's pieces on the board. */
   color: string | null;
+  /** Display only: the short text on this kind's pieces; defaults to the name's first letter. */
+  badge: string | null;
   attributes: Counter[];
   /** Other kinds a unit of this kind also counts as wherever a kind is matched. */
   countsAs: string[];

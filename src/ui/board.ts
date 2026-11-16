@@ -21,12 +21,13 @@ function moveTargets(actions: readonly Action[]): Map<string, Action> {
 
 function unitChip(unit: UnitState, labels: Labels): HTMLElement {
   const name = labels.piece(unit.id);
+  const kind = labels.rules.unitKindById.get(unit.kind);
   const chip = h("span", {
     className: "unit-chip",
-    text: name.slice(0, 1),
+    text: kind?.badge ?? name.slice(0, 1),
     attrs: { title: name },
   });
-  const color = labels.rules.unitKindById.get(unit.kind)?.color ?? null;
+  const color = kind?.color ?? null;
   if (color !== null) {
     chip.style.background = color;
     chip.style.color = readableTextOn(color);

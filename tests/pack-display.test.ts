@@ -19,18 +19,19 @@ describe("pack display data", () => {
     expect(pack.base.counters[0]?.name).toBe("tally");
     expect(pack.base.zones[0]?.name).toBe("heap");
     expect(pack.base.cards[0]).toMatchObject({ text: "", image: null });
-    expect(pack.base.unitKinds[0]).toMatchObject({ image: null, color: null });
+    expect(pack.base.unitKinds[0]).toMatchObject({ image: null, color: null, badge: null });
+    expect(pack.base.counters[0]?.hidden).toBe(false);
   });
 
   it("keeps given display data", () => {
     const pack = fixturePack({
       boards: [{ id: "grid", name: "Grid", image: "art/grid.png", aspect: 1.5 }],
       spaces: [{ id: "yard", name: "Yard", position: { board: "grid", x: 10, y: 90 } }],
-      counters: [{ id: "tally", name: "Tally", start: 0 }],
+      counters: [{ id: "tally", name: "Tally", start: 0, hidden: true }],
       cards: [{ id: "token", name: "Token", text: "Does a thing.", image: "art/token.png" }],
-      unitKinds: [{ id: "piece", name: "Piece", color: "#3a7" }],
+      unitKinds: [{ id: "piece", name: "Piece", color: "#3a7", badge: "Pc" }],
     });
-    expect(pack.base.unitKinds[0]?.color).toBe("#3a7");
+    expect(pack.base.unitKinds[0]).toMatchObject({ color: "#3a7", badge: "Pc" });
     expect(pack.base.boards[0]).toEqual({
       id: "grid",
       name: "Grid",
@@ -38,7 +39,7 @@ describe("pack display data", () => {
       aspect: 1.5,
     });
     expect(pack.base.spaces[0]?.position).toEqual({ board: "grid", x: 10, y: 90 });
-    expect(pack.base.counters[0]?.name).toBe("Tally");
+    expect(pack.base.counters[0]).toMatchObject({ name: "Tally", hidden: true });
     expect(pack.base.cards[0]).toMatchObject({ text: "Does a thing.", image: "art/token.png" });
   });
 

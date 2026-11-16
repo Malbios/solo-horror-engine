@@ -506,6 +506,7 @@ const counterSchema = z
   .strictObject({
     id: idSchema,
     name: nameSchema.optional(),
+    hidden: z.boolean().default(false),
     start: z.int(),
     min: z.int().nullable().default(null),
     max: z.int().nullable().default(null),
@@ -659,6 +660,7 @@ const unitKindSchema = z.strictObject({
   name: nameSchema,
   image: imageSchema,
   color: z.string().min(1).nullable().default(null),
+  badge: z.string().min(1).max(3).nullable().default(null),
   countsAs: z.array(idSchema).default([]),
   attributes: z
     .array(counterSchema)

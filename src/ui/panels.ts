@@ -37,9 +37,11 @@ function unitCard(unit: UnitState, labels: Labels): HTMLElement {
 }
 
 export function renderTracks(shown: GameView, labels: Labels): HTMLElement {
-  const counters = Object.entries(shown.counters).map(([id, value]) =>
-    stat(labels.counter(id), counterValue(value, labels.rules.counterById.get(id)?.max ?? null)),
-  );
+  const counters = Object.entries(shown.counters).flatMap(([id, value]) => {
+    const definition = labels.rules.counterById.get(id);
+    if (definition?.hidden === true) return [];
+    return [stat(labels.counter(id), counterValue(value, definition?.max ?? null))];
+  });
   const pools = Object.entries(shown.pools).filter(([, dice]) => dice.length > 0);
   return h("div", { className: "panel-body" }, [
     h("dl", { className: "stats" }, [stat("Round", String(shown.round)), ...counters]),
