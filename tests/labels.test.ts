@@ -78,6 +78,41 @@ describe("labels", () => {
     expect(describeEvent(change, shown, labels)).toBeNull();
   });
 
+  it("counts the named symbols of a roll", () => {
+    const pack = fixturePack({
+      dice: [
+        {
+          id: "cube",
+          faces: [
+            { id: "blank", symbols: {} },
+            { id: "star", symbols: { star: 1, dot: 1 } },
+          ],
+          symbols: [{ id: "star", name: "star", plural: "stars" }],
+        },
+      ],
+    });
+    const shown = view(createEngine(pack).init(3));
+    const labels = createLabels(displayRules(pack, shown.modules), shown);
+    const roll = (faces: string[]) =>
+      describeEvent(
+        {
+          type: "diceRolled",
+          pool: "tray",
+          dice: faces.map((face, index) => ({
+            id: `d${index + 1}`,
+            die: "cube",
+            face,
+            role: null,
+          })),
+        },
+        shown,
+        labels,
+      );
+    expect(roll(["star", "blank"])).toBe("Rolled star, blank: 1 star");
+    expect(roll(["star", "star"])).toBe("Rolled star, star: 2 stars");
+    expect(roll(["blank"])).toBe("Rolled blank: 0 stars");
+  });
+
   it("never names a face-down card in actions or the log", () => {
     const pack = hiddenPack();
     const engine = createEngine(pack);

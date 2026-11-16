@@ -587,6 +587,16 @@ const dieTypeSchema = z.strictObject({
       }),
     )
     .min(1),
+  symbols: z
+    .array(
+      z.strictObject({
+        id: idSchema,
+        name: z.string().min(1),
+        plural: z.string().min(1).nullable().default(null),
+      }),
+    )
+    .default([])
+    .refine(hasUniqueIds, "die symbol ids must be unique"),
 });
 
 const poolSchema = z.strictObject({ id: idSchema });

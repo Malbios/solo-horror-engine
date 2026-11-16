@@ -4,6 +4,8 @@ import {
   type Action,
   type Board,
   type Card,
+  type Die,
+  type DieSymbol,
   type Edge,
   type EdgeMark,
   type GameEvent,
@@ -213,6 +215,23 @@ function signed(from: number, to: number): string {
   return change >= 0 ? `+${change}` : `${change}`;
 }
 
+/** "1 success, 0 partials": each symbol the rolled die types name, summed over the dice. */
+function symbolCounts(dice: readonly Die[], rules: Rules): string {
+  const totals = new Map<DieSymbol, number>();
+  for (const die of dice) {
+    const type = rules.dieById.get(die.die);
+    const face = type?.faces.find((candidate) => candidate.id === die.face);
+    for (const symbol of type?.symbols ?? []) {
+      totals.set(symbol, (totals.get(symbol) ?? 0) + (face?.symbols[symbol.id] ?? 0));
+    }
+  }
+  return [...totals]
+    .map(
+      ([symbol, total]) => `${total} ${total === 1 ? symbol.name : (symbol.plural ?? symbol.name)}`,
+    )
+    .join(", ");
+}
+
 /** One line for the game log, or null for bookkeeping events the player does not need to see. */
 export function describeEvent(event: GameEvent, shown: GameView, labels: Labels): string | null {
   switch (event.type) {
@@ -253,8 +272,11 @@ export function describeEvent(event: GameEvent, shown: GameView, labels: Labels)
       return `${labels.space(event.space)} ${labels.spaceCounter(event.spaceCounter)} ${signed(event.from, event.to)}`;
     case "edgeChanged":
       return `A path was ${event.change}`;
-    case "diceRolled":
-      return `Rolled ${event.dice.map((die) => die.face).join(", ")}`;
+    case "diceRolled": {
+      const faces = `Rolled ${event.dice.map((die) => die.face).join(", ")}`;
+      const counts = symbolCounts(event.dice, labels.rules);
+      return counts === "" ? faces : `${faces}: ${counts}`;
+    }
     case "cardResolved":
       return `Resolved ${cardLabel(event.card, shown, labels)}`;
     case "cardBought":

@@ -297,7 +297,10 @@ export type CardCounter = {
 
 export type DieFace = { id: string; symbols: Record<string, number> };
 
-export type DieType = { id: string; faces: DieFace[] };
+/** Display only: a face symbol named so the log can count it, e.g. "1 hit". */
+export type DieSymbol = { id: string; name: string; plural: string | null };
+
+export type DieType = { id: string; faces: DieFace[]; symbols: DieSymbol[] };
 
 export type Pool = { id: string };
 
