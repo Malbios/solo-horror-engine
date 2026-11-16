@@ -224,6 +224,15 @@ export type Space = { id: string; name: string; tags: string[]; position: SpaceP
 
 export type Board = { id: string; name: string; image: string | null; aspect: number };
 
+/** Display only: edges carrying `tag` are drawn in `color` and badged on both end spaces. */
+export type EdgeMark = {
+  id: string;
+  tag: string;
+  badge: string;
+  name: string;
+  color: string | null;
+};
+
 export type Edge = {
   id: string;
   fromSpace: string;
@@ -356,6 +365,7 @@ export type Content = {
   spaces: Space[];
   edges: Edge[];
   edgeFilters: EdgeFilter[];
+  edgeMarks: EdgeMark[];
   unitKinds: UnitKind[];
   spaceCounters: Counter[];
   counters: Counter[];
@@ -380,6 +390,7 @@ export const LAYERED_COLLECTIONS = [
   "spaces",
   "edges",
   "edgeFilters",
+  "edgeMarks",
   "unitKinds",
   "spaceCounters",
   "counters",

@@ -1,6 +1,6 @@
 import type { Cost, GameView, NumExpr, Space, ViewCard } from "../core";
 import { h, type Child } from "./dom";
-import type { Labels } from "./labels";
+import { describeMarkFrom, type Labels } from "./labels";
 
 export type Sheet = {
   open: (title: string, body: readonly Child[]) => void;
@@ -81,6 +81,9 @@ export function spaceDetails(space: Space, shown: GameView, labels: Labels): Chi
   const counters = Object.entries(shown.spaceCounters[space.id] ?? {}).filter(
     ([, value]) => value !== 0,
   );
+  const marks = labels
+    .markedEdges()
+    .filter((marked) => marked.edge.fromSpace === space.id || marked.edge.toSpace === space.id);
   return [
     units.length === 0
       ? h("p", { className: "muted", text: "No pieces here." })
@@ -88,6 +91,13 @@ export function spaceDetails(space: Space, shown: GameView, labels: Labels): Chi
           "ul",
           { className: "plain-list" },
           units.map((unit) => h("li", { text: labels.unit(unit.id) })),
+        ),
+    marks.length === 0
+      ? null
+      : h(
+          "ul",
+          { className: "plain-list" },
+          marks.map((marked) => h("li", { text: describeMarkFrom(marked, space.id, labels) })),
         ),
     counters.length === 0
       ? null

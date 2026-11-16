@@ -4,6 +4,8 @@ import {
   type Action,
   type Board,
   type Card,
+  type Edge,
+  type EdgeMark,
   type GameEvent,
   type GameView,
   type Pack,
@@ -26,12 +28,28 @@ export type Labels = {
   unit(id: string): string;
   attribute(kind: string, id: string): string;
   boards(): Board[];
+  markedEdges(): MarkedEdge[];
   spaces(): Space[];
   module(id: string): string;
   moduleNote(id: string): string | null;
 };
 
 export type ModuleInfo = { name: string; note: string | null };
+
+export type MarkedEdge = { edge: Edge; mark: EdgeMark };
+
+function markEdges(rules: Rules, shown: GameView): MarkedEdge[] {
+  return Object.values(shown.edges).flatMap((edge) => {
+    const mark = rules.edgeMarks.find((candidate) => edge.tags.includes(candidate.tag));
+    return mark === undefined ? [] : [{ edge, mark }];
+  });
+}
+
+/** How a marked edge reads from one of its end spaces, e.g. "Rope bridge to Mill". */
+export function describeMarkFrom(marked: MarkedEdge, space: string, labels: Labels): string {
+  const other = marked.edge.fromSpace === space ? marked.edge.toSpace : marked.edge.fromSpace;
+  return `${marked.mark.name} to ${labels.space(other)}`;
+}
 
 /** Display name (falling back to the id) and note of every module in the pack. */
 export function moduleInfo(pack: Pack): ReadonlyMap<string, ModuleInfo> {
@@ -93,6 +111,7 @@ export function createLabels(
     attribute: (kind, id) =>
       rules.unitKindById.get(kind)?.attributes.find((attribute) => attribute.id === id)?.name ?? id,
     boards: () => rules.boards,
+    markedEdges: () => markEdges(rules, shown),
     spaces: () => rules.spaces,
     module: (id) => modules.get(id)?.name ?? id,
     moduleNote: (id) => modules.get(id)?.note ?? null,

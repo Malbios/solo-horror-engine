@@ -59,6 +59,29 @@ describe("pack display data", () => {
     expect(outside.ok).toBe(false);
   });
 
+  it("keeps edge marks, whose colour defaults to none, and lets a module remove one", () => {
+    const mark = { id: "rope", tag: "rope", badge: "R", name: "Rope bridge" };
+    const pack = fixturePack(
+      { edgeMarks: [mark] },
+      {
+        modules: [
+          {
+            id: "calm",
+            kind: "variant",
+            precedence: 1,
+            content: {},
+            remove: { edgeMarks: ["rope"] },
+          },
+        ],
+        choices: [{ id: "variant", options: ["calm"], min: 0, max: 1 }],
+      },
+    );
+    expect(pack.base.edgeMarks).toEqual([{ ...mark, color: null }]);
+    const rules = composeRules(pack, ["calm"]);
+    expect(rules.ok && rules.value.edgeMarks).toEqual([]);
+    expect(parsePack({ meta, base: { edgeMarks: [{ ...mark, badge: "ROPE" }] } }).ok).toBe(false);
+  });
+
   it("lets a module replace a board by id", () => {
     const pack = fixturePack(
       { boards: [{ id: "grid", name: "Grid" }] },

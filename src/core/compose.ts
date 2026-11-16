@@ -57,6 +57,7 @@ function applyModule(content: Content, module: Module): Content {
     spaces: layer(content.spaces, added.spaces, remove.spaces),
     edges: layer(content.edges, added.edges, remove.edges),
     edgeFilters: layer(content.edgeFilters, added.edgeFilters, remove.edgeFilters),
+    edgeMarks: layer(content.edgeMarks, added.edgeMarks, remove.edgeMarks),
     unitKinds: layer(content.unitKinds, added.unitKinds, remove.unitKinds),
     spaceCounters: layer(content.spaceCounters, added.spaceCounters, remove.spaceCounters),
     counters: layer(content.counters, added.counters, remove.counters),

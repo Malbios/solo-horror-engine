@@ -485,6 +485,14 @@ const boardSchema = z.strictObject({
   aspect: z.number().positive().default(1),
 });
 
+const edgeMarkSchema = z.strictObject({
+  id: idSchema,
+  tag: idSchema,
+  badge: z.string().min(1).max(3),
+  name: nameSchema,
+  color: z.string().min(1).nullable().default(null),
+});
+
 const edgeFilterSchema = z.strictObject({
   id: idSchema,
   requireTags: z.array(idSchema).default([]),
@@ -662,6 +670,7 @@ const contentSchema = z.strictObject({
   spaces: z.array(spaceSchema).default([]),
   edges: z.array(edgeSchema).default([]),
   edgeFilters: z.array(edgeFilterSchema).default([]),
+  edgeMarks: z.array(edgeMarkSchema).default([]),
   unitKinds: z.array(unitKindSchema).default([]),
   spaceCounters: z.array(counterSchema).default([]),
   counters: z.array(counterSchema).default([]),
@@ -688,6 +697,7 @@ const removalSchema = z.strictObject({
   spaces: idListSchema,
   edges: idListSchema,
   edgeFilters: idListSchema,
+  edgeMarks: idListSchema,
   unitKinds: idListSchema,
   spaceCounters: idListSchema,
   counters: idListSchema,

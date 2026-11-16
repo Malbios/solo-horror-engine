@@ -189,6 +189,11 @@ h3 {
   stroke-width: 3;
 }
 
+.edge-marked {
+  stroke-width: 4;
+  stroke-dasharray: 8 5;
+}
+
 .space {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -235,6 +240,18 @@ h3 {
   border-radius: 50%;
   background: var(--accent);
   color: var(--accent-text);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.mark-chip {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 3px;
+  border: 2px solid var(--line);
+  border-radius: 4px;
   font-size: 0.7rem;
   font-weight: 700;
 }

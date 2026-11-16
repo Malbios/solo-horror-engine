@@ -1,6 +1,6 @@
 import type { Action, Board, GameView, Space, UnitState } from "../core";
 import { h, svg } from "./dom";
-import type { Labels } from "./labels";
+import { describeMarkFrom, type Labels, type MarkedEdge } from "./labels";
 
 export type BoardHandlers = {
   takeAction: (action: Action) => void;
@@ -24,6 +24,22 @@ function unitChip(unit: UnitState, labels: Labels): HTMLElement {
   return h("span", { className: "unit-chip", text: name.slice(0, 1), attrs: { title: name } });
 }
 
+function marksAt(space: string, labels: Labels): MarkedEdge[] {
+  return labels
+    .markedEdges()
+    .filter((marked) => marked.edge.fromSpace === space || marked.edge.toSpace === space);
+}
+
+function markChip(marked: MarkedEdge, space: string, labels: Labels): HTMLElement {
+  const chip = h("span", {
+    className: "mark-chip",
+    text: marked.mark.badge,
+    attrs: { title: describeMarkFrom(marked, space, labels) },
+  });
+  if (marked.mark.color !== null) chip.style.borderColor = marked.mark.color;
+  return chip;
+}
+
 function spaceButton(
   space: Space,
   shown: GameView,
@@ -32,9 +48,11 @@ function spaceButton(
   handlers: BoardHandlers,
 ): HTMLButtonElement {
   const units = unitsOn(shown, space.id);
+  const marks = marksAt(space.id, labels);
   const target = targets.get(space.id);
   const unitNames = units.map((unit) => labels.unit(unit.id));
-  const description = [space.name, ...unitNames].join(", ");
+  const markNames = marks.map((marked) => describeMarkFrom(marked, space.id, labels));
+  const description = [space.name, ...unitNames, ...markNames].join(", ");
   const button = h(
     "button",
     {
@@ -47,13 +65,12 @@ function spaceButton(
     },
     [
       h("span", { className: "space-name", text: space.name }),
-      units.length === 0
+      units.length === 0 && marks.length === 0
         ? null
-        : h(
-            "span",
-            { className: "space-units" },
-            units.map((unit) => unitChip(unit, labels)),
-          ),
+        : h("span", { className: "space-units" }, [
+            ...units.map((unit) => unitChip(unit, labels)),
+            ...marks.map((marked) => markChip(marked, space.id, labels)),
+          ]),
     ],
   );
   if (space.position !== null) {
@@ -63,7 +80,13 @@ function spaceButton(
   return button;
 }
 
-function edgeLines(shown: GameView, board: Board, spaces: readonly Space[]): SVGElement {
+function edgeLines(
+  shown: GameView,
+  board: Board,
+  spaces: readonly Space[],
+  labels: Labels,
+): SVGElement {
+  const markOf = new Map(labels.markedEdges().map((marked) => [marked.edge.id, marked.mark]));
   const positions = new Map(
     spaces.flatMap((space) =>
       space.position !== null && space.position.board === board.id
@@ -75,16 +98,18 @@ function edgeLines(shown: GameView, board: Board, spaces: readonly Space[]): SVG
     const from = positions.get(edge.fromSpace);
     const to = positions.get(edge.toSpace);
     if (from === undefined || to === undefined) return [];
-    return [
-      svg("line", {
-        x1: from.x,
-        y1: from.y,
-        x2: to.x,
-        y2: to.y,
-        class: "edge",
-        "vector-effect": "non-scaling-stroke",
-      }),
-    ];
+    const mark = markOf.get(edge.id);
+    const line = svg("line", {
+      x1: from.x,
+      y1: from.y,
+      x2: to.x,
+      y2: to.y,
+      class: mark === undefined ? "edge" : "edge edge-marked",
+      "vector-effect": "non-scaling-stroke",
+    });
+    const color = mark?.color ?? null;
+    if (color !== null) line.style.stroke = color;
+    return [line];
   });
   return svg(
     "svg",
@@ -111,7 +136,7 @@ function renderBoard(
     board.image === null
       ? null
       : h("img", { className: "board-image", attrs: { src: board.image, alt: "" } }),
-    edgeLines(shown, board, spaces),
+    edgeLines(shown, board, spaces, labels),
     ...onBoard.map((space) => spaceButton(space, shown, labels, targets, handlers)),
   ]);
   surface.style.setProperty("--aspect", String(board.aspect));
