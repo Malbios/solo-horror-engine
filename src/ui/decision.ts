@@ -156,6 +156,7 @@ function withUnavailableBuys(
   shown: GameView,
   labels: Labels,
   handlers: DecisionHandlers,
+  discardFor: ReadonlyMap<Action, Action>,
 ): HTMLElement[] {
   const nameOf = (card: ViewCard | null) => (card === null ? "" : labels.card(card));
   const buys = [
@@ -179,9 +180,47 @@ function withUnavailableBuys(
       : passAt === -1
         ? others.length
         : passAt;
-  const controls = others.map((action) => actionControl(action, shown, labels, handlers));
+  const controls = others.map((action) =>
+    actionControl(action, shown, labels, handlers, discardFor.get(action) ?? null),
+  );
   controls.splice(insertAt, 0, ...buys.map(({ element }) => element));
   return controls;
+}
+
+/** Pairs each played card with the discard of the same card, so both share one row. */
+export function discardsBesidePlays(
+  ordered: readonly Action[],
+  shown: GameView,
+): { actions: Action[]; discardFor: Map<Action, Action> } {
+  const definitionOf = (action: Action) => offeredCard(action, shown)?.card ?? null;
+  const discards = ordered.filter((action) => action.type === "discardCard");
+  const discardFor = new Map<Action, Action>();
+  for (const play of ordered.filter((action) => action.type === "playCard")) {
+    const definition = definitionOf(play);
+    const discard = discards.find(
+      (candidate) =>
+        definition !== null &&
+        definitionOf(candidate) === definition &&
+        ![...discardFor.values()].includes(candidate),
+    );
+    if (discard !== undefined) discardFor.set(play, discard);
+  }
+  const paired = new Set(discardFor.values());
+  return { actions: ordered.filter((action) => !paired.has(action)), discardFor };
+}
+
+function discardBeside(
+  discard: Action,
+  card: ViewCard,
+  labels: Labels,
+  handlers: DecisionHandlers,
+) {
+  return h("button", {
+    className: "action action-secondary",
+    text: "Discard",
+    attrs: { "aria-label": `Discard ${labels.card(card)}` },
+    onClick: () => handlers.takeAction(discard),
+  });
 }
 
 function actionControl(
@@ -189,6 +228,7 @@ function actionControl(
   shown: GameView,
   labels: Labels,
   handlers: DecisionHandlers,
+  discard: Action | null = null,
 ): HTMLElement {
   const note =
     action.type === "pickModule"
@@ -209,6 +249,7 @@ function actionControl(
   if (card === null || card.card === null) return take;
   return h("div", { className: "action-with-info" }, [
     take,
+    discard === null ? null : discardBeside(discard, card, labels, handlers),
     h("button", {
       className: "info",
       text: "i",
@@ -249,12 +290,13 @@ export function renderDecision(
       ]),
     ];
   }
+  const rows = discardsBesidePlays(stableOrder(actions, shown, labels), shown);
   return [
     prompt,
     h(
       "div",
       { className: "actions" },
-      withUnavailableBuys(stableOrder(actions, shown, labels), shown, labels, handlers),
+      withUnavailableBuys(rows.actions, shown, labels, handlers, rows.discardFor),
     ),
   ];
 }

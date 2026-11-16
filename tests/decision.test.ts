@@ -4,6 +4,7 @@ import {
   actionLabel,
   automaticPass,
   buyNote,
+  discardsBesidePlays,
   stableOrder,
   unavailableBuys,
 } from "../src/ui/decision";
@@ -90,6 +91,51 @@ describe("unavailable buys", () => {
         .filter((action) => action.type === "buyCard")
         .map((action) => ("card" in action ? action.card.split(":")[0] : "")),
     ).toEqual(["rope", "lamp"]);
+  });
+});
+
+describe("discards beside plays", () => {
+  it("puts the discard of a playable card on its row and keeps other discards apart", () => {
+    const pack = fixturePack({
+      zones: [
+        { id: "hand", name: "Hand" },
+        { id: "pile", name: "Pile" },
+      ],
+      cards: [
+        { id: "lamp", name: "Lamp" },
+        { id: "bell", name: "Bell", playable: false },
+      ],
+      setup: [
+        { type: "createCards", card: "lamp", zone: "hand" },
+        { type: "createCards", card: "bell", zone: "hand" },
+      ],
+      phases: [
+        {
+          id: "turn",
+          steps: [
+            {
+              id: "go",
+              effects: [
+                {
+                  type: "playWindow",
+                  play: { from: "hand", to: "pile", cards: {} },
+                  discard: { from: "hand", to: "pile", effects: [] },
+                },
+              ],
+            },
+          ],
+        },
+        PAUSE_PHASE,
+      ],
+    });
+    const state = createEngine(pack).init(1);
+    const shown = view(state);
+    const { actions, discardFor } = discardsBesidePlays(viewActions(state), shown);
+    expect(actions.map((action) => action.type)).toEqual(["playCard", "discardCard", "pass"]);
+    const play = actions[0];
+    if (play === undefined) throw new Error("no play offered");
+    expect(discardFor.get(play)).toMatchObject({ type: "discardCard", card: "lamp:1" });
+    expect(actions[1]).toMatchObject({ type: "discardCard", card: "bell:1" });
   });
 });
 

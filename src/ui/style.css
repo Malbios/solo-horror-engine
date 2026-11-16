@@ -565,11 +565,11 @@ h3 {
 .decision {
   grid-row: 5;
   display: grid;
-  gap: 8px;
-  padding: 10px 16px max(10px, env(safe-area-inset-bottom));
+  gap: 6px;
+  padding: 8px 16px max(8px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--line);
   background: var(--surface);
-  max-height: 45dvh;
+  max-height: 40dvh;
   overflow-y: auto;
 }
 
@@ -581,7 +581,7 @@ h3 {
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .action {
@@ -622,6 +622,15 @@ h3 {
 
 .action-with-info .action {
   flex: 1;
+}
+
+.action-with-info .action-secondary {
+  flex: 0 0 auto;
+  padding-inline: 12px;
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--line);
+  font-weight: 400;
 }
 
 .info {
