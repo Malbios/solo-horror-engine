@@ -21,7 +21,30 @@ function moveTargets(actions: readonly Action[]): Map<string, Action> {
 
 function unitChip(unit: UnitState, labels: Labels): HTMLElement {
   const name = labels.piece(unit.id);
-  return h("span", { className: "unit-chip", text: name.slice(0, 1), attrs: { title: name } });
+  const chip = h("span", {
+    className: "unit-chip",
+    text: name.slice(0, 1),
+    attrs: { title: name },
+  });
+  const color = labels.rules.unitKindById.get(unit.kind)?.color ?? null;
+  if (color !== null) {
+    chip.style.background = color;
+    chip.style.color = readableTextOn(color);
+  }
+  return chip;
+}
+
+const DARK_TEXT = "#111";
+const LIGHT_TEXT = "#fff";
+
+/** Dark text on light colours, light text otherwise; colours that are not hex keep light text. */
+function readableTextOn(color: string): string {
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color)?.[1];
+  if (hex === undefined) return LIGHT_TEXT;
+  const full = hex.length === 3 ? [...hex].map((digit) => digit + digit).join("") : hex;
+  const [red, green, blue] = [0, 2, 4].map((at) => parseInt(full.slice(at, at + 2), 16));
+  const brightness = (0.299 * (red ?? 0) + 0.587 * (green ?? 0) + 0.114 * (blue ?? 0)) / 255;
+  return brightness > 0.6 ? DARK_TEXT : LIGHT_TEXT;
 }
 
 function marksAt(space: string, labels: Labels): MarkedEdge[] {

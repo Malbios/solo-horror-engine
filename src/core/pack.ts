@@ -355,6 +355,8 @@ export type UnitKind = {
   id: string;
   name: string;
   image: string | null;
+  /** Display only: the colour of this kind's pieces on the board. */
+  color: string | null;
   attributes: Counter[];
   /** Other kinds a unit of this kind also counts as wherever a kind is matched. */
   countsAs: string[];

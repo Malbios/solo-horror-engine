@@ -658,6 +658,7 @@ const unitKindSchema = z.strictObject({
   id: idSchema,
   name: nameSchema,
   image: imageSchema,
+  color: z.string().min(1).nullable().default(null),
   countsAs: z.array(idSchema).default([]),
   attributes: z
     .array(counterSchema)
