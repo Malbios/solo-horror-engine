@@ -416,6 +416,10 @@ h3 {
   transition: transform 0.2s ease;
 }
 
+.log-drawer:not([data-open]) .log-tag {
+  margin-right: var(--page-scrollbar, 0px);
+}
+
 .log-drawer[data-open] {
   transform: none;
   box-shadow: -8px 0 24px rgb(0 0 0 / 0.3);

@@ -116,7 +116,7 @@ export function renderLog(entries: readonly LogEntry[]): HTMLElement {
       : h(
           "ol",
           { className: "log" },
-          [...entries].reverse().map((entry) =>
+          entries.map((entry) =>
             h("li", { className: "log-entry" }, [
               h("h3", { text: entry.title }),
               entry.lines.length === 0

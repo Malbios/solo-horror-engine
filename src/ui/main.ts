@@ -77,6 +77,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
   const undoButton = requireElement("undo", HTMLButtonElement);
   const menuButton = requireElement("menu", HTMLButtonElement);
   const mapArea = requireElement("map", HTMLElement);
+  const table = requireElement("table", HTMLElement);
   const tabs = requireElement("tabs", HTMLElement);
   const panels = requireElement("panels", HTMLElement);
   const decisionBar = requireElement("decision", HTMLElement);
@@ -131,6 +132,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
       h("h2", { className: "log-drawer-title", text: "Log" }),
       renderLog(current?.log ?? []),
     );
+    showNewestLogEntry();
     if (current === null) {
       roundText.textContent = "";
       undoButton.disabled = true;
@@ -437,9 +439,20 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     logDrawer.toggleAttribute("data-open", open);
     logTag.setAttribute("aria-expanded", String(open));
     logBody.inert = !open;
-    if (open) logBody.scrollTop = 0;
+    showNewestLogEntry();
   }
 
+  function showNewestLogEntry(): void {
+    logBody.scrollTop = logBody.scrollHeight;
+  }
+
+  function keepTagClearOfScrollbar(): void {
+    const scrollbar = table.offsetWidth - table.clientWidth;
+    logDrawer.style.setProperty("--page-scrollbar", `${scrollbar}px`);
+  }
+
+  const scrollbarWatch = new ResizeObserver(keepTagClearOfScrollbar);
+  for (const watched of [table, ...table.children]) scrollbarWatch.observe(watched);
   logTag.addEventListener("click", () => showLog(!logOpen));
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && logOpen && !sheetDialog.open) showLog(false);
