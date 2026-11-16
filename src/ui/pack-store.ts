@@ -119,6 +119,43 @@ export function withAddOn(texts: readonly string[], text: string, addOn: AddOn):
   return [...others, text];
 }
 
+export type RefreshedLibrary = { core: string | null; addOns: string[]; missing: string[] };
+
+/**
+ * Swaps each stored core and add-on for the found file with the same id. Found files that match
+ * nothing stored are ignored; `missing` names the stored ones no found file replaced.
+ */
+export function refreshLibrary(
+  core: string | null,
+  addOns: readonly string[],
+  found: readonly string[],
+): RefreshedLibrary {
+  const foundFiles = found.flatMap((text) => {
+    const parsed = parseLibraryFile(text);
+    return parsed.ok ? [{ text, file: parsed.value }] : [];
+  });
+  const foundCore = (id: string) =>
+    foundFiles.find(({ file }) => file.type === "core" && file.pack.meta.id === id)?.text;
+  const foundAddOn = (id: string) =>
+    foundFiles.find(({ file }) => file.type === "addOn" && file.addOn.meta.id === id)?.text;
+  const missing: string[] = [];
+  const storedCore = core === null ? null : parsePackText(core);
+  let nextCore = core;
+  if (storedCore?.ok === true) {
+    const replacement = foundCore(storedCore.value.meta.id);
+    if (replacement === undefined) missing.push(storedCore.value.meta.name);
+    nextCore = replacement ?? core;
+  }
+  const nextAddOns = addOns.map((text) => {
+    const addOn = parseAddOnText(text);
+    if (addOn === null) return text;
+    const replacement = foundAddOn(addOn.meta.id);
+    if (replacement === undefined) missing.push(addOn.meta.name);
+    return replacement ?? text;
+  });
+  return { core: nextCore, addOns: nextAddOns, missing };
+}
+
 export function withoutAddOn(texts: readonly string[], id: string): string[] {
   return texts.filter((stored) => parseAddOnText(stored)?.meta.id !== id);
 }

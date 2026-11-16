@@ -41,10 +41,19 @@ import {
   parseAddOnText,
   parseLibraryFile,
   parsePackText,
+  refreshLibrary,
   withAddOn,
   withoutAddOn,
   type LibraryStore,
 } from "./pack-store";
+import {
+  chooseFolder,
+  ensureReadable,
+  folderSupported,
+  readJsonTexts,
+  rememberedFolder,
+  rememberFolder,
+} from "./folder-source";
 import { cardDetails, createSheet, spaceDetails } from "./sheet";
 import "./style.css";
 
@@ -72,6 +81,7 @@ function randomSeed(): number {
 
 function start(active: ActivePack, library: LibraryStore, engine: Engine, store: SaveStore): void {
   const { pack } = active;
+  let folder: FileSystemDirectoryHandle | null = null;
   const roundText = requireElement("round", HTMLSpanElement);
   const undoButton = requireElement("undo", HTMLButtonElement);
   const menuButton = requireElement("menu", HTMLButtonElement);
@@ -276,11 +286,73 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
           text: "Load core or add-on file",
           onClick: () => fileInput.click(),
         }),
+        ...folderButtons(),
         active.fromFile
           ? h("button", { className: "action", text: "Use demo core", onClick: useDemoCore })
           : null,
       ]),
+      folder === null ? null : h("p", { className: "muted", text: `Packs folder: ${folder.name}` }),
       fileInput,
+    ]);
+  }
+
+  function folderButtons(): HTMLElement[] {
+    if (!folderSupported()) return [];
+    const reload = h("button", {
+      className: "action",
+      text: "Reload packs from folder",
+      onClick: () => void reloadFromFolder(false),
+    });
+    if (folder === null) return [reload];
+    const another = h("button", {
+      className: "action action-pass",
+      text: "Choose another folder",
+      onClick: () => void reloadFromFolder(true),
+    });
+    return [reload, another];
+  }
+
+  async function reloadFromFolder(pickAnother: boolean): Promise<void> {
+    let chosen: FileSystemDirectoryHandle;
+    try {
+      chosen = pickAnother || folder === null ? await chooseFolder() : folder;
+      if (!(await ensureReadable(chosen))) {
+        openMenu(["The browser did not allow reading that folder."]);
+        return;
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      openMenu(["That folder could not be opened."]);
+      return;
+    }
+    if (chosen !== folder) {
+      folder = chosen;
+      await rememberFolder(chosen).catch((error: unknown) => {
+        console.warn("Could not remember the packs folder", error);
+      });
+    }
+    const refreshed = refreshLibrary(
+      library.loadCore(),
+      library.loadAddOns(),
+      await readJsonTexts(chosen),
+    );
+    const stored =
+      (refreshed.core === null || library.saveCore(refreshed.core)) &&
+      library.saveAddOns(refreshed.addOns);
+    if (!stored) {
+      openMenu(["The files are too large for this browser to remember."]);
+      return;
+    }
+    if (refreshed.missing.length === 0) {
+      location.reload();
+      return;
+    }
+    sheet.open("Some packs were not found", [
+      h("p", { text: `Not in ${chosen.name}: ${refreshed.missing.join(", ")}.` }),
+      h("p", { className: "muted", text: "The packs that were found are updated." }),
+      h("div", { className: "actions" }, [
+        h("button", { className: "action", text: "Reload now", onClick: () => location.reload() }),
+      ]),
     ]);
   }
 
@@ -371,6 +443,12 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
 
   undoButton.addEventListener("click", takeBack);
   menuButton.addEventListener("click", () => openMenu());
+
+  if (folderSupported()) {
+    void rememberedFolder().then((remembered) => {
+      folder = remembered;
+    });
+  }
 
   resume();
 }

@@ -4,6 +4,7 @@ import {
   LocalStorageLibraryStore,
   parseLibraryFile,
   parsePackText,
+  refreshLibrary,
   withAddOn,
   withoutAddOn,
 } from "../src/ui/pack-store";
@@ -63,6 +64,46 @@ describe("library files", () => {
     const texts = withAddOn([first, addOnText("rope")], newer, parsed.value.addOn);
     expect(texts).toEqual([addOnText("rope"), newer]);
     expect(withoutAddOn(texts, "rope")).toEqual([newer]);
+  });
+});
+
+describe("refreshLibrary", () => {
+  const core = JSON.stringify(demoPackData);
+  const newerCore = JSON.stringify({
+    ...demoPackData,
+    meta: { ...demoPackData.meta, version: "9.9.9" },
+  });
+
+  it("swaps each stored file for the found file with the same id, keeping order", () => {
+    const refreshed = refreshLibrary(
+      core,
+      [addOnText("lamp"), addOnText("rope")],
+      ["not json", addOnText("rope", "2.0.0"), newerCore, addOnText("lamp", "3.0.0")],
+    );
+    expect(refreshed).toEqual({
+      core: newerCore,
+      addOns: [addOnText("lamp", "3.0.0"), addOnText("rope", "2.0.0")],
+      missing: [],
+    });
+  });
+
+  it("keeps and names stored files the folder lacks, and adds nothing new", () => {
+    const refreshed = refreshLibrary(
+      core,
+      [addOnText("lamp")],
+      [addOnText("kite"), addOnText("lamp", "2.0.0")],
+    );
+    expect(refreshed.core).toBe(core);
+    expect(refreshed.addOns).toEqual([addOnText("lamp", "2.0.0")]);
+    expect(refreshed.missing).toEqual([demoPackData.meta.name]);
+  });
+
+  it("leaves an empty library empty", () => {
+    expect(refreshLibrary(null, [], [newerCore, addOnText("lamp")])).toEqual({
+      core: null,
+      addOns: [],
+      missing: [],
+    });
   });
 });
 
