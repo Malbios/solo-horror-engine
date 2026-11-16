@@ -350,6 +350,8 @@ export type Removal = Record<LayeredCollection, string[]>;
 export type Module = {
   id: string;
   name: string | null;
+  /** A short line shown when the module is offered (display only). */
+  note: string | null;
   kind: string;
   precedence: number;
   content: Content;

@@ -39,11 +39,18 @@ function actionControl(
   labels: Labels,
   handlers: DecisionHandlers,
 ): HTMLElement {
-  const take = h("button", {
-    className: action.type === "pass" ? "action action-pass" : "action",
-    text: actionLabel(action, shown, labels),
-    onClick: () => handlers.takeAction(action),
-  });
+  const note = action.type === "pickModule" ? labels.moduleNote(action.module) : null;
+  const take = h(
+    "button",
+    {
+      className: action.type === "pass" ? "action action-pass" : "action",
+      onClick: () => handlers.takeAction(action),
+    },
+    [
+      actionLabel(action, shown, labels),
+      note === null ? null : h("span", { className: "action-note", text: note }),
+    ],
+  );
   const card = offeredCard(action, shown);
   if (card === null || card.card === null) return take;
   return h("div", { className: "action-with-info" }, [

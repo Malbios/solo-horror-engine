@@ -28,11 +28,19 @@ export type Labels = {
   boards(): Board[];
   spaces(): Space[];
   module(id: string): string;
+  moduleNote(id: string): string | null;
 };
 
-/** Display names of every module in the pack, falling back to their ids. */
-export function moduleNames(pack: Pack): ReadonlyMap<string, string> {
-  return new Map(pack.modules.map((module) => [module.id, module.name ?? module.id]));
+export type ModuleInfo = { name: string; note: string | null };
+
+/** Display name (falling back to the id) and note of every module in the pack. */
+export function moduleInfo(pack: Pack): ReadonlyMap<string, ModuleInfo> {
+  return new Map(
+    pack.modules.map((module) => [
+      module.id,
+      { name: module.name ?? module.id, note: module.note },
+    ]),
+  );
 }
 
 function cardsByRef(shown: GameView): Map<string, ViewCard> {
@@ -51,7 +59,7 @@ export function displayRules(pack: Pack, modules: readonly string[]): Rules {
 export function createLabels(
   rules: Rules,
   shown: GameView,
-  modules: ReadonlyMap<string, string> = new Map(),
+  modules: ReadonlyMap<string, ModuleInfo> = new Map(),
 ): Labels {
   const unitName = (unit: UnitState): string => {
     const kindName = rules.unitKindById.get(unit.kind)?.name ?? unit.kind;
@@ -76,7 +84,8 @@ export function createLabels(
       rules.unitKindById.get(kind)?.attributes.find((attribute) => attribute.id === id)?.name ?? id,
     boards: () => rules.boards,
     spaces: () => rules.spaces,
-    module: (id) => modules.get(id) ?? id,
+    module: (id) => modules.get(id)?.name ?? id,
+    moduleNote: (id) => modules.get(id)?.note ?? null,
   };
 }
 

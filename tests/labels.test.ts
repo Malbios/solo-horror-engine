@@ -6,6 +6,7 @@ import {
   describeEvent,
   displayRules,
   HIDDEN_CARD_NAME,
+  moduleInfo,
 } from "../src/ui/labels";
 import { fixturePack, loadDemoPack, PAUSE_PHASE } from "./helpers";
 
@@ -82,6 +83,19 @@ describe("labels", () => {
     expect(text).not.toContain("Grey Oval");
     expect(text).not.toContain(SECRET);
     expect(text).toContain(HIDDEN_CARD_NAME);
+  });
+
+  it("offers a module with its note, and without one when the pack gives none", () => {
+    const pack = loadDemoPack();
+    const engine = createEngine(pack);
+    const state = engine.init(1);
+    const shown = view(state);
+    const labels = createLabels(displayRules(pack, shown.modules), shown, moduleInfo(pack));
+    expect(labels.module("bonus-cards")).toBe("bonus-cards");
+    expect(labels.moduleNote("bonus-cards")).toBe("Adds two extra cards to the deck");
+    expect(labels.moduleNote("missing-module")).toBeNull();
+    const plain = fixturePack({ phases: [PAUSE_PHASE] });
+    expect([...moduleInfo(plain).values()].every((info) => info.note === null)).toBe(true);
   });
 
   it("uses names for the demo pack's spaces and pieces", () => {

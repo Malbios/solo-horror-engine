@@ -157,4 +157,14 @@ describe("core and add-ons", () => {
     expect(parseAddOn({ ...rival("fox", 1), extra: true }).ok).toBe(false);
     expect(rival("fox", 1).module.id).toBe("fox");
   });
+
+  it("keeps a module's note, which defaults to none", () => {
+    const plain = rival("fox", 1);
+    expect(plain.module.note).toBeNull();
+    const noted = addOn({ ...plain, module: { ...plain.module, note: "Quick and sly" } });
+    expect(noted.module.note).toBe("Quick and sly");
+    expect(parseAddOn({ ...plain, module: { ...plain.module, note: "" } }).ok).toBe(false);
+    const modules = combined([noted, garden]).modules;
+    expect(modules.find((module) => module.id === "fox")?.note).toBe("Quick and sly");
+  });
 });

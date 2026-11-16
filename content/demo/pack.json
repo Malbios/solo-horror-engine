@@ -211,6 +211,7 @@
   "modules": [
     {
       "id": "bonus-cards",
+      "note": "Adds two extra cards to the deck",
       "kind": "extra-content",
       "precedence": 1,
       "content": {
