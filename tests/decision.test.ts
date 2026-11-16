@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createEngine, view, viewActions, type GameState } from "../src/core";
-import { actionLabel, buyNote, stableOrder, unavailableBuys } from "../src/ui/decision";
+import {
+  actionLabel,
+  automaticPass,
+  buyNote,
+  stableOrder,
+  unavailableBuys,
+} from "../src/ui/decision";
 import { createLabels, displayRules } from "../src/ui/labels";
 import { groupCopies } from "../src/ui/panels";
 import { act, fixturePack, PAUSE_PHASE } from "./helpers";
@@ -84,6 +90,19 @@ describe("unavailable buys", () => {
         .filter((action) => action.type === "buyCard")
         .map((action) => ("card" in action ? action.card.split(":")[0] : "")),
     ).toEqual(["rope", "lamp"]);
+  });
+});
+
+describe("automatic pass", () => {
+  it("passes for the player only when the shop offers nothing to buy", () => {
+    const pack = shopPack(0);
+    const engine = createEngine(pack);
+    const poor = engine.init(1);
+    expect(automaticPass(view(poor), viewActions(poor))).toBeNull();
+    const rope = viewActions(poor).find((action) => action.type === "buyCard");
+    if (rope === undefined) throw new Error("no free card offered");
+    const broke = act(engine, poor, rope);
+    expect(automaticPass(view(broke), viewActions(broke))).toEqual({ type: "pass" });
   });
 });
 

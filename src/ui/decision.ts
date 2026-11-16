@@ -91,6 +91,14 @@ export function stableOrder(actions: readonly Action[], shown: GameView, labels:
     .map(({ action }) => action);
 }
 
+/** The pass to take for the player when a shop window offers nothing but passing. */
+export function automaticPass(shown: GameView, actions: readonly Action[]): Action | null {
+  const pending = shown.pending;
+  if (pending?.kind !== "window" || pending.buyFrom === null) return null;
+  const [only, ...rest] = actions;
+  return only?.type === "pass" && rest.length === 0 ? only : null;
+}
+
 /** Face-up cards in the shop zone that cannot be bought right now, one per card name. */
 export function unavailableBuys(shown: GameView): ViewCard[] {
   const pending = shown.pending;

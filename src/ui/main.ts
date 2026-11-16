@@ -17,7 +17,7 @@ import {
   type Rules,
 } from "../core";
 import { renderMap } from "./board";
-import { renderDecision } from "./decision";
+import { automaticPass, renderDecision } from "./decision";
 import { h, requireElement } from "./dom";
 import { logEntry, replayWithLog, withEntry } from "./game-log";
 import { createLabels, displayRules, moduleInfo, type Labels } from "./labels";
@@ -196,30 +196,56 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     decisionBar.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
   }
 
-  function take(action: Action): void {
-    if (session === null) return;
-    const outcome = engine.step(session.state, action);
+  function applied(current: Session, action: Action): Session | string {
+    const outcome = engine.step(current.state, action);
     if (!outcome.ok) {
-      render(`That action was refused (${viewError(outcome.error, session.state).type}).`);
-      return;
+      return `That action was refused (${viewError(outcome.error, current.state).type}).`;
     }
     const { state, events, undoBarrier } = outcome.value;
-    session = {
-      ...session,
-      actions: [...session.actions, action],
+    return {
+      ...current,
+      actions: [...current.actions, action],
       state,
       undoable: !undoBarrier,
-      log: withEntry(session.log, logEntry(action, session.state, state, events, labelsFor)),
+      log: withEntry(current.log, logEntry(action, current.state, state, events, labelsFor)),
     };
+  }
+
+  function automaticPassFor(state: GameState): Action | null {
+    return automaticPass(view(state), viewActions(state));
+  }
+
+  function appliedWithAutomaticPasses(current: Session, action: Action): Session | string {
+    const next = applied(current, action);
+    if (typeof next === "string") return next;
+    const pass = automaticPassFor(next.state);
+    return pass === null ? next : appliedWithAutomaticPasses(next, pass);
+  }
+
+  function take(action: Action): void {
+    if (session === null) return;
+    const next = appliedWithAutomaticPasses(session, action);
+    if (typeof next === "string") {
+      render(next);
+      return;
+    }
+    session = next;
     persist(session);
     sheet.close();
     render();
     focusDecision();
   }
 
+  /** Undoes the last action, and also the action before it when the last was a pass taken automatically. */
+  function undoneActions(seed: number, actions: readonly Action[]) {
+    const undone = undo(engine, seed, actions);
+    if (!undone.ok || automaticPassFor(undone.value.state) === null) return undone;
+    return undo(engine, seed, undone.value.actions);
+  }
+
   function takeBack(): void {
     if (session === null) return;
-    const undone = undo(engine, session.seed, session.actions);
+    const undone = undoneActions(session.seed, session.actions);
     if (!undone.ok) {
       render(
         undone.error.type === "undoBlocked"
