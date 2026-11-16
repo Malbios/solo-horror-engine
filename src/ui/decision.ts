@@ -27,16 +27,10 @@ function cardsChosenAmong(action: Action, shown: GameView): readonly ViewCard[] 
   const pending = shown.pending;
   if (pending?.kind === "pickCard") return pending.cards;
   if (pending?.kind !== "window") return [];
-  switch (action.type) {
-    case "playCard":
-      return pending.play;
-    case "discardCard":
-      return pending.discard;
-    case "buyCard":
-      return pending.buy;
-    default:
-      return [];
-  }
+  if (action.type === "playCard") return pending.play;
+  if (action.type === "discardCard") return pending.discard;
+  if (action.type === "buyCard") return pending.buy;
+  return [];
 }
 
 function copiesOffered(action: Action, shown: GameView): number {
