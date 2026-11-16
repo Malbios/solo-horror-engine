@@ -21,7 +21,14 @@ import {
 import { renderMap } from "./board";
 import { renderDecision } from "./decision";
 import { h, requireElement } from "./dom";
-import { createLabels, describeAction, describeEvent, displayRules, type Labels } from "./labels";
+import {
+  createLabels,
+  describeAction,
+  describeEvent,
+  displayRules,
+  moduleNames,
+  type Labels,
+} from "./labels";
 import { renderLog, renderTracks, renderZones, type LogEntry } from "./panels";
 import {
   describeSaveMismatch,
@@ -82,13 +89,14 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
   let session: Session | null = null;
   let activePanel: Panel = "cards";
   let rulesCache: { key: string; rules: Rules } | null = null;
+  const names = moduleNames(pack);
 
   function labelsFor(shown: GameView): Labels {
     const key = shown.modules.join("|");
     if (rulesCache === null || rulesCache.key !== key) {
       rulesCache = { key, rules: displayRules(pack, shown.modules) };
     }
-    return createLabels(rulesCache.rules, shown);
+    return createLabels(rulesCache.rules, shown, names);
   }
 
   function renderTabs(): void {

@@ -144,6 +144,15 @@ describe("core and add-ons", () => {
     expect(after).not.toBe(before);
   });
 
+  it("names each add-on module after its file unless the module has a name", () => {
+    const named = addOn({
+      meta: { ...META, id: "pond", name: "Pond file", core: "table" },
+      module: { id: "pond", name: "The Pond", kind: "place", precedence: 1, content: {} },
+    });
+    const pack = combined([rival("fox", 1), garden, named]);
+    expect(pack.modules.map((module) => module.name)).toEqual(["fox", "Garden", "The Pond"]);
+  });
+
   it("accepts an add-on alone even when it refers to the core", () => {
     expect(parseAddOn({ ...rival("fox", 1), extra: true }).ok).toBe(false);
     expect(rival("fox", 1).module.id).toBe("fox");

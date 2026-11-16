@@ -31,7 +31,10 @@ export function combineAddOns(core: Pack, addOns: readonly AddOn[]): Result<Pack
   const combined: Pack = {
     ...core,
     meta: { ...core.meta, version: combinedVersion(core, addOns) },
-    modules: [...core.modules, ...addOns.map((addOn) => addOn.module)],
+    modules: [
+      ...core.modules,
+      ...addOns.map((addOn) => ({ ...addOn.module, name: addOn.module.name ?? addOn.meta.name })),
+    ],
   };
   const issues = [
     ...packIssues(combined).map((issue) => issue.message),

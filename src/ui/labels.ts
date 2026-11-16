@@ -27,7 +27,13 @@ export type Labels = {
   attribute(kind: string, id: string): string;
   boards(): Board[];
   spaces(): Space[];
+  module(id: string): string;
 };
+
+/** Display names of every module in the pack, falling back to their ids. */
+export function moduleNames(pack: Pack): ReadonlyMap<string, string> {
+  return new Map(pack.modules.map((module) => [module.id, module.name ?? module.id]));
+}
 
 function cardsByRef(shown: GameView): Map<string, ViewCard> {
   return new Map(
@@ -42,7 +48,11 @@ export function displayRules(pack: Pack, modules: readonly string[]): Rules {
   return composed.value;
 }
 
-export function createLabels(rules: Rules, shown: GameView): Labels {
+export function createLabels(
+  rules: Rules,
+  shown: GameView,
+  modules: ReadonlyMap<string, string> = new Map(),
+): Labels {
   const unitName = (unit: UnitState): string => {
     const kindName = rules.unitKindById.get(unit.kind)?.name ?? unit.kind;
     const sameKind = Object.values(shown.units).filter((other) => other.kind === unit.kind);
@@ -66,6 +76,7 @@ export function createLabels(rules: Rules, shown: GameView): Labels {
       rules.unitKindById.get(kind)?.attributes.find((attribute) => attribute.id === id)?.name ?? id,
     boards: () => rules.boards,
     spaces: () => rules.spaces,
+    module: (id) => modules.get(id) ?? id,
   };
 }
 
@@ -84,7 +95,7 @@ function cardLabel(ref: string, shown: GameView, labels: Labels): string {
 export function describeAction(action: Action, shown: GameView, labels: Labels): string {
   switch (action.type) {
     case "pickModule":
-      return `Add ${action.module}`;
+      return `Add ${labels.module(action.module)}`;
     case "chooseOption": {
       const pending = shown.pending;
       const option =
@@ -136,7 +147,7 @@ function signed(from: number, to: number): string {
 export function describeEvent(event: GameEvent, shown: GameView, labels: Labels): string | null {
   switch (event.type) {
     case "moduleChosen":
-      return `Added ${event.module}`;
+      return `Added ${labels.module(event.module)}`;
     case "counterChanged":
       return `${labels.counter(event.counter)} ${signed(event.from, event.to)} (now ${event.to})`;
     case "cardsMoved": {
@@ -194,7 +205,7 @@ export function describeDecision(shown: GameView, labels: Labels): string {
   if (pending === null) return describeOutcome(shown) ?? "";
   switch (pending.kind) {
     case "pickModule":
-      return "Choose optional content";
+      return `Choose: ${pending.choice.replaceAll("-", " ")}`;
     case "chooseOption":
       return "Choose one";
     case "window":

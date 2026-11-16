@@ -642,6 +642,7 @@ const removalSchema = z.strictObject({
 
 const moduleSchema = z.strictObject({
   id: idSchema,
+  name: nameSchema.nullable().default(null),
   kind: nameSchema,
   precedence: z.int(),
   content: contentSchema.prefault({}),

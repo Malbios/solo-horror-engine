@@ -349,6 +349,7 @@ export type Removal = Record<LayeredCollection, string[]>;
 
 export type Module = {
   id: string;
+  name: string | null;
   kind: string;
   precedence: number;
   content: Content;
