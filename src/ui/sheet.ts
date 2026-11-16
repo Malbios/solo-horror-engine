@@ -1,6 +1,6 @@
-import type { Cost, GameView, NumExpr, Space, ViewCard } from "../core";
+import type { Cost, GameView, Space, ViewCard } from "../core";
 import { h, type Child } from "./dom";
-import { describeMarkFrom, type Labels } from "./labels";
+import { describeCost, describeMarkFrom, type Labels } from "./labels";
 
 export type Sheet = {
   open: (title: string, body: readonly Child[]) => void;
@@ -33,16 +33,6 @@ export function createSheet(dialog: HTMLDialogElement): Sheet {
       dialog.close();
     },
   };
-}
-
-function amountText(amount: NumExpr): string {
-  return typeof amount === "number" ? String(amount) : "some";
-}
-
-function describeCost(cost: Cost, labels: Labels): string {
-  if ("counter" in cost) return `${amountText(cost.amount)} ${labels.counter(cost.counter)}`;
-  if ("attribute" in cost) return `${amountText(cost.amount)} ${cost.attribute}`;
-  return `Discard from ${labels.zone(cost.discard.from)}`;
 }
 
 function costLine(title: string, costs: readonly Cost[], labels: Labels): Child {

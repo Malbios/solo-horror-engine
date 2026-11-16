@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createEngine, view, viewActions, type GameState } from "../src/core";
-import { actionLabel, stableOrder } from "../src/ui/decision";
+import { actionLabel, buyNote, stableOrder } from "../src/ui/decision";
 import { createLabels, displayRules } from "../src/ui/labels";
 import { groupCopies } from "../src/ui/panels";
 import { act, fixturePack, PAUSE_PHASE } from "./helpers";
@@ -11,9 +11,10 @@ function shopPack() {
       { id: "shelf", name: "Shelf" },
       { id: "bag", name: "Bag" },
     ],
+    counters: [{ id: "coins", name: "Coins", start: 9 }],
     cards: [
-      { id: "lamp", name: "Lamp" },
-      { id: "bell", name: "Bell" },
+      { id: "lamp", name: "Lamp", buyCost: [{ counter: "coins", amount: 1 }] },
+      { id: "bell", name: "Bell", buyCost: [{ counter: "coins", amount: 2 }] },
       { id: "rope", name: "Rope" },
     ],
     setup: [
@@ -28,9 +29,7 @@ function shopPack() {
         steps: [
           {
             id: "go",
-            effects: [
-              { type: "playWindow", buy: { from: "shelf", to: "bag", cards: {}, free: true } },
-            ],
+            effects: [{ type: "playWindow", buy: { from: "shelf", to: "bag", cards: {} } }],
           },
         ],
       },
@@ -42,23 +41,36 @@ function shopPack() {
 function buttons(state: GameState, pack: ReturnType<typeof shopPack>) {
   const shown = view(state);
   const labels = createLabels(displayRules(pack, shown.modules), shown);
-  return stableOrder(viewActions(state), shown, labels).map((action) =>
-    actionLabel(action, shown, labels),
-  );
+  return stableOrder(viewActions(state), shown, labels).map((action) => {
+    const note = buyNote(action, shown, labels);
+    return note === null
+      ? actionLabel(action, shown, labels)
+      : `${actionLabel(action, shown, labels)} [${note}]`;
+  });
 }
 
 describe("decision buttons", () => {
-  it("list card actions by name with their copies, and keep a card's place after taking one", () => {
+  it("list card actions by name with price and copies, and keep a card's place after taking one", () => {
     const pack = shopPack();
     const engine = createEngine(pack);
     let state = engine.init(1);
-    expect(buttons(state, pack)).toEqual(["Take Bell", "Take Lamp (2)", "Take Rope", "Pass"]);
+    expect(buttons(state, pack)).toEqual([
+      "Buy Bell [2 Coins]",
+      "Buy Lamp [1 Coins · 2 left]",
+      "Buy Rope [Free]",
+      "Pass",
+    ]);
     const lamp = viewActions(state).find(
       (action) => action.type === "buyCard" && action.card.startsWith("lamp"),
     );
     if (lamp === undefined) throw new Error("no lamp offered");
     state = act(engine, state, lamp);
-    expect(buttons(state, pack)).toEqual(["Take Bell", "Take Lamp", "Take Rope", "Pass"]);
+    expect(buttons(state, pack)).toEqual([
+      "Buy Bell [2 Coins]",
+      "Buy Lamp [1 Coins]",
+      "Buy Rope [Free]",
+      "Pass",
+    ]);
   });
 });
 

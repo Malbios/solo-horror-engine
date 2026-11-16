@@ -1,6 +1,6 @@
 import type { Action, GameView, ViewCard } from "../core";
 import { h } from "./dom";
-import { describeAction, describeDecision, type Labels } from "./labels";
+import { describeAction, describeCost, describeDecision, type Labels } from "./labels";
 
 export type DecisionHandlers = {
   takeAction: (action: Action) => void;
@@ -49,7 +49,22 @@ export function actionLabel(action: Action, shown: GameView, labels: Labels): st
   }
   const label = describeAction(action, shown, labels);
   const copies = copiesOffered(action, shown);
-  return copies > 1 ? `${label} (${copies})` : label;
+  return copies > 1 && action.type !== "buyCard" ? `${label} (${copies})` : label;
+}
+
+/** The second line of a buy button: its price (unless free) and how many copies are left. */
+export function buyNote(action: Action, shown: GameView, labels: Labels): string | null {
+  if (action.type !== "buyCard") return null;
+  const pending = shown.pending;
+  const free = pending?.kind === "window" && pending.buyFree;
+  const card = offeredCard(action, shown);
+  const definition = card === null ? null : labels.cardDefinition(card);
+  const prices = definition?.buyCost.map((cost) => describeCost(cost, labels)) ?? [];
+  const price = free ? null : prices.length === 0 ? "Free" : prices.join(", ");
+  const copies = copiesOffered(action, shown);
+  const left = copies > 1 ? `${copies} left` : null;
+  const parts = [price, left].filter((part) => part !== null);
+  return parts.length === 0 ? null : parts.join(" · ");
 }
 
 /**
@@ -82,7 +97,10 @@ function actionControl(
   labels: Labels,
   handlers: DecisionHandlers,
 ): HTMLElement {
-  const note = action.type === "pickModule" ? labels.moduleNote(action.module) : null;
+  const note =
+    action.type === "pickModule"
+      ? labels.moduleNote(action.module)
+      : buyNote(action, shown, labels);
   const take = h(
     "button",
     {
