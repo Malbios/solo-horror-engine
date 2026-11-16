@@ -54,9 +54,9 @@ const ADD_ONS_KEY = "solo-horror-engine:add-ons";
 const SAVE_KEY_PREFIX = "solo-horror-engine:save:";
 
 type ActivePack = { pack: Pack; fromFile: boolean; addOns: AddOn[]; notice: string };
-const PANELS = ["tracks", "cards", "log"] as const;
+const PANELS = ["tracks", "cards"] as const;
 type Panel = (typeof PANELS)[number];
-const PANEL_TITLES: Record<Panel, string> = { tracks: "Tracks", cards: "Cards", log: "Log" };
+const PANEL_TITLES: Record<Panel, string> = { tracks: "Tracks", cards: "Cards" };
 
 type Session = {
   seed: number;
@@ -81,7 +81,12 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
   const panels = requireElement("panels", HTMLElement);
   const decisionBar = requireElement("decision", HTMLElement);
   const notice = requireElement("notice", HTMLParagraphElement);
-  const sheet = createSheet(requireElement("sheet", HTMLDialogElement));
+  const sheetDialog = requireElement("sheet", HTMLDialogElement);
+  const sheet = createSheet(sheetDialog);
+  const logDrawer = requireElement("log-drawer", HTMLElement);
+  const logTag = requireElement("log-tag", HTMLButtonElement);
+  const logBody = requireElement("log-body", HTMLDivElement);
+  let logOpen = false;
   const identity = {
     engineVersion: ENGINE_VERSION,
     packId: pack.meta.id,
@@ -122,6 +127,10 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     notice.hidden = message === "";
     renderTabs();
     const current = session;
+    logBody.replaceChildren(
+      h("h2", { className: "log-drawer-title", text: "Log" }),
+      renderLog(current?.log ?? []),
+    );
     if (current === null) {
       roundText.textContent = "";
       undoButton.disabled = true;
@@ -150,7 +159,6 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     panels.replaceChildren(
       panelSection("tracks", renderTracks(shown, labels)),
       panelSection("cards", renderZones(shown, labels, openCard)),
-      panelSection("log", renderLog(current.log)),
     );
     decisionBar.replaceChildren(
       ...renderDecision(shown, actions, labels, {
@@ -424,6 +432,18 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     }
   }
 
+  function showLog(open: boolean): void {
+    logOpen = open;
+    logDrawer.toggleAttribute("data-open", open);
+    logTag.setAttribute("aria-expanded", String(open));
+    logBody.inert = !open;
+    if (open) logBody.scrollTop = 0;
+  }
+
+  logTag.addEventListener("click", () => showLog(!logOpen));
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && logOpen && !sheetDialog.open) showLog(false);
+  });
   undoButton.addEventListener("click", takeBack);
   menuButton.addEventListener("click", () => openMenu());
 

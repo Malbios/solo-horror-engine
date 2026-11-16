@@ -258,7 +258,7 @@ h3 {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 4px;
 }
 
@@ -273,8 +273,7 @@ h3 {
 }
 
 .panels[data-active="tracks"] .panel[data-panel="tracks"],
-.panels[data-active="cards"] .panel[data-panel="cards"],
-.panels[data-active="log"] .panel[data-panel="log"] {
+.panels[data-active="cards"] .panel[data-panel="cards"] {
   display: block;
 }
 
@@ -404,6 +403,59 @@ h3 {
   padding-left: 1.2em;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.log-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  width: min(85vw, 380px);
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+}
+
+.log-drawer[data-open] {
+  transform: none;
+  box-shadow: -8px 0 24px rgb(0 0 0 / 0.3);
+}
+
+.log-tag {
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  transform: translateY(-50%);
+  writing-mode: vertical-rl;
+  min-height: 80px;
+  padding: 12px 0;
+  border-right: none;
+  border-radius: var(--radius) 0 0 var(--radius);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.log-drawer-body {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom)) 16px;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+}
+
+.log-drawer-title {
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .plain-list {

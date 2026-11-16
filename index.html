@@ -25,6 +25,18 @@
       </main>
       <footer id="decision" class="decision" aria-label="Your move"></footer>
     </div>
+    <aside id="log-drawer" class="log-drawer" aria-label="Log">
+      <button
+        id="log-tag"
+        type="button"
+        class="log-tag"
+        aria-expanded="false"
+        aria-controls="log-body"
+      >
+        Log
+      </button>
+      <div id="log-body" class="log-drawer-body" inert></div>
+    </aside>
     <dialog id="sheet" class="sheet"></dialog>
     <script type="module" src="/src/ui/main.ts"></script>
   </body>
