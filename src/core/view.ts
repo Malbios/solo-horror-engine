@@ -24,7 +24,14 @@ export type OptionChoiceView = { id: string; label: string; cost: Cost[] };
 export type DecisionView =
   | Exclude<Decision, { kind: "chooseOption" } | { kind: "window" } | { kind: "pickCard" }>
   | { kind: "chooseOption"; options: OptionChoiceView[]; canPass: boolean }
-  | { kind: "window"; play: ViewCard[]; discard: ViewCard[]; abilities: AbilityOffer[] }
+  | {
+      kind: "window";
+      play: ViewCard[];
+      discard: ViewCard[];
+      buy: ViewCard[];
+      buyFree: boolean;
+      abilities: AbilityOffer[];
+    }
   | { kind: "pickCard"; cards: ViewCard[] };
 
 export type GameView = {
@@ -87,6 +94,8 @@ function viewDecision(state: GameState, pending: Decision): DecisionView {
         kind: "window",
         play: pending.play.map((card) => viewCard(state, card)),
         discard: pending.discard.map((card) => viewCard(state, card)),
+        buy: pending.buy.map((card) => viewCard(state, card)),
+        buyFree: pending.buyFree,
         abilities: pending.abilities,
       };
     case "pickCard":
@@ -158,7 +167,11 @@ export function viewEvents(events: readonly GameEvent[], after: GameState): Game
     if (event.type === "cardsMoved") {
       return { ...event, cards: event.cards.map((card) => cardRef(after, card)) };
     }
-    if (event.type === "abilityUsed" || event.type === "cardResolved") {
+    if (
+      event.type === "abilityUsed" ||
+      event.type === "cardResolved" ||
+      event.type === "cardBought"
+    ) {
       return { ...event, card: cardRef(after, event.card) };
     }
     return event;

@@ -182,7 +182,7 @@
         "steps": [
           {
             "id": "play-cards",
-            "effects": [{ "type": "playWindow", "from": "hand", "to": "discard" }]
+            "effects": [{ "type": "playWindow", "play": { "from": "hand", "to": "discard" } }]
           }
         ]
       },

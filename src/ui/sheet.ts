@@ -45,6 +45,12 @@ function describeCost(cost: Cost, labels: Labels): string {
   return `Discard from ${labels.zone(cost.discard.from)}`;
 }
 
+function costLine(title: string, costs: readonly Cost[], labels: Labels): Child {
+  if (costs.length === 0) return null;
+  const text = `${title}: ${costs.map((cost) => describeCost(cost, labels)).join(", ")}`;
+  return h("p", { className: "muted", text });
+}
+
 export function cardDetails(card: ViewCard, labels: Labels): Child[] {
   const definition = labels.cardDefinition(card);
   if (definition === null) return [h("p", { className: "muted", text: "Its face is hidden." })];
@@ -56,12 +62,8 @@ export function cardDetails(card: ViewCard, labels: Labels): Child[] {
           attrs: { src: definition.image, alt: definition.name },
         }),
     definition.text === "" ? null : h("p", { className: "card-text-full", text: definition.text }),
-    definition.cost.length === 0
-      ? null
-      : h("p", {
-          className: "muted",
-          text: `Cost: ${definition.cost.map((cost) => describeCost(cost, labels)).join(", ")}`,
-        }),
+    costLine("Cost", definition.cost, labels),
+    costLine("Price", definition.buyCost, labels),
     definition.abilities.length === 0
       ? null
       : h(

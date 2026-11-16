@@ -63,6 +63,8 @@ import type {
   Scope,
   ScopeHooks,
   UnitSet,
+  WindowBuy,
+  WindowPlay,
 } from "./pack";
 import { assertNever, type Result } from "./result";
 import { nextInt, shuffle } from "./rng";
@@ -845,8 +847,17 @@ export function createResolver(
       const owed = costCounter(cost, context);
       if (owed === null) return false;
       const { definition, value, amount } = owed;
-      return definition.min === null || value - amount >= definition.min;
+      const left = value - amount;
+      return (
+        (definition.min === null || left >= definition.min) &&
+        (amount === 0 || left >= costFloor(cost, context))
+      );
     });
+  }
+
+  function costFloor(cost: Cost, context: ExpressionContext): number {
+    if (!("counter" in cost) || cost.floor === null) return -Infinity;
+    return evaluateNumber(cost.floor, scopeOf(context));
   }
 
   function startPayment(costs: Cost[], context: ExpressionContext): void {
@@ -1233,10 +1244,9 @@ export function createResolver(
       case "playWindow":
         work.stack.push({
           kind: "playWindow",
-          from: effect.from,
-          to: effect.to,
-          cards: effect.cards,
+          play: effect.play,
           discard: effect.discard,
+          buy: effect.buy,
           abilitiesFrom: effect.abilitiesFrom,
           repeat: effect.repeat,
         });
@@ -1526,17 +1536,37 @@ export function createResolver(
   }
 
   function openPlayWindow(frame: PlayWindowFrame): void {
+    const discard = frame.discard === null ? [] : [...zoneCards(frame.discard.from)];
+    work.pending = {
+      kind: "window",
+      play: playOffers(frame.play),
+      discard,
+      buy: buyOffers(frame.buy),
+      buyFree: frame.buy?.free ?? false,
+      abilities: abilityOffers(frame.abilitiesFrom),
+    };
+  }
+
+  function playOffers(play: WindowPlay | null): string[] {
+    if (play === null) return [];
     const scope = scopeOf(EMPTY_CONTEXT);
-    const play = zoneCards(frame.from).filter((card) => {
+    return zoneCards(play.from).filter((card) => {
       const definition = cardDefinition(card);
       return (
-        passesFilter(card, frame.cards) &&
+        passesFilter(card, play.cards) &&
         evaluateBoolean(definition.playable, scope) &&
         isPayable(definition.cost, EMPTY_CONTEXT)
       );
     });
-    const discard = frame.discard === null ? [] : [...zoneCards(frame.discard.from)];
-    work.pending = { kind: "window", play, discard, abilities: abilityOffers(frame.abilitiesFrom) };
+  }
+
+  function buyOffers(buy: WindowBuy | null): string[] {
+    if (buy === null || !evaluateBoolean(buy.when, scopeOf(EMPTY_CONTEXT))) return [];
+    return zoneCards(buy.from).filter(
+      (card) =>
+        passesFilter(card, buy.cards) &&
+        (buy.free || isPayable(cardDefinition(card).buyCost, EMPTY_CONTEXT)),
+    );
   }
 
   function runEffectsFrame(frame: EffectsFrame): void {
@@ -1690,10 +1720,18 @@ export function createResolver(
   }
 
   function playCard(window: PlayWindowFrame, card: string): void {
-    moveOneCard(card, window.from, window.to);
+    const play = window.play ?? fault("This window offers no plays");
+    moveOneCard(card, play.from, play.to);
     const definition = cardDefinition(card);
     pushEffects(definition.effects, EMPTY_CONTEXT, null);
     startPayment(definition.cost, EMPTY_CONTEXT);
+  }
+
+  function buyCard(window: PlayWindowFrame, card: string): void {
+    const buy = window.buy ?? fault("This window offers no purchases");
+    moveOneCard(card, buy.from, buy.to);
+    emit({ type: "cardBought", card }, EMPTY_CONTEXT);
+    if (!buy.free) startPayment(cardDefinition(card).buyCost, EMPTY_CONTEXT);
   }
 
   function discardCard(window: PlayWindowFrame, card: string): void {
@@ -1804,6 +1842,9 @@ export function createResolver(
         return;
       case "discardCard":
         discardCard(openWindow(), action.card);
+        return;
+      case "buyCard":
+        buyCard(openWindow(), action.card);
         return;
       case "useAbility":
         openWindow();

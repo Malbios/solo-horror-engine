@@ -143,7 +143,14 @@ export type Decision =
       canPass: boolean;
       context: ExpressionContext;
     }
-  | { kind: "window"; play: string[]; discard: string[]; abilities: AbilityOffer[] }
+  | {
+      kind: "window";
+      play: string[];
+      discard: string[];
+      buy: string[];
+      buyFree: boolean;
+      abilities: AbilityOffer[];
+    }
   | { kind: "moveUnit"; unit: string; options: string[]; canPass: boolean }
   | { kind: "pickUnit"; options: string[]; canPass: boolean }
   | { kind: "pickCard"; cards: string[] }
@@ -185,6 +192,7 @@ export type Action =
   | { type: "chooseOption"; option: string }
   | { type: "playCard"; card: string }
   | { type: "discardCard"; card: string }
+  | { type: "buyCard"; card: string }
   | { type: "useAbility"; card: string; ability: string }
   | { type: "moveTo"; space: string }
   | { type: "pickUnit"; unit: string }
@@ -222,6 +230,7 @@ export type GameEvent =
   | { type: "diceRolled"; pool: string; dice: Die[] }
   | { type: "abilityUsed"; card: string; ability: string }
   | { type: "cardResolved"; card: string }
+  | { type: "cardBought"; card: string }
   | {
       type: "quantityDelivered";
       quantity: string;

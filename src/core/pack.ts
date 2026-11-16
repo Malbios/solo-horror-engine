@@ -65,7 +65,7 @@ export type Followers = {
 };
 
 export type Cost =
-  | { counter: string; amount: NumExpr }
+  | { counter: string; amount: NumExpr; floor: NumExpr | null }
   | { attribute: string; of: UnitRef; amount: NumExpr }
   | { discard: { from: string; to: string; count: NumExpr } };
 
@@ -81,14 +81,23 @@ export type CardPosition = "top" | "bottom";
 
 export type CardFilter = { requireTags: string[]; excludeTags: string[] };
 
+export type WindowPlay = { from: string; to: string; cards: CardFilter };
+
 export type WindowDiscard = { from: string; to: string; effects: Effect[] };
 
-export type PlayWindowEffect = {
-  type: "playWindow";
+export type WindowBuy = {
   from: string;
   to: string;
   cards: CardFilter;
+  when: BoolExpr;
+  free: boolean;
+};
+
+export type PlayWindowEffect = {
+  type: "playWindow";
+  play: WindowPlay | null;
   discard: WindowDiscard | null;
+  buy: WindowBuy | null;
   abilitiesFrom: string[];
   repeat: boolean;
 };
@@ -224,6 +233,7 @@ export type Card = {
   tags: string[];
   playable: BoolExpr;
   cost: Cost[];
+  buyCost: Cost[];
   effects: Effect[];
   abilities: Ability[];
 };

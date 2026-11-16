@@ -62,7 +62,7 @@ describe("costs", () => {
       [
         { type: "createCards", card: "dear", zone: "hand" },
         { type: "createCards", card: "cheap", zone: "hand" },
-        { type: "playWindow", from: "hand", to: "played" },
+        { type: "playWindow", play: { from: "hand", to: "played" } },
       ],
       {
         counters: [{ id: "coins", start: 2, min: 0 }],
@@ -79,6 +79,8 @@ describe("costs", () => {
       kind: "window",
       play: ["cheap:1"],
       discard: [],
+      buy: [],
+      buyFree: false,
       abilities: [],
     });
     const played = act(engine, window, { type: "playCard", card: "cheap:1" });

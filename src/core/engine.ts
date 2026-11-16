@@ -93,6 +93,7 @@ export function legalActions(state: GameState): Action[] {
         [
           ...pending.play.map((card): Action => ({ type: "playCard", card })),
           ...pending.discard.map((card): Action => ({ type: "discardCard", card })),
+          ...pending.buy.map((card): Action => ({ type: "buyCard", card })),
           ...pending.abilities.map((offer): Action => ({ type: "useAbility", ...offer })),
         ],
         true,
@@ -129,6 +130,8 @@ function sameAction(legal: Action, candidate: Action): boolean {
       return candidate.type === "playCard" && candidate.card === legal.card;
     case "discardCard":
       return candidate.type === "discardCard" && candidate.card === legal.card;
+    case "buyCard":
+      return candidate.type === "buyCard" && candidate.card === legal.card;
     case "useAbility":
       return (
         candidate.type === "useAbility" &&

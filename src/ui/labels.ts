@@ -97,6 +97,10 @@ export function describeAction(action: Action, shown: GameView, labels: Labels):
       return `Play ${cardLabel(action.card, shown, labels)}`;
     case "discardCard":
       return `Discard ${cardLabel(action.card, shown, labels)}`;
+    case "buyCard": {
+      const free = shown.pending?.kind === "window" && shown.pending.buyFree;
+      return `${free ? "Take" : "Buy"} ${cardLabel(action.card, shown, labels)}`;
+    }
     case "useAbility":
       return `Use ${abilityLabel(action.card, action.ability, shown, labels)}`;
     case "pickCard":
@@ -167,6 +171,8 @@ export function describeEvent(event: GameEvent, shown: GameView, labels: Labels)
       return `Rolled ${event.dice.map((die) => die.face).join(", ")}`;
     case "cardResolved":
       return `Resolved ${cardLabel(event.card, shown, labels)}`;
+    case "cardBought":
+      return `Got ${cardLabel(event.card, shown, labels)}`;
     case "abilityUsed":
       return `Used ${abilityLabel(event.card, event.ability, shown, labels)}`;
     case "quantityDelivered":

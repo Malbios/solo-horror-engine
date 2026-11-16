@@ -126,7 +126,7 @@ describe("hidden cards", () => {
   it("offers cards that look the same only once", () => {
     const pack = hiddenPack([
       { type: "moveCards", from: "stack", to: "hand", count: 4 },
-      { type: "playWindow", from: "hand", to: "spent" },
+      { type: "playWindow", play: { from: "hand", to: "spent" } },
     ]);
     const engine = createEngine(pack);
     const state = engine.init(1);

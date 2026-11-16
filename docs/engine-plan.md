@@ -57,11 +57,13 @@ Each entry ends with the invented fixture that tests it.
 
 21. **Procedures.** Packs define named effect lists with numeric parameters. An effect calls one with argument expressions, evaluated in the caller's context; inside, `{ arg }` reads them, and the caller's unit and amount pass through. Every call passes exactly the declared parameters, arguments are read only inside the procedure that declares them, and procedures never call themselves directly or indirectly. Modules patch procedures by id. _Fixture: two cards calling one procedure with different arguments._
 
-22. **Windows.** A window offers several kinds of action in one decision: play a card from a zone (optionally only cards with or without given tags), discard any card from a zone for a fixed effect, and use an ability of a face-up card lying in a listed zone, plus pass. Abilities have a condition, a cost and an optional use limit per step, phase, round or game; using one does not move the card. A window either stays open until pass or closes after one action. Abilities of face-down cards are never offered, so nothing hidden is revealed. _Fixture: one window offering a play, a discard and an ability limited to one use per phase._
+22. **Windows.** A window offers several kinds of action in one decision (each kind is optional): play a card from a zone (optionally only cards with or without given tags), discard any card from a zone for a fixed effect, and use an ability of a face-up card lying in a listed zone, plus pass. Abilities have a condition, a cost and an optional use limit per step, phase, round or game; using one does not move the card. A window either stays open until pass or closes after one action. Abilities of face-down cards are never offered, so nothing hidden is revealed. _Fixture: one window offering a play, a discard and an ability limited to one use per phase._
 
 23. **Resolving cards.** An effect takes the top card of a zone, optionally moves it to another zone first (taking that zone's face), and runs its effects at once, without a decision and ignoring play conditions and costs. A card that is still face down runs its zone's shared back effects instead, so every hidden card in a zone acts the same and resolving one never reveals which it is. An empty zone runs a fallback effect list. _Fixture: a face-down card whose zone's back effect runs, then its own effect after it turns face up._
 
 24. **Followers.** A moving unit may take other units along: after each step, units of a given kind in the space it left may follow, up to a cap from an expression, unless a condition on the destination forbids it. The player picks followers one at a time and may stop at any point; followers are offered again on every step. Followers move like any unit, so their movement triggers fire. _Fixture: a mover leaving a space with three followers, taking two, and none into a blocked space._
+
+25. **Market.** A window may offer cards from a zone to take into another zone, paying the card's buy cost (separate from its play cost) without running its effects. The offer has a card tag filter, a condition checked when the window opens (for example a size limit on the target zone), and may be free. A counter cost may name a floor: a non-zero cost is payable only if the counter stays at or above the floor, so a zero cost is always payable. Cards waiting to return to the market simply sit in another zone. _Fixture: a stall where a costly card is offered only while the counter stays above the floor, and a free one-time take limited by tags._
 
 ## Decisions
 
@@ -81,3 +83,4 @@ Each entry ends with the invented fixture that tests it.
 10. Resolving drawn and revealed cards.
 11. Card presence in expressions.
 12. Followers.
+13. Market: buy offers in windows, buy costs and cost floors.

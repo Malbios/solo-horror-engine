@@ -29,11 +29,15 @@ const cards = [
 
 const fullWindow = {
   type: "playWindow",
-  from: "hand",
-  to: "pile",
+  play: { from: "hand", to: "pile" },
   discard: { from: "hand", to: "trash", effects: [change("coins", 1)] },
   abilitiesFrom: ["bench"],
 };
+
+const withPlayFilter = (cards: object) => ({
+  ...fullWindow,
+  play: { ...fullWindow.play, cards },
+});
 
 function windowPack(window: object, extra: object = {}) {
   return fixturePack({
@@ -84,15 +88,13 @@ describe("rich windows", () => {
   });
 
   it("plays only cards that pass the tag filter but lets any card be discarded", () => {
-    const engine = createEngine(windowPack({ ...fullWindow, cards: { requireTags: ["quick"] } }));
+    const engine = createEngine(windowPack(withPlayFilter({ requireTags: ["quick"] })));
     const legal = engine.legalActions(engine.init(1));
     expect(legal.filter((action) => action.type === "playCard")).toEqual([
       { type: "playCard", card: "spark:1" },
     ]);
     expect(legal.filter((action) => action.type === "discardCard")).toHaveLength(2);
-    const excluding = createEngine(
-      windowPack({ ...fullWindow, cards: { excludeTags: ["quick"] } }),
-    );
+    const excluding = createEngine(windowPack(withPlayFilter({ excludeTags: ["quick"] })));
     expect(
       excluding.legalActions(excluding.init(1)).filter((action) => action.type === "playCard"),
     ).toEqual([{ type: "playCard", card: "stone:1" }]);

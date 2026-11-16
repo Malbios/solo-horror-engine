@@ -120,7 +120,11 @@ export const boolExprSchema: z.ZodType<BoolExpr> = z.lazy(() => {
 });
 
 const costSchema = z.union([
-  z.strictObject({ counter: idSchema, amount: numExprSchema }),
+  z.strictObject({
+    counter: idSchema,
+    amount: numExprSchema,
+    floor: numExprSchema.nullable().default(null),
+  }),
   z.strictObject({ attribute: idSchema, of: unitRefSchema, amount: numExprSchema }),
   z.strictObject({
     discard: z.strictObject({ from: idSchema, to: idSchema, count: numExprSchema }),
@@ -135,6 +139,8 @@ const cardFilterSchema = z.strictObject({
   requireTags: tagListSchema,
   excludeTags: tagListSchema,
 });
+
+const anyCardSchema = cardFilterSchema.default({ requireTags: [], excludeTags: [] });
 
 const orderSchema = z.strictObject({
   sortBy: z
@@ -206,10 +212,21 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
     }),
     z.strictObject({
       type: z.literal("playWindow"),
-      from: idSchema,
-      to: idSchema,
-      cards: cardFilterSchema.default({ requireTags: [], excludeTags: [] }),
+      play: z
+        .strictObject({ from: idSchema, to: idSchema, cards: anyCardSchema })
+        .nullable()
+        .default(null),
       discard: z.strictObject({ from: idSchema, to: idSchema, effects }).nullable().default(null),
+      buy: z
+        .strictObject({
+          from: idSchema,
+          to: idSchema,
+          cards: anyCardSchema,
+          when: boolExprSchema.default(true),
+          free: z.boolean().default(false),
+        })
+        .nullable()
+        .default(null),
       abilitiesFrom: z.array(idSchema).default([]),
       repeat: z.boolean().default(true),
     }),
@@ -479,6 +496,7 @@ const cardSchema = z.strictObject({
   tags: tagListSchema,
   playable: boolExprSchema.default(true),
   cost: costListSchema,
+  buyCost: costListSchema,
   effects: effectListSchema,
   abilities: z.array(abilitySchema).default([]).refine(hasUniqueIds, "ability ids must be unique"),
 });

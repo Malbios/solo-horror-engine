@@ -11,7 +11,7 @@ export type DecisionHandlers = {
 function offeredCards(shown: GameView): ViewCard[] {
   const pending = shown.pending;
   if (pending?.kind === "pickCard") return pending.cards;
-  if (pending?.kind === "window") return [...pending.play, ...pending.discard];
+  if (pending?.kind === "window") return [...pending.play, ...pending.discard, ...pending.buy];
   return Object.values(shown.zones).flat();
 }
 

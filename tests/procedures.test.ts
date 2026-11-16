@@ -12,7 +12,7 @@ const call = (procedure: string, args: Record<string, unknown> = {}) => ({
 const arg = (name: string) => ({ arg: name });
 const playEverything = {
   id: "play",
-  steps: [{ id: "play", effects: [{ type: "playWindow", from: "hand", to: "pile" }] }],
+  steps: [{ id: "play", effects: [{ type: "playWindow", play: { from: "hand", to: "pile" } }] }],
 };
 
 const META = { id: "fixture", version: "1.0.0", schemaVersion: 2, name: "Fixture" };

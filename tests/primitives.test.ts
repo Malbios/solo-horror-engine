@@ -20,7 +20,9 @@ describe("decision loop", () => {
       phases: [
         {
           id: "arrange",
-          steps: [{ id: "place", effects: [{ type: "playWindow", from: "pile", to: "line" }] }],
+          steps: [
+            { id: "place", effects: [{ type: "playWindow", play: { from: "pile", to: "line" } }] },
+          ],
         },
       ],
       endConditions: [
@@ -436,7 +438,10 @@ describe("modules and layering", () => {
           {
             id: "play",
             steps: [
-              { id: "window", effects: [{ type: "playWindow", from: "hand", to: "played" }] },
+              {
+                id: "window",
+                effects: [{ type: "playWindow", play: { from: "hand", to: "played" } }],
+              },
             ],
           },
         ],
