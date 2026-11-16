@@ -13,7 +13,8 @@ type ReferenceKind =
   | "die"
   | "pool"
   | "board"
-  | "procedure";
+  | "procedure"
+  | "cardCounter";
 
 const REFERENCE_KEYS: ReadonlyMap<string, ReferenceKind> = new Map([
   ["counter", "counter"],
@@ -36,6 +37,7 @@ const REFERENCE_KEYS: ReadonlyMap<string, ReferenceKind> = new Map([
   ["pool", "pool"],
   ["board", "board"],
   ["procedure", "procedure"],
+  ["cardCounter", "cardCounter"],
 ]);
 
 const DEFINING_COLLECTIONS: ReadonlyMap<ReferenceKind, (typeof LAYERED_COLLECTIONS)[number]> =
@@ -87,6 +89,9 @@ function definedReferences(contents: readonly Content[]): Set<string> {
     for (const [kind, collection] of DEFINING_COLLECTIONS) {
       const items: readonly { id: string }[] = content[collection];
       for (const item of items) defined.add(referenceLabel(kind, item.id));
+    }
+    for (const card of content.cards) {
+      for (const counter of card.counters) defined.add(referenceLabel("cardCounter", counter.id));
     }
   }
   return defined;

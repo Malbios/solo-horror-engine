@@ -69,6 +69,8 @@ Each entry ends with the invented fixture that tests it.
 
 27. **End tags and forced steps.** Besides its tags, an edge may carry extra tags for each of its two ends; they count only when the edge is left from that end, so a filter can allow a connection one way and not the other, or pick different connections depending on where a unit stands (for example by a number rolled). Distances, closest units and automatic moves all use the end the unit departs from. A step-by-step move may be forced: the unit cannot stop early, a single possible step is taken without a decision, several ask without a pass, and none ends the move. _Fixture: a connection usable only from one side, and a forced move that takes its only step on its own._
 
+28. **This card, card counters and picks.** Effects run by a card (played, used through an ability, resolved face up, or visited one by one in a zone) know it as "this card", also inside procedures they call. Each copy of a card may carry counters, read and changed only through this card, and shown only while the card is face up. A card may move itself to another zone, and a condition may ask whether this card lies in a zone or has a tag. A pick effect lets the player take a number of face-up cards from a zone one at a time, optionally with a pass; face-down cards are never offered. _Fixture: a card with three charges whose ability spends one and moves the card away at zero, offered only while it lies in a given zone, and picking two of three face-up cards with a filter._
+
 ## Decisions
 
 - **Undo stops at hidden information.** Undo is not allowed past any action whose resolution revealed something the player did not know before: a peek, a card or value turning face up, a die roll, a shuffle, or any other seeded random result. The engine marks such actions in the log as undo barriers; undo can only remove actions after the last barrier.
@@ -90,3 +92,4 @@ Each entry ends with the invented fixture that tests it.
 13. Market: buy offers in windows, buy costs and cost floors.
 14. Core and add-ons: separately loaded modules, choices by kind, end of setup.
 15. End tags on edges and forced steps.
+16. This card, card counters, moving a card itself, visiting each card in a zone, and picking cards.

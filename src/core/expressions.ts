@@ -19,6 +19,8 @@ export type ExpressionContext = {
   amount: number;
   self: string | null;
   candidate: string | null;
+  /** The card being played, used or resolved ("this card"), as a card instance id. */
+  card: string | null;
   args: Readonly<Record<string, number>>;
 };
 
@@ -34,6 +36,7 @@ export type World = {
   dice: ReadonlyMap<string, DieType>;
   faceUp: Readonly<Record<string, boolean>>;
   cardTags: ReadonlyMap<string, readonly string[]>;
+  cardCounters: Readonly<Record<string, Readonly<Record<string, number>>>>;
 };
 
 export type ExpressionScope = {
@@ -49,6 +52,7 @@ export const EMPTY_CONTEXT: ExpressionContext = {
   amount: 0,
   self: null,
   candidate: null,
+  card: null,
   args: {},
 };
 
@@ -62,6 +66,7 @@ export const EMPTY_WORLD: World = {
   dice: new Map(),
   faceUp: {},
   cardTags: new Map(),
+  cardCounters: {},
 };
 
 function extreme(pick: (...values: number[]) => number, values: readonly number[]): number {
@@ -163,6 +168,19 @@ function countCards(
   }).length;
 }
 
+function thisCardMatches(
+  query: Extract<BoolExpr, { thisCard: unknown }>["thisCard"],
+  scope: ExpressionScope,
+): boolean {
+  const card = scope.context.card;
+  if (card === null) return false;
+  const inZone = query.zone === null || (scope.zones[query.zone] ?? []).includes(card);
+  const tagged =
+    query.tag === null ||
+    (scope.world.cardTags.get(cardDefinitionId(card)) ?? []).includes(query.tag);
+  return inZone && tagged;
+}
+
 function distance(
   query: Extract<NumExpr, { distance: unknown }>["distance"],
   scope: ExpressionScope,
@@ -219,6 +237,10 @@ export function evaluateNumber(expr: NumExpr, scope: ExpressionScope): number {
   if ("countUnits" in expr) return countUnits(expr.countUnits.kind, expr.countUnits.at, scope);
   if ("distance" in expr) return distance(expr.distance, scope);
   if ("countCards" in expr) return countCards(expr.countCards, scope);
+  if ("cardCounter" in expr) {
+    const card = scope.context.card;
+    return card === null ? 0 : (scope.world.cardCounters[card]?.[expr.cardCounter] ?? 0);
+  }
   return assertNever(expr);
 }
 
@@ -270,5 +292,6 @@ export function evaluateBoolean(expr: BoolExpr, scope: ExpressionScope): boolean
     });
     return first !== null && first !== undefined && first === second;
   }
+  if ("thisCard" in expr) return thisCardMatches(expr.thisCard, scope);
   return assertNever(expr);
 }

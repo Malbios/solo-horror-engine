@@ -115,9 +115,14 @@ describe("costs", () => {
     expect(state.pending).toEqual({
       kind: "pickCard",
       cards: ["token:1", "token:2", "token:3"],
+      canPass: false,
     });
     state = act(engine, state, { type: "pickCard", card: "token:2" });
-    expect(state.pending).toEqual({ kind: "pickCard", cards: ["token:1", "token:3"] });
+    expect(state.pending).toEqual({
+      kind: "pickCard",
+      cards: ["token:1", "token:3"],
+      canPass: false,
+    });
     expect(state.counters["gold"]).toBe(0);
     state = act(engine, state, { type: "pickCard", card: "token:3" });
     expect(state.zones["hand"]).toEqual(["token:1"]);

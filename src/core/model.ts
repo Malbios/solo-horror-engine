@@ -2,6 +2,8 @@ import type { ExpressionContext } from "./expressions";
 import type { UnitState } from "./graph";
 import type {
   BoolExpr,
+  CardFilter,
+  CardPosition,
   Cost,
   Edge,
   Effect,
@@ -95,6 +97,17 @@ export type PayFrame = {
   context: ExpressionContext;
 };
 
+/** The player picks face-up cards out of a zone one at a time. */
+export type PickFrame = {
+  kind: "pick";
+  from: string;
+  to: string;
+  remaining: number;
+  cards: CardFilter;
+  optional: boolean;
+  position: CardPosition;
+};
+
 export type Die = { id: string; die: string; face: string; role: string | null };
 
 export type RerollFrame = {
@@ -128,6 +141,7 @@ export type Frame =
   | SelectFrame
   | DeliverFrame
   | PayFrame
+  | PickFrame
   | RerollFrame
   | SetFaceFrame
   | AssignFrame;
@@ -154,7 +168,7 @@ export type Decision =
     }
   | { kind: "moveUnit"; unit: string; options: string[]; canPass: boolean }
   | { kind: "pickUnit"; options: string[]; canPass: boolean }
-  | { kind: "pickCard"; cards: string[] }
+  | { kind: "pickCard"; cards: string[]; canPass: boolean }
   | { kind: "pickDie"; pool: string; dice: string[]; canPass: boolean };
 
 export type GameOutcome = { result: Outcome; endCondition: string };
@@ -176,6 +190,8 @@ export type GameState = {
   handleSerial: number;
   known: Record<string, true>;
   cardSerials: Record<string, number>;
+  /** Counters carried by card instances, by card then counter id. */
+  cardCounters: Record<string, Record<string, number>>;
   units: Record<string, UnitState>;
   unitSerial: number;
   retiredUnits: string[];
@@ -232,6 +248,7 @@ export type GameEvent =
   | { type: "abilityUsed"; card: string; ability: string }
   | { type: "cardResolved"; card: string }
   | { type: "cardBought"; card: string }
+  | { type: "cardCounterChanged"; card: string; counter: string; from: number; to: number }
   | {
       type: "quantityDelivered";
       quantity: string;

@@ -30,6 +30,8 @@ export type NumExpr =
   | { spaceCounter: string; at: SpaceRef }
   | { countUnits: { kind: string | null; at: SpaceRef | null } }
   | { countCards: { zone: string; card: string | null; tag: string | null } }
+  /** A counter on the card in context ("this card"); 0 without one. */
+  | { cardCounter: string }
   | {
       distance: { origin: SpaceRef; destination: SpaceRef; filter: string; ifUnreachable: NumExpr };
     };
@@ -48,7 +50,9 @@ export type BoolExpr =
   | { unitExists: UnitRef }
   | { spaceHasTag: { at: SpaceRef; tag: string } }
   | { unitIsKind: { unit: UnitRef; kind: string } }
-  | { sameSpace: [UnitRef, UnitRef] };
+  | { sameSpace: [UnitRef, UnitRef] }
+  /** This card lies in the zone and/or has the tag; false without a card in context. */
+  | { thisCard: { zone: string | null; tag: string | null } };
 
 export type SortKey = { key: NumExpr; direction: "asc" | "desc" };
 
@@ -173,7 +177,19 @@ export type Effect =
   | { type: "addEdge"; edge: Edge }
   | { type: "removeEdge"; edge: string }
   | { type: "retargetEdge"; edge: string; toSpace: string }
-  | { type: "call"; procedure: string; args: Record<string, NumExpr> };
+  | { type: "call"; procedure: string; args: Record<string, NumExpr> }
+  | { type: "changeCardCounter"; cardCounter: string; amount: NumExpr }
+  | { type: "moveThisCard"; to: string; position: CardPosition }
+  | {
+      type: "pickCards";
+      from: string;
+      to: string;
+      count: NumExpr;
+      cards: CardFilter;
+      optional: boolean;
+      position: CardPosition;
+    }
+  | { type: "forEachCard"; zone: string; cards: CardFilter; effects: Effect[] };
 
 export type EventPattern =
   | { event: "counterChanged"; counter: string }
@@ -242,6 +258,16 @@ export type Card = {
   buyCost: Cost[];
   effects: Effect[];
   abilities: Ability[];
+  /** Counters each copy of the card carries, read and changed as "this card". */
+  counters: CardCounter[];
+};
+
+export type CardCounter = {
+  id: string;
+  name: string;
+  start: number;
+  min: number | null;
+  max: number | null;
 };
 
 export type DieFace = { id: string; symbols: Record<string, number> };

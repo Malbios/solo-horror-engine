@@ -68,13 +68,23 @@ export function createLabels(
   };
   const cardDefinition = (card: ViewCard): Card | null =>
     card.card === null ? null : (rules.cardById.get(card.card) ?? null);
+  const counterName = (definition: Card | null, id: string): string =>
+    definition?.counters.find((counter) => counter.id === id)?.name ?? id;
+  const cardName = (card: ViewCard): string => {
+    const definition = cardDefinition(card);
+    const name = definition?.name ?? card.card ?? HIDDEN_CARD_NAME;
+    const counters = Object.entries(card.counters ?? {});
+    if (counters.length === 0) return name;
+    const shownCounters = counters.map(([id, value]) => `${counterName(definition, id)} ${value}`);
+    return `${name} (${shownCounters.join(", ")})`;
+  };
   return {
     rules,
     counter: (id) => rules.counterById.get(id)?.name ?? id,
     zone: (id) => rules.zones.find((zone) => zone.id === id)?.name ?? id,
     space: (id) => rules.spaceById.get(id)?.name ?? id,
     spaceCounter: (id) => rules.spaceCounterById.get(id)?.name ?? id,
-    card: (card) => cardDefinition(card)?.name ?? card.card ?? HIDDEN_CARD_NAME,
+    card: cardName,
     cardDefinition,
     unit: (id) => {
       const unit = shown.units[id];
@@ -195,6 +205,8 @@ export function describeEvent(event: GameEvent, shown: GameView, labels: Labels)
       return `Got ${cardLabel(event.card, shown, labels)}`;
     case "abilityUsed":
       return `Used ${abilityLabel(event.card, event.ability, shown, labels)}`;
+    case "cardCounterChanged":
+      return `${cardLabel(event.card, shown, labels)}: ${signed(event.from, event.to)}`;
     case "quantityDelivered":
       return event.unit === null
         ? `${event.amount} ${event.quantity}`
@@ -220,7 +232,7 @@ export function describeDecision(shown: GameView, labels: Labels): string {
     case "window":
       return "Choose an action or pass";
     case "pickCard":
-      return "Pick a card";
+      return pending.canPass ? "Pick a card, or pass" : "Pick a card";
     case "moveUnit":
       return `Move ${labels.unit(pending.unit)}: tap a highlighted space`;
     case "pickUnit":

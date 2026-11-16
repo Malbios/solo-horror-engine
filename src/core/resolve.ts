@@ -35,6 +35,7 @@ import type {
   GameState,
   MoveFrame,
   PayFrame,
+  PickFrame,
   AbilityOffer,
   PlayWindowFrame,
   RerollFrame,
@@ -178,6 +179,7 @@ export function createResolver(
       dice: rules.dieById,
       faceUp: work.faceUp,
       cardTags: cardTagsOf(rules),
+      cardCounters: work.cardCounters,
     };
   }
 
@@ -196,7 +198,11 @@ export function createResolver(
   }
 
   function contextFor(self: string | null, from = 0, to = 0, amount = 0): ExpressionContext {
-    return { from, to, amount, self, candidate: null, args: {} };
+    return { from, to, amount, self, candidate: null, card: null, args: {} };
+  }
+
+  function cardContext(card: string): ExpressionContext {
+    return { ...EMPTY_CONTEXT, card };
   }
 
   function zoneCards(zoneId: string): string[] {
@@ -870,7 +876,7 @@ export function createResolver(
     if (frame.discarding !== null) {
       const cards = zoneCards(frame.discarding.from);
       if (frame.discarding.remaining > 0 && cards.length > 0) {
-        work.pending = { kind: "pickCard", cards: [...cards] };
+        work.pending = { kind: "pickCard", cards: [...cards], canPass: false };
         return;
       }
       frame.discarding = null;
@@ -1085,8 +1091,8 @@ export function createResolver(
       requireRules().zones.find((candidate) => candidate.id === lyingIn) ??
       fault(`Unknown zone "${lyingIn}"`);
     emit({ type: "cardResolved", card: top }, EMPTY_CONTEXT);
-    const effects = work.faceUp[top] === true ? cardDefinition(top).effects : zone.backEffects;
-    pushEffects(effects, EMPTY_CONTEXT, null);
+    if (work.faceUp[top] === true) pushEffects(cardDefinition(top).effects, cardContext(top), null);
+    else pushEffects(zone.backEffects, EMPTY_CONTEXT, null);
   }
 
   function placeCards(zoneId: string, cards: readonly string[], position: CardPosition): void {
@@ -1145,6 +1151,13 @@ export function createResolver(
       (_, offset) => `${cardId}:${serial + offset + 1}`,
     );
     work.cardSerials[cardId] = serial + definition.copies;
+    if (definition.counters.length > 0) {
+      for (const card of created) {
+        work.cardCounters[card] = Object.fromEntries(
+          definition.counters.map((counter) => [counter.id, counter.start]),
+        );
+      }
+    }
     placeCards(zoneId, created, "bottom");
     cardsMovedEvent(null, zoneId, created);
   }
@@ -1406,6 +1419,38 @@ export function createResolver(
         changeEdges(effect.edge, "retargeted", { ...edge, toSpace: effect.toSpace });
         return;
       }
+      case "changeCardCounter": {
+        const card = context.card;
+        if (card !== null)
+          changeCardCounter(card, effect.cardCounter, evaluateNumber(effect.amount, scope));
+        return;
+      }
+      case "moveThisCard": {
+        const card = context.card;
+        const from = card === null ? null : zoneHolding(card);
+        if (card !== null && from !== null) moveOneCard(card, from, effect.to, effect.position);
+        return;
+      }
+      case "pickCards":
+        work.stack.push({
+          kind: "pick",
+          from: effect.from,
+          to: effect.to,
+          remaining: evaluateNumber(effect.count, scope),
+          cards: effect.cards,
+          optional: effect.optional,
+          position: effect.position,
+        });
+        return;
+      case "forEachCard": {
+        const cards = zoneCards(effect.zone).filter(
+          (card) => work.faceUp[card] === true && passesFilter(card, effect.cards),
+        );
+        for (const card of [...cards].reverse()) {
+          pushEffects(effect.effects, { ...context, card }, null);
+        }
+        return;
+      }
       case "call": {
         const procedure =
           requireRules().procedureById.get(effect.procedure) ??
@@ -1529,20 +1574,21 @@ export function createResolver(
   }
 
   function abilityOffers(zones: readonly string[]): AbilityOffer[] {
-    const scope = scopeOf(EMPTY_CONTEXT);
     return zones.flatMap((zone) =>
       zoneCards(zone)
         .filter((card) => work.faceUp[card] === true)
-        .flatMap((card) =>
-          cardDefinition(card)
+        .flatMap((card) => {
+          const context = cardContext(card);
+          const scope = scopeOf(context);
+          return cardDefinition(card)
             .abilities.filter(
               (ability) =>
                 hasUsesLeft(card, ability) &&
                 evaluateBoolean(ability.when, scope) &&
-                isPayable(ability.cost, EMPTY_CONTEXT),
+                isPayable(ability.cost, context),
             )
-            .map((ability) => ({ card, ability: ability.id })),
-        ),
+            .map((ability) => ({ card, ability: ability.id }));
+        }),
     );
   }
 
@@ -1560,13 +1606,13 @@ export function createResolver(
 
   function playOffers(play: WindowPlay | null): string[] {
     if (play === null) return [];
-    const scope = scopeOf(EMPTY_CONTEXT);
     return zoneCards(play.from).filter((card) => {
       const definition = cardDefinition(card);
+      const context = cardContext(card);
       return (
         passesFilter(card, play.cards) &&
-        evaluateBoolean(definition.playable, scope) &&
-        isPayable(definition.cost, EMPTY_CONTEXT)
+        evaluateBoolean(definition.playable, scopeOf(context)) &&
+        isPayable(definition.cost, context)
       );
     });
   }
@@ -1627,6 +1673,9 @@ export function createResolver(
         return;
       case "assign":
         runAssign(frame);
+        return;
+      case "pick":
+        runPick(frame);
         return;
       default:
         assertNever(frame);
@@ -1724,20 +1773,64 @@ export function createResolver(
     }
   }
 
-  function moveOneCard(card: string, from: string, to: string): void {
+  function moveOneCard(
+    card: string,
+    from: string,
+    to: string,
+    position: CardPosition = "top",
+  ): void {
     const source = zoneCards(from);
     if (!source.includes(card)) fault(`Card "${card}" is not in zone "${from}"`);
     work.zones[from] = source.filter((candidate) => candidate !== card);
-    placeCards(to, [card], "top");
+    placeCards(to, [card], position);
     cardsMovedEvent(from, to, [card]);
+  }
+
+  function zoneHolding(card: string): string | null {
+    return Object.keys(work.zones).find((zone) => work.zones[zone]?.includes(card)) ?? null;
+  }
+
+  function pickableCards(frame: PickFrame): string[] {
+    return zoneCards(frame.from).filter(
+      (card) => work.faceUp[card] === true && passesFilter(card, frame.cards),
+    );
+  }
+
+  function runPick(frame: PickFrame): void {
+    const cards = frame.remaining > 0 ? pickableCards(frame) : [];
+    if (cards.length === 0) {
+      work.stack.pop();
+      return;
+    }
+    work.pending = { kind: "pickCard", cards, canPass: frame.optional };
+  }
+
+  function takePickedCard(frame: PickFrame, card: string): void {
+    if (!pickableCards(frame).includes(card)) fault(`Card "${card}" cannot be picked`);
+    moveOneCard(card, frame.from, frame.to, frame.position);
+    frame.remaining -= 1;
+  }
+
+  function changeCardCounter(card: string, counterId: string, amount: number): void {
+    const definition =
+      cardDefinition(card).counters.find((counter) => counter.id === counterId) ??
+      fault(`Card "${card}" has no counter "${counterId}"`);
+    const from = work.cardCounters[card]?.[counterId] ?? definition.start;
+    const to = Math.min(
+      definition.max ?? Infinity,
+      Math.max(definition.min ?? -Infinity, from + amount),
+    );
+    if (to === from) return;
+    work.cardCounters[card] = { ...work.cardCounters[card], [counterId]: to };
+    emit({ type: "cardCounterChanged", card, counter: counterId, from, to }, cardContext(card));
   }
 
   function playCard(window: PlayWindowFrame, card: string): void {
     const play = window.play ?? fault("This window offers no plays");
     moveOneCard(card, play.from, play.to);
     const definition = cardDefinition(card);
-    pushEffects(definition.effects, EMPTY_CONTEXT, null);
-    startPayment(definition.cost, EMPTY_CONTEXT);
+    pushEffects(definition.effects, cardContext(card), null);
+    startPayment(definition.cost, cardContext(card));
   }
 
   function buyCard(window: PlayWindowFrame, card: string): void {
@@ -1760,8 +1853,8 @@ export function createResolver(
     const key = abilityKey(card, abilityId);
     if (ability.limit !== null) work.abilityUses[key] = (work.abilityUses[key] ?? 0) + 1;
     emit({ type: "abilityUsed", card, ability: abilityId }, EMPTY_CONTEXT);
-    pushEffects(ability.effects, EMPTY_CONTEXT, null);
-    startPayment(ability.cost, EMPTY_CONTEXT);
+    pushEffects(ability.effects, cardContext(card), null);
+    startPayment(ability.cost, cardContext(card));
   }
 
   function openWindow(): PlayWindowFrame {
@@ -1804,6 +1897,7 @@ export function createResolver(
         if (pending.kind === "pickModule") work.choiceIndex += 1;
         if (pending.kind === "window" || pending.kind === "moveUnit") work.stack.pop();
         if (pending.kind === "pickUnit" && topFrame()?.kind === "follow") work.stack.pop();
+        if (pending.kind === "pickCard" && topFrame()?.kind === "pick") work.stack.pop();
         const rerolling = topFrame();
         if (pending.kind === "pickDie" && rerolling?.kind === "reroll") finishReroll(rerolling);
         const delivery = offeringDelivery();
@@ -1846,6 +1940,10 @@ export function createResolver(
         return;
       case "pickCard": {
         const frame = topFrame();
+        if (frame?.kind === "pick") {
+          takePickedCard(frame, action.card);
+          return;
+        }
         if (frame?.kind !== "pay") fault("No discard is in progress");
         discardPicked(frame, action.card);
         return;

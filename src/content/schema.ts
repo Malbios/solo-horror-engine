@@ -7,6 +7,7 @@ import {
   procedureIssues,
   type AddOn,
   type BoolExpr,
+  type CardCounter,
   type Content,
   type Counter,
   type Effect,
@@ -92,6 +93,7 @@ export const numExprSchema: z.ZodType<NumExpr> = z.lazy(() => {
     }),
     z.int(),
     z.strictObject({ counter: idSchema }),
+    z.strictObject({ cardCounter: idSchema }),
     z.strictObject({ zoneCount: idSchema }),
     z.strictObject({ context: z.enum(["from", "to", "amount"]) }),
     z.strictObject({ arg: idSchema }),
@@ -111,6 +113,12 @@ export const boolExprSchema: z.ZodType<BoolExpr> = z.lazy(() => {
     z.strictObject({ spaceHasTag: z.strictObject({ at: spaceRefSchema, tag: idSchema }) }),
     z.strictObject({ unitIsKind: z.strictObject({ unit: unitRefSchema, kind: idSchema }) }),
     z.strictObject({ sameSpace: z.tuple([unitRefSchema, unitRefSchema]) }),
+    z.strictObject({
+      thisCard: z.strictObject({
+        zone: idSchema.nullable().default(null),
+        tag: idSchema.nullable().default(null),
+      }),
+    }),
     z.strictObject({ eq: pair }),
     z.strictObject({ ne: pair }),
     z.strictObject({ lt: pair }),
@@ -380,6 +388,31 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       procedure: idSchema,
       args: z.record(idSchema, numExprSchema).default({}),
     }),
+    z.strictObject({
+      type: z.literal("changeCardCounter"),
+      cardCounter: idSchema,
+      amount: numExprSchema,
+    }),
+    z.strictObject({
+      type: z.literal("moveThisCard"),
+      to: idSchema,
+      position: z.enum(["top", "bottom"]).default("top"),
+    }),
+    z.strictObject({
+      type: z.literal("pickCards"),
+      from: idSchema,
+      to: idSchema,
+      count: numExprSchema.default(1),
+      cards: anyCardSchema,
+      optional: z.boolean().default(false),
+      position: z.enum(["top", "bottom"]).default("top"),
+    }),
+    z.strictObject({
+      type: z.literal("forEachCard"),
+      zone: idSchema,
+      cards: anyCardSchema,
+      effects,
+    }),
   ]);
 });
 
@@ -494,6 +527,22 @@ const abilitySchema = z.strictObject({
     .default(null),
 });
 
+const cardCounterSchema = z
+  .strictObject({
+    id: idSchema,
+    name: nameSchema.optional(),
+    start: z.int(),
+    min: z.int().nullable().default(null),
+    max: z.int().nullable().default(null),
+  })
+  .refine(
+    (counter) =>
+      (counter.min === null || counter.min <= counter.start) &&
+      (counter.max === null || counter.start <= counter.max),
+    "card counter must satisfy min <= start <= max",
+  )
+  .transform(({ name, ...counter }): CardCounter => ({ ...counter, name: name ?? counter.id }));
+
 const cardSchema = z.strictObject({
   id: idSchema,
   name: nameSchema,
@@ -506,6 +555,10 @@ const cardSchema = z.strictObject({
   buyCost: costListSchema,
   effects: effectListSchema,
   abilities: z.array(abilitySchema).default([]).refine(hasUniqueIds, "ability ids must be unique"),
+  counters: z
+    .array(cardCounterSchema)
+    .default([])
+    .refine(hasUniqueIds, "card counter ids must be unique"),
 });
 
 const dieTypeSchema = z.strictObject({

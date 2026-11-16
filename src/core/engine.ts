@@ -29,6 +29,7 @@ function createInitialState(pack: Pack, seed: number): GameState {
     handleSerial: 0,
     known: {},
     cardSerials: {},
+    cardCounters: {},
     units: {},
     unitSerial: 0,
     retiredUnits: [],
@@ -109,7 +110,10 @@ export function legalActions(state: GameState): Action[] {
         pending.canPass,
       );
     case "pickCard":
-      return pending.cards.map((card): Action => ({ type: "pickCard", card }));
+      return withPass(
+        pending.cards.map((card): Action => ({ type: "pickCard", card })),
+        pending.canPass,
+      );
     case "pickDie":
       return withPass(
         pending.dice.map((die): Action => ({ type: "pickDie", die })),

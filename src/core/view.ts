@@ -16,8 +16,11 @@ import type {
 import type { Cost, Edge } from "./pack";
 import { assertNever } from "./result";
 
-/** A card as the player sees it: `ref` is a handle while face down, `card` is null while unknown. */
-export type ViewCard = { ref: string; card: string | null };
+/**
+ * A card as the player sees it: `ref` is a handle while face down, `card` is null while unknown.
+ * `counters` is present only on a face-up card that carries counters.
+ */
+export type ViewCard = { ref: string; card: string | null; counters?: Record<string, number> };
 
 export type OptionChoiceView = { id: string; label: string; cost: Cost[] };
 
@@ -32,7 +35,7 @@ export type DecisionView =
       buyFree: boolean;
       abilities: AbilityOffer[];
     }
-  | { kind: "pickCard"; cards: ViewCard[] };
+  | { kind: "pickCard"; cards: ViewCard[]; canPass: boolean };
 
 export type GameView = {
   packId: string;
@@ -64,10 +67,12 @@ export function cardRef(state: GameState, card: string): string {
 }
 
 function viewCard(state: GameState, card: string): ViewCard {
-  return {
+  const seen: ViewCard = {
     ref: cardRef(state, card),
     card: isIdentified(state, card) ? cardDefinitionId(card) : null,
   };
+  const counters = state.cardCounters[card];
+  return isFaceUp(state, card) && counters !== undefined ? { ...seen, counters } : seen;
 }
 
 function hiddenCards(state: GameState): string[] {
@@ -99,7 +104,11 @@ function viewDecision(state: GameState, pending: Decision): DecisionView {
         abilities: pending.abilities,
       };
     case "pickCard":
-      return { kind: pending.kind, cards: pending.cards.map((card) => viewCard(state, card)) };
+      return {
+        kind: pending.kind,
+        cards: pending.cards.map((card) => viewCard(state, card)),
+        canPass: pending.canPass,
+      };
     case "pickModule":
     case "moveUnit":
     case "pickUnit":
@@ -145,7 +154,10 @@ function viewAction(state: GameState, action: Action): Action {
 function lookKey(state: GameState, action: Action): string | null {
   if (!("card" in action) || !isIdentified(state, action.card)) return null;
   const ability = action.type === "useAbility" ? `:${action.ability}` : "";
-  return `${action.type}:${cardDefinitionId(action.card)}${ability}`;
+  const counters = isFaceUp(state, action.card)
+    ? JSON.stringify(state.cardCounters[action.card] ?? {})
+    : "";
+  return `${action.type}:${cardDefinitionId(action.card)}${ability}${counters}`;
 }
 
 /** Legal actions as the player sees them; options that look identical are offered once. */
@@ -170,7 +182,8 @@ export function viewEvents(events: readonly GameEvent[], after: GameState): Game
     if (
       event.type === "abilityUsed" ||
       event.type === "cardResolved" ||
-      event.type === "cardBought"
+      event.type === "cardBought" ||
+      event.type === "cardCounterChanged"
     ) {
       return { ...event, card: cardRef(after, event.card) };
     }
