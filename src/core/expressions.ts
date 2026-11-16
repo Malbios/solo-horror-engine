@@ -37,7 +37,18 @@ export type World = {
   faceUp: Readonly<Record<string, boolean>>;
   cardTags: ReadonlyMap<string, readonly string[]>;
   cardCounters: Readonly<Record<string, Readonly<Record<string, number>>>>;
+  /** Extra kinds each unit kind counts as. */
+  kindCountsAs: ReadonlyMap<string, readonly string[]>;
 };
+
+/** True when a unit of `actual` kind matches `wanted` (null matches every kind). */
+export function kindMatches(
+  kindCountsAs: ReadonlyMap<string, readonly string[]>,
+  actual: string,
+  wanted: string | null,
+): boolean {
+  return wanted === null || actual === wanted || (kindCountsAs.get(actual) ?? []).includes(wanted);
+}
 
 export type ExpressionScope = {
   counters: Readonly<Record<string, number>>;
@@ -67,6 +78,7 @@ export const EMPTY_WORLD: World = {
   faceUp: {},
   cardTags: new Map(),
   cardCounters: {},
+  kindCountsAs: new Map(),
 };
 
 function extreme(pick: (...values: number[]) => number, values: readonly number[]): number {
@@ -102,7 +114,7 @@ function extremeUnit(
   const distances = distancesFrom(scope.world.edges, origin, traversableFor(query.filter, scope));
   let best: { id: string; distance: number } | null = null;
   for (const unit of Object.values(scope.world.units).sort((a, b) => (a.id < b.id ? -1 : 1))) {
-    if (unit.kind !== query.kind) continue;
+    if (!kindMatches(scope.world.kindCountsAs, unit.kind, query.kind)) continue;
     const space = spaceOfUnit(scope.world.units, unit.id);
     const distance = space === null ? undefined : distances.get(space);
     if (distance === undefined) continue;
@@ -154,7 +166,7 @@ function countUnits(kind: string | null, at: SpaceRef | null, scope: ExpressionS
   if (at !== null && space === null) return 0;
   return Object.values(scope.world.units).filter(
     (unit) =>
-      (kind === null || unit.kind === kind) &&
+      kindMatches(scope.world.kindCountsAs, unit.kind, kind) &&
       (space === null || spaceOfUnit(scope.world.units, unit.id) === space),
   ).length;
 }
@@ -286,7 +298,8 @@ export function evaluateBoolean(expr: BoolExpr, scope: ExpressionScope): boolean
   }
   if ("unitIsKind" in expr) {
     const unit = resolveUnit(expr.unitIsKind.unit, scope);
-    return unit !== null && scope.world.units[unit]?.kind === expr.unitIsKind.kind;
+    const kind = unit === null ? undefined : scope.world.units[unit]?.kind;
+    return kind !== undefined && kindMatches(scope.world.kindCountsAs, kind, expr.unitIsKind.kind);
   }
   if ("sameSpace" in expr) {
     const [first, second] = expr.sameSpace.map((ref) => {

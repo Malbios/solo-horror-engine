@@ -37,7 +37,7 @@ Each entry ends with the invented fixture that tests it.
 
 11. **Costs.** Effects and edges may require payment from counters or by discarding cards. Payability, after modifiers, is checked before an option is listed, so every listed option can be paid. Pass means declining an optional effect; committed costs have no pass. _Fixture: an option that disappears when its cost cannot be paid._
 
-12. **Units.** A unit has an id, a kind, attributes (counters) and a location. New ids come from a counter in state. Changing a unit's kind keeps its id; removing a unit retires its id permanently. A unit's location is one of: on a space, inside another unit, or off the map. Units inside another unit move with it. Selectors whose referent has no location use a pack-defined fallback: a substitute location, or skip. A unit may be named as the closest or the farthest reachable unit of a kind from a space (ties by id). _Fixture: a container moved with one unit inside._
+12. **Units.** A unit has an id, a kind, attributes (counters) and a location. A kind may count as other kinds: wherever a kind is matched (counts, selectors, unit sets, followers, trigger patterns), its units match those kinds too, so a variant keeps every rule of the kind it extends. New ids come from a counter in state. Changing a unit's kind keeps its id; removing a unit retires its id permanently. A unit's location is one of: on a space, inside another unit, or off the map. Units inside another unit move with it. Selectors whose referent has no location use a pack-defined fallback: a substitute location, or skip. A unit may be named as the closest or the farthest reachable unit of a kind from a space (ties by id). _Fixture: a container moved with one unit inside._
 
 13. **Map and graph queries.** Spaces have stable ids and tags. Effects may add, remove or retarget edges at runtime. Edges may be directed and carry tags and gates. Distance, reachability and paths are queries; each names a pack-defined edge filter, evaluated at query time (gates included), and has an empty-set policy. Moves respect the filter; placements ignore it. _Fixture: one edge retargeted to a different space, changing a distance._
 
@@ -94,3 +94,4 @@ Each entry ends with the invented fixture that tests it.
 15. End tags on edges and forced steps.
 16. This card, card counters, moving a card itself, visiting each card in a zone, and picking cards.
 17. Capped chosen rerolls, farthest units, and a condition on whether a zone's top card is face up.
+18. Unit kinds that count as other kinds, follower filters that see the destination, and removal triggers that know the space a unit left.

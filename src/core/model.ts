@@ -226,7 +226,7 @@ export type GameEvent =
   | { type: "scopeExited"; scope: Scope; id: string }
   | { type: "gameFinished"; outcome: Outcome; endCondition: string }
   | { type: "unitCreated"; unit: string; kind: string }
-  | { type: "unitRemoved"; unit: string; kind: string }
+  | { type: "unitRemoved"; unit: string; kind: string; fromSpace: string | null }
   | {
       type: "unitMoved";
       unit: string;

@@ -30,6 +30,7 @@ const REFERENCE_KEYS: ReadonlyMap<string, ReferenceKind> = new Map([
   ["fromSpace", "space"],
   ["toSpace", "space"],
   ["kind", "unitKind"],
+  ["countsAs", "unitKind"],
   ["filter", "edgeFilter"],
   ["spaceCounter", "spaceCounter"],
   ["quantity", "quantityType"],

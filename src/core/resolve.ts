@@ -8,6 +8,7 @@ import {
   resolveSpace,
   resolveUnit,
   traversableFor,
+  kindMatches,
   type ExpressionContext,
   type ExpressionScope,
   type World,
@@ -95,7 +96,13 @@ function clamp(value: number, min: number | null, max: number | null): number {
   return max === null ? raised : Math.min(max, raised);
 }
 
-function matchesPattern(pattern: EventPattern, event: GameEvent): boolean {
+function matchesPattern(
+  pattern: EventPattern,
+  event: GameEvent,
+  kindCountsAs: ReadonlyMap<string, readonly string[]>,
+): boolean {
+  const kindFits = (wanted: string | null, actual: string | null) =>
+    wanted === null || (actual !== null && kindMatches(kindCountsAs, actual, wanted));
   switch (pattern.event) {
     case "counterChanged":
       return event.type === "counterChanged" && event.counter === pattern.counter;
@@ -113,20 +120,20 @@ function matchesPattern(pattern: EventPattern, event: GameEvent): boolean {
         (pattern.id === null || pattern.id === event.id)
       );
     case "unitCreated":
-      return event.type === "unitCreated" && (pattern.kind === null || pattern.kind === event.kind);
+      return event.type === "unitCreated" && kindFits(pattern.kind, event.kind);
     case "unitRemoved":
-      return event.type === "unitRemoved" && (pattern.kind === null || pattern.kind === event.kind);
+      return event.type === "unitRemoved" && kindFits(pattern.kind, event.kind);
     case "unitMoved":
       return (
         event.type === "unitMoved" &&
-        (pattern.kind === null || pattern.kind === event.kind) &&
+        kindFits(pattern.kind, event.kind) &&
         (pattern.toSpace === null || pattern.toSpace === event.toSpace)
       );
     case "attributeChanged":
       return (
         event.type === "attributeChanged" &&
         event.attribute === pattern.attribute &&
-        (pattern.kind === null || pattern.kind === event.kind)
+        kindFits(pattern.kind, event.kind)
       );
     case "spaceCounterChanged":
       return event.type === "spaceCounterChanged" && event.spaceCounter === pattern.spaceCounter;
@@ -136,7 +143,7 @@ function matchesPattern(pattern: EventPattern, event: GameEvent): boolean {
       return (
         event.type === "quantityDelivered" &&
         event.quantity === pattern.quantity &&
-        (pattern.kind === null || pattern.kind === event.kind)
+        kindFits(pattern.kind, event.kind)
       );
     default:
       return assertNever(pattern);
@@ -180,7 +187,23 @@ export function createResolver(
       faceUp: work.faceUp,
       cardTags: cardTagsOf(rules),
       cardCounters: work.cardCounters,
+      kindCountsAs: kindCountsAsOf(rules),
     };
+  }
+
+  let kindCountsAsCache: {
+    rules: Rules;
+    kinds: ReadonlyMap<string, readonly string[]>;
+  } | null = null;
+
+  function kindCountsAsOf(composed: Rules): ReadonlyMap<string, readonly string[]> {
+    if (kindCountsAsCache?.rules !== composed) {
+      kindCountsAsCache = {
+        rules: composed,
+        kinds: new Map(composed.unitKinds.map((kind) => [kind.id, kind.countsAs])),
+      };
+    }
+    return kindCountsAsCache.kinds;
   }
 
   function cardTagsOf(composed: Rules): ReadonlyMap<string, readonly string[]> {
@@ -227,10 +250,11 @@ export function createResolver(
   function emit(event: GameEvent, context: ExpressionContext): void {
     events.push(event);
     if (rules === null) return;
+    const kindCountsAs = kindCountsAsOf(rules);
     const scope = scopeOf(context);
     const fired = rules.triggers.filter(
       (trigger) =>
-        matchesPattern(trigger.on, event) &&
+        matchesPattern(trigger.on, event, kindCountsAs) &&
         !(trigger.once && work.firedTriggers.includes(trigger.id)) &&
         evaluateBoolean(trigger.condition, scope),
     );
@@ -390,9 +414,13 @@ export function createResolver(
         inner.placement = unit.placement;
       }
     }
+    const fromSpace = spaceOfUnit(work.units, unitId);
     delete work.units[unitId];
     work.retiredUnits.push(unitId);
-    emit({ type: "unitRemoved", unit: unitId, kind: unit.kind }, contextFor(null));
+    emit(
+      { type: "unitRemoved", unit: unitId, kind: unit.kind, fromSpace },
+      { ...contextFor(null), candidate: fromSpace },
+    );
   }
 
   function changeKind(unitId: string, kindId: string): void {
@@ -420,7 +448,7 @@ export function createResolver(
       .sort()
       .filter(
         (unitId) =>
-          (units.kind === null || work.units[unitId]?.kind === units.kind) &&
+          kindMatches(kindCountsAsOf(requireRules()), work.units[unitId]?.kind ?? "", units.kind) &&
           (space === null || spaceOfUnit(work.units, unitId) === space) &&
           evaluateBoolean(units.where, scopeOf({ ...context, self: unitId })),
       );
@@ -967,14 +995,22 @@ export function createResolver(
     );
   }
 
-  function followerCandidates(frame: MoveFrame, left: string, followers: Followers): string[] {
+  function followerCandidates(
+    frame: MoveFrame,
+    left: string,
+    arrived: string,
+    followers: Followers,
+  ): string[] {
     return Object.values(work.units)
       .filter(
         (unit) =>
           unit.id !== frame.unit &&
           spaceOfUnit(work.units, unit.id) === left &&
-          (followers.units.kind === null || unit.kind === followers.units.kind) &&
-          evaluateBoolean(followers.units.where, scopeOf({ ...frame.context, self: unit.id })),
+          kindMatches(kindCountsAsOf(requireRules()), unit.kind, followers.units.kind) &&
+          evaluateBoolean(
+            followers.units.where,
+            scopeOf({ ...frame.context, self: unit.id, candidate: arrived }),
+          ),
       )
       .map((unit) => unit.id)
       .sort();
@@ -986,7 +1022,7 @@ export function createResolver(
     const moverScope = scopeOf({ ...frame.context, self: frame.unit, candidate: arrived });
     if (!evaluateBoolean(followers.when, moverScope)) return;
     const remaining = evaluateNumber(followers.max, moverScope);
-    const candidates = followerCandidates(frame, left, followers);
+    const candidates = followerCandidates(frame, left, arrived, followers);
     if (remaining <= 0 || candidates.length === 0) return;
     work.stack.push({ kind: "follow", to: arrived, candidates, remaining });
   }

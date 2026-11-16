@@ -340,7 +340,14 @@ export type EndCondition = {
   outcome: OutcomeRule;
 };
 
-export type UnitKind = { id: string; name: string; image: string | null; attributes: Counter[] };
+export type UnitKind = {
+  id: string;
+  name: string;
+  image: string | null;
+  attributes: Counter[];
+  /** Other kinds a unit of this kind also counts as wherever a kind is matched. */
+  countsAs: string[];
+};
 
 export type Content = {
   boards: Board[];
