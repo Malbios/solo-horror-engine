@@ -153,6 +153,8 @@ export type Effect =
       steps: NumExpr;
       filter: string;
       followers: Followers | null;
+      /** No stopping early: a single possible step is taken without asking. */
+      forced: boolean;
     }
   | { type: "changeAttribute"; unit: UnitRef; attribute: string; amount: NumExpr }
   | { type: "setAttribute"; unit: UnitRef; attribute: string; value: NumExpr }
@@ -198,6 +200,10 @@ export type Edge = {
   toSpace: string;
   directed: boolean;
   tags: string[];
+  /** Extra tags that count only when the edge is left from `fromSpace`. */
+  fromTags: string[];
+  /** Extra tags that count only when the edge is left from `toSpace`. */
+  toTags: string[];
   gate: BoolExpr;
   cost: Cost[];
 };

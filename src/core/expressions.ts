@@ -1,5 +1,5 @@
 import { cardDefinitionId } from "./cards";
-import { distancesFrom, spaceOfUnit, type Traversable, type UnitState } from "./graph";
+import { distancesFrom, spaceOfUnit, tagsLeaving, type Traversable, type UnitState } from "./graph";
 import type {
   BoolExpr,
   DieType,
@@ -76,10 +76,14 @@ function evaluatePair(pair: NumberPair, scope: ExpressionScope): [number, number
 export function traversableFor(filterId: string, scope: ExpressionScope): Traversable {
   const filter = scope.world.filters.get(filterId);
   if (filter === undefined) return () => false;
-  return (edge) =>
-    filter.requireTags.every((tag) => edge.tags.includes(tag)) &&
-    !filter.excludeTags.some((tag) => edge.tags.includes(tag)) &&
-    (!filter.useGates || evaluateBoolean(edge.gate, scope));
+  return (edge, departure) => {
+    const tags = tagsLeaving(edge, departure);
+    return (
+      filter.requireTags.every((tag) => tags.includes(tag)) &&
+      !filter.excludeTags.some((tag) => tags.includes(tag)) &&
+      (!filter.useGates || evaluateBoolean(edge.gate, scope))
+    );
+  };
 }
 
 function closestUnit(

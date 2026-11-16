@@ -271,6 +271,7 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       steps: numExprSchema,
       filter: idSchema,
       followers: followersSchema,
+      forced: z.boolean().default(false),
     }),
     z.strictObject({
       type: z.literal("changeAttribute"),
@@ -388,6 +389,8 @@ const edgeSchema = z.strictObject({
   toSpace: idSchema,
   directed: z.boolean().default(false),
   tags: z.array(idSchema).default([]),
+  fromTags: z.array(idSchema).default([]),
+  toTags: z.array(idSchema).default([]),
   gate: boolExprSchema.default(true),
   cost: costListSchema,
 });

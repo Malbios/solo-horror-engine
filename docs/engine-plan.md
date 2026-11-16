@@ -67,6 +67,8 @@ Each entry ends with the invented fixture that tests it.
 
 26. **Core and add-ons.** A game is one core (rules, phases, shared components, choices) plus any number of add-ons loaded separately, each one module of a kind that names the core it extends. A choice may name a kind instead of listing modules: it offers every loaded module of that kind. Add-ons replace the core's placeholder content and procedures by id. Content may have an end of setup that runs after every chosen module's setup, for steps that need all modules' components (such as dealing a shared deck). An add-on alone is checked only for shape; references, unmet choices and conflicts are checked once it joins the core, and two modules that one single-pick choice offers never conflict. The combined version includes every add-on's version, so a save notices when an add-on changes. _Fixture: a core with two kind choices, two add-ons of one kind replacing the same placeholder procedure, and a deck dealt at the end of setup._
 
+27. **End tags and forced steps.** Besides its tags, an edge may carry extra tags for each of its two ends; they count only when the edge is left from that end, so a filter can allow a connection one way and not the other, or pick different connections depending on where a unit stands (for example by a number rolled). Distances, closest units and automatic moves all use the end the unit departs from. A step-by-step move may be forced: the unit cannot stop early, a single possible step is taken without a decision, several ask without a pass, and none ends the move. _Fixture: a connection usable only from one side, and a forced move that takes its only step on its own._
+
 ## Decisions
 
 - **Undo stops at hidden information.** Undo is not allowed past any action whose resolution revealed something the player did not know before: a peek, a card or value turning face up, a die roll, a shuffle, or any other seeded random result. The engine marks such actions in the log as undo barriers; undo can only remove actions after the last barrier.
@@ -87,3 +89,4 @@ Each entry ends with the invented fixture that tests it.
 12. Followers.
 13. Market: buy offers in windows, buy costs and cost floors.
 14. Core and add-ons: separately loaded modules, choices by kind, end of setup.
+15. End tags on edges and forced steps.

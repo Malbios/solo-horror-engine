@@ -49,7 +49,8 @@ export type MoveFrame = {
   unit: string;
   remaining: number;
   filter: string;
-  mode: "toward" | "choose";
+  /** toward: automatic steps to a target; choose: the player picks each step and may stop; forced: no stopping. */
+  mode: "toward" | "choose" | "forced";
   target: SpaceRef | null;
   stopWhen: BoolExpr;
   order: Order | null;

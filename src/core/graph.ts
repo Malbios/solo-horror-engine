@@ -10,7 +10,14 @@ export type UnitState = {
   attributes: Record<string, number>;
 };
 
-export type Traversable = (edge: Edge) => boolean;
+/** Whether a unit may use `edge` when it leaves `departure` (one of the edge's ends). */
+export type Traversable = (edge: Edge, departure: string) => boolean;
+
+/** The edge's tags plus the extra tags of the end it is left from. */
+export function tagsLeaving(edge: Edge, departure: string): string[] {
+  const endTags = departure === edge.fromSpace ? edge.fromTags : edge.toTags;
+  return endTags.length === 0 ? edge.tags : [...edge.tags, ...endTags];
+}
 
 type Direction = "outgoing" | "incoming";
 
@@ -25,12 +32,14 @@ function adjacent(
   direction: Direction,
 ): string[] {
   const found = new Set<string>();
+  // Going outgoing the unit leaves `space`; walking backwards (incoming) it leaves the neighbour.
+  const usable = (edge: Edge, from: string, to: string): boolean =>
+    traversable(edge, direction === "outgoing" ? from : to);
   for (const edge of sortedEdges(edges)) {
-    if (!traversable(edge)) continue;
     const [near, far] =
       direction === "outgoing" ? [edge.fromSpace, edge.toSpace] : [edge.toSpace, edge.fromSpace];
-    if (near === space) found.add(far);
-    if (!edge.directed && far === space) found.add(near);
+    if (near === space && usable(edge, near, far)) found.add(far);
+    if (!edge.directed && far === space && usable(edge, far, near)) found.add(near);
   }
   return [...found].sort();
 }
@@ -53,9 +62,9 @@ export function edgesBetween(
 ): Edge[] {
   return sortedEdges(edges).filter(
     (edge) =>
-      traversable(edge) &&
       ((edge.fromSpace === from && edge.toSpace === to) ||
-        (!edge.directed && edge.fromSpace === to && edge.toSpace === from)),
+        (!edge.directed && edge.fromSpace === to && edge.toSpace === from)) &&
+      traversable(edge, from),
   );
 }
 

@@ -1023,15 +1023,25 @@ export function createResolver(
     }
     const scope = scopeOf({ ...frame.context, self: frame.unit });
     const traversable = traversableFor(frame.filter, scope);
-    if (frame.mode === "choose") {
+    if (frame.mode === "choose" || frame.mode === "forced") {
       const options = neighbours(work.edges, here, traversable).filter(
         (space) => payableEdge(frame, here, space, traversable) !== null,
       );
-      if (options.length === 0) {
+      const [only] = options;
+      if (only === undefined) {
         work.stack.pop();
         return;
       }
-      work.pending = { kind: "moveUnit", unit: frame.unit, options, canPass: true };
+      if (frame.mode === "forced" && options.length === 1) {
+        chosenStep(frame, only);
+        return;
+      }
+      work.pending = {
+        kind: "moveUnit",
+        unit: frame.unit,
+        options,
+        canPass: frame.mode === "choose",
+      };
       return;
     }
     const target = frame.target === null ? null : resolveSpace(frame.target, scope);
@@ -1300,7 +1310,7 @@ export function createResolver(
         startMove(
           {
             filter: effect.filter,
-            mode: "choose",
+            mode: effect.forced ? "forced" : "choose",
             target: null,
             stopWhen: false,
             order: null,
