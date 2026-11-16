@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { combineAddOns, parseAddOn } from "../src/content";
+import { combineAddOns, missingModuleKinds, parseAddOn } from "../src/content";
 import { createEngine, type AddOn, type Pack } from "../src/core";
 import { act, buildPack } from "./helpers";
 
@@ -111,6 +111,12 @@ describe("core and add-ons", () => {
 
   it("reports a kind that no loaded add-on provides", () => {
     expect(issuesOf([garden])).toContain('choice "rival" needs at least 1 of kind "rival"');
+  });
+
+  it("lists the kinds still needed so the player knows what to load next", () => {
+    expect(missingModuleKinds(core, [])).toEqual(["rival", "place"]);
+    expect(missingModuleKinds(core, [garden])).toEqual(["rival"]);
+    expect(missingModuleKinds(core, [rival("fox", 1), garden])).toEqual([]);
   });
 
   it("checks references across the core and its add-ons", () => {

@@ -8,6 +8,7 @@ import {
   type AddOn,
   type BoolExpr,
   type CardCounter,
+  type Choice,
   type Content,
   type Counter,
   type Effect,
@@ -808,14 +809,18 @@ function choiceIssues(pack: Pack): Issue[] {
 }
 
 /** Checks that need every module present, so they run on a core combined with its add-ons. */
+export function unmetChoices(pack: Pack): Choice[] {
+  return pack.choices.filter(
+    (choice) => offeredModules(pack, choice).length < Math.max(choice.min, 1),
+  );
+}
+
 export function combinedChoiceIssues(pack: Pack): string[] {
-  return pack.choices
-    .filter((choice) => offeredModules(pack, choice).length < Math.max(choice.min, 1))
-    .map((choice) =>
-      choice.kind === null
-        ? `choice "${choice.id}" cannot be met`
-        : `choice "${choice.id}" needs at least ${Math.max(choice.min, 1)} of kind "${choice.kind}"`,
-    );
+  return unmetChoices(pack).map((choice) =>
+    choice.kind === null
+      ? `choice "${choice.id}" cannot be met`
+      : `choice "${choice.id}" needs at least ${Math.max(choice.min, 1)} of kind "${choice.kind}"`,
+  );
 }
 
 export function packIssues(pack: Pack): Issue[] {

@@ -1,5 +1,5 @@
 import demoPackData from "../../content/demo/pack.json";
-import { combineAddOns, parsePack } from "../content";
+import { combineAddOns, missingModuleKinds, parsePack } from "../content";
 import {
   canUndo,
   createEngine,
@@ -384,6 +384,11 @@ function storedCore(library: LibraryStore): { core: Pack | null; notices: string
     : { core: null, notices: ["The remembered core could not be read, so the demo core is used."] };
 }
 
+function describeKind(kind: string): string {
+  const words = kind.replaceAll("-", " ");
+  return /^[aeiou]/i.test(words) ? `an ${words}` : `a ${words}`;
+}
+
 function chooseGame(library: LibraryStore): ActivePack | null {
   const demo = parsePack(demoPackData);
   if (!demo.ok) {
@@ -403,7 +408,11 @@ function chooseGame(library: LibraryStore): ActivePack | null {
   if (combined.ok) {
     return { pack: combined.value, fromFile: core !== null, addOns, notice: notices.join(" ") };
   }
-  const reason = `These files do not fit together: ${combined.error.slice(0, 3).join("; ")}.`;
+  const missing = core === null ? [] : missingModuleKinds(base, fitting);
+  const reason =
+    missing.length > 0
+      ? `Core loaded. Still needed: ${missing.map(describeKind).join(", ")}. Load them from the menu.`
+      : `These files do not fit together: ${combined.error.slice(0, 3).join("; ")}.`;
   return {
     pack: demo.value,
     fromFile: core !== null,
