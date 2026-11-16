@@ -1,2 +1,2 @@
 /** Bump whenever rules, RNG algorithm or RNG draw order change, so old saves are not replayed. */
-export const ENGINE_VERSION = "0.6.0";
+export const ENGINE_VERSION = "0.7.0";
