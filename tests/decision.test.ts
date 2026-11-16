@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { createEngine, view, viewActions, type GameState } from "../src/core";
-import { actionLabel, buyNote, stableOrder } from "../src/ui/decision";
+import { actionLabel, buyNote, stableOrder, unavailableBuys } from "../src/ui/decision";
 import { createLabels, displayRules } from "../src/ui/labels";
 import { groupCopies } from "../src/ui/panels";
 import { act, fixturePack, PAUSE_PHASE } from "./helpers";
 
-function shopPack() {
+function shopPack(coins = 9) {
   return fixturePack({
     zones: [
       { id: "shelf", name: "Shelf" },
       { id: "bag", name: "Bag" },
     ],
-    counters: [{ id: "coins", name: "Coins", start: 9 }],
+    counters: [{ id: "coins", name: "Coins", start: coins, min: 0 }],
     cards: [
       { id: "lamp", name: "Lamp", buyCost: [{ counter: "coins", amount: 1 }] },
       { id: "bell", name: "Bell", buyCost: [{ counter: "coins", amount: 2 }] },
@@ -71,6 +71,19 @@ describe("decision buttons", () => {
       "Buy Rope [Free]",
       "Pass",
     ]);
+  });
+});
+
+describe("unavailable buys", () => {
+  it("lists shop cards that cannot be bought, once per name", () => {
+    const state = createEngine(shopPack(1)).init(1);
+    const shown = view(state);
+    expect(unavailableBuys(shown).map((card) => card.card)).toEqual(["bell"]);
+    expect(
+      viewActions(state)
+        .filter((action) => action.type === "buyCard")
+        .map((action) => ("card" in action ? action.card.split(":")[0] : "")),
+    ).toEqual(["rope", "lamp"]);
   });
 });
 

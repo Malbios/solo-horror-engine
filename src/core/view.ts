@@ -32,6 +32,7 @@ export type DecisionView =
       play: ViewCard[];
       discard: ViewCard[];
       buy: ViewCard[];
+      buyFrom: string | null;
       buyFree: boolean;
       abilities: AbilityOffer[];
     }
@@ -100,6 +101,7 @@ function viewDecision(state: GameState, pending: Decision): DecisionView {
         play: pending.play.map((card) => viewCard(state, card)),
         discard: pending.discard.map((card) => viewCard(state, card)),
         buy: pending.buy.map((card) => viewCard(state, card)),
+        buyFrom: pending.buyFrom,
         buyFree: pending.buyFree,
         abilities: pending.abilities,
       };

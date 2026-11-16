@@ -91,6 +91,91 @@ export function stableOrder(actions: readonly Action[], shown: GameView, labels:
     .map(({ action }) => action);
 }
 
+/** Face-up cards in the shop zone that cannot be bought right now, one per card name. */
+export function unavailableBuys(shown: GameView): ViewCard[] {
+  const pending = shown.pending;
+  if (pending?.kind !== "window" || pending.buyFrom === null) return [];
+  const offered = new Set(pending.buy.map((card) => card.card));
+  const seen = new Set<string>();
+  return (shown.zones[pending.buyFrom] ?? []).filter((card) => {
+    if (card.card === null || offered.has(card.card) || seen.has(card.card)) return false;
+    seen.add(card.card);
+    return true;
+  });
+}
+
+function unavailableControl(
+  card: ViewCard,
+  shown: GameView,
+  labels: Labels,
+  handlers: DecisionHandlers,
+): HTMLElement {
+  const pending = shown.pending;
+  const shopCards =
+    pending?.kind === "window" && pending.buyFrom !== null
+      ? (shown.zones[pending.buyFrom] ?? [])
+      : [];
+  const copies = shopCards.filter((other) => other.card === card.card).length;
+  const definition = labels.cardDefinition(card);
+  const prices = definition?.buyCost.map((cost) => describeCost(cost, labels)) ?? [];
+  const parts = [
+    prices.length === 0 ? "Free" : prices.join(", "),
+    copies > 1 ? `${copies} left` : null,
+  ];
+  const note = parts.filter((part) => part !== null).join(" · ");
+  const greyed = h(
+    "button",
+    {
+      className: "action action-unavailable",
+      attrs: { disabled: "", "aria-label": `Buy ${labels.card(card)}, ${note}, not available` },
+    },
+    [`Buy ${labels.card(card)}`, h("span", { className: "action-note", text: note })],
+  );
+  return h("div", { className: "action-with-info" }, [
+    greyed,
+    h("button", {
+      className: "info",
+      text: "i",
+      attrs: { "aria-label": `${labels.card(card)}, details` },
+      onClick: () => handlers.openCard(card),
+    }),
+  ]);
+}
+
+/** Buy buttons and the greyed-out cards that cannot be bought, together in name order. */
+function withUnavailableBuys(
+  ordered: readonly Action[],
+  shown: GameView,
+  labels: Labels,
+  handlers: DecisionHandlers,
+): HTMLElement[] {
+  const nameOf = (card: ViewCard | null) => (card === null ? "" : labels.card(card));
+  const buys = [
+    ...ordered
+      .filter((action) => action.type === "buyCard")
+      .map((action) => ({
+        name: nameOf(offeredCard(action, shown)),
+        element: actionControl(action, shown, labels, handlers),
+      })),
+    ...unavailableBuys(shown).map((card) => ({
+      name: nameOf(card),
+      element: unavailableControl(card, shown, labels, handlers),
+    })),
+  ].sort((a, b) => a.name.localeCompare(b.name));
+  const others = ordered.filter((action) => action.type !== "buyCard");
+  const firstBuy = ordered.findIndex((action) => action.type === "buyCard");
+  const passAt = others.findIndex((action) => action.type === "pass");
+  const insertAt =
+    firstBuy !== -1
+      ? ordered.slice(0, firstBuy).filter((action) => action.type !== "buyCard").length
+      : passAt === -1
+        ? others.length
+        : passAt;
+  const controls = others.map((action) => actionControl(action, shown, labels, handlers));
+  controls.splice(insertAt, 0, ...buys.map(({ element }) => element));
+  return controls;
+}
+
 function actionControl(
   action: Action,
   shown: GameView,
@@ -161,9 +246,7 @@ export function renderDecision(
     h(
       "div",
       { className: "actions" },
-      stableOrder(actions, shown, labels).map((action) =>
-        actionControl(action, shown, labels, handlers),
-      ),
+      withUnavailableBuys(stableOrder(actions, shown, labels), shown, labels, handlers),
     ),
   ];
 }

@@ -80,6 +80,7 @@ describe("costs", () => {
       play: ["cheap:1"],
       discard: [],
       buy: [],
+      buyFrom: null,
       buyFree: false,
       abilities: [],
     });

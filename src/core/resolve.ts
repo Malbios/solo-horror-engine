@@ -1650,6 +1650,7 @@ export function createResolver(
       play: playOffers(frame.play),
       discard,
       buy: buyOffers(frame.buy),
+      buyFrom: frame.buy?.from ?? null,
       buyFree: frame.buy?.free ?? false,
       abilities: abilityOffers(frame.abilitiesFrom),
     };

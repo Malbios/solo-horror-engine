@@ -164,6 +164,8 @@ export type Decision =
       play: string[];
       discard: string[];
       buy: string[];
+      /** The zone cards are bought from, so the player can see what is not affordable. */
+      buyFrom: string | null;
       buyFree: boolean;
       abilities: AbilityOffer[];
     }
