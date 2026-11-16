@@ -65,6 +65,8 @@ Each entry ends with the invented fixture that tests it.
 
 25. **Market.** A window may offer cards from a zone to take into another zone, paying the card's buy cost (separate from its play cost) without running its effects. The offer has a card tag filter, a condition checked when the window opens (for example a size limit on the target zone), and may be free. A counter cost may name a floor: a non-zero cost is payable only if the counter stays at or above the floor, so a zero cost is always payable. Cards waiting to return to the market simply sit in another zone. _Fixture: a stall where a costly card is offered only while the counter stays above the floor, and a free one-time take limited by tags._
 
+26. **Core and add-ons.** A game is one core (rules, phases, shared components, choices) plus any number of add-ons loaded separately, each one module of a kind that names the core it extends. A choice may name a kind instead of listing modules: it offers every loaded module of that kind. Add-ons replace the core's placeholder content and procedures by id. Content may have an end of setup that runs after every chosen module's setup, for steps that need all modules' components (such as dealing a shared deck). An add-on alone is checked only for shape; references, unmet choices and conflicts are checked once it joins the core, and two modules that one single-pick choice offers never conflict. The combined version includes every add-on's version, so a save notices when an add-on changes. _Fixture: a core with two kind choices, two add-ons of one kind replacing the same placeholder procedure, and a deck dealt at the end of setup._
+
 ## Decisions
 
 - **Undo stops at hidden information.** Undo is not allowed past any action whose resolution revealed something the player did not know before: a peek, a card or value turning face up, a die roll, a shuffle, or any other seeded random result. The engine marks such actions in the log as undo barriers; undo can only remove actions after the last barrier.
@@ -84,3 +86,4 @@ Each entry ends with the invented fixture that tests it.
 11. Card presence in expressions.
 12. Followers.
 13. Market: buy offers in windows, buy costs and cost floors.
+14. Core and add-ons: separately loaded modules, choices by kind, end of setup.

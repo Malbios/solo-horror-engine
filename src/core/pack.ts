@@ -317,6 +317,7 @@ export type Content = {
   endConditions: EndCondition[];
   procedures: Procedure[];
   setup: Effect[];
+  setupEnd: Effect[];
   round: ScopeHooks;
   phases: Phase[];
 };
@@ -354,7 +355,13 @@ export type Module = {
   remove: Removal;
 };
 
-export type Choice = { id: string; options: string[]; min: number; max: number };
+export type Choice = {
+  id: string;
+  options: string[];
+  kind: string | null;
+  min: number;
+  max: number;
+};
 
 export type PackMeta = {
   id: string;
@@ -369,3 +376,23 @@ export type Pack = {
   modules: Module[];
   choices: Choice[];
 };
+
+export type AddOnMeta = {
+  id: string;
+  version: string;
+  schemaVersion: typeof PACK_SCHEMA_VERSION;
+  name: string;
+  core: string;
+};
+
+/** One module shipped on its own, extending the core named in its meta. */
+export type AddOn = { meta: AddOnMeta; module: Module };
+
+/** The modules a choice offers: its listed options, then every other module of its kind. */
+export function offeredModules(pack: Pack, choice: Choice): string[] {
+  const ofKind = pack.modules
+    .filter((module) => choice.kind !== null && module.kind === choice.kind)
+    .map((module) => module.id)
+    .filter((id) => !choice.options.includes(id));
+  return [...choice.options, ...ofKind];
+}

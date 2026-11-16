@@ -1,5 +1,5 @@
 import demoPackData from "../../content/demo/pack.json";
-import { parsePack } from "../content";
+import { combineAddOns, parsePack } from "../content";
 import {
   canUndo,
   createEngine,
@@ -11,6 +11,7 @@ import {
   viewError,
   viewEvents,
   type Action,
+  type AddOn,
   type Engine,
   type GameState,
   type GameView,
@@ -28,15 +29,24 @@ import {
   type Save,
   type SaveStore,
 } from "./save-store";
-import { LocalStoragePackStore, parsePackText, type PackStore } from "./pack-store";
+import {
+  LocalStorageLibraryStore,
+  parseAddOnText,
+  parseLibraryFile,
+  parsePackText,
+  withAddOn,
+  withoutAddOn,
+  type LibraryStore,
+} from "./pack-store";
 import { cardDetails, createSheet, spaceDetails } from "./sheet";
 import "./style.css";
 
 const PACK_KEY = "solo-horror-engine:pack";
+const ADD_ONS_KEY = "solo-horror-engine:add-ons";
 const SAVE_KEY_PREFIX = "solo-horror-engine:save:";
 const LOG_LIMIT = 100;
 
-type ActivePack = { pack: Pack; fromFile: boolean; notice: string };
+type ActivePack = { pack: Pack; fromFile: boolean; addOns: AddOn[]; notice: string };
 const PANELS = ["tracks", "cards", "log"] as const;
 type Panel = (typeof PANELS)[number];
 const PANEL_TITLES: Record<Panel, string> = { tracks: "Tracks", cards: "Cards", log: "Log" };
@@ -53,7 +63,7 @@ function randomSeed(): number {
   return crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
 }
 
-function start(active: ActivePack, packStore: PackStore, engine: Engine, store: SaveStore): void {
+function start(active: ActivePack, library: LibraryStore, engine: Engine, store: SaveStore): void {
   const { pack } = active;
   const roundText = requireElement("round", HTMLSpanElement);
   const undoButton = requireElement("undo", HTMLButtonElement);
@@ -250,37 +260,69 @@ function start(active: ActivePack, packStore: PackStore, engine: Engine, store: 
       h("p", { text: `${pack.meta.name} ${pack.meta.version}` }),
       h("p", { className: "muted", text: `Engine ${ENGINE_VERSION}` }),
       ...message.map((line) => h("p", { className: "sheet-error", text: line })),
+      renderAddOnList(),
       h("div", { className: "actions" }, [
         h("button", { className: "action", text: "New game", onClick: confirmNewGame }),
         h("button", {
           className: "action",
-          text: "Load pack file",
+          text: "Load core or add-on file",
           onClick: () => fileInput.click(),
         }),
         active.fromFile
-          ? h("button", { className: "action", text: "Use demo pack", onClick: useDemoPack })
+          ? h("button", { className: "action", text: "Use demo core", onClick: useDemoCore })
           : null,
       ]),
       fileInput,
     ]);
   }
 
+  function renderAddOnList(): HTMLElement | null {
+    if (active.addOns.length === 0) return null;
+    return h("section", {}, [
+      h("h3", { text: "Add-ons" }),
+      h(
+        "ul",
+        { className: "add-on-list" },
+        active.addOns.map((addOn) =>
+          h("li", { className: "add-on" }, [
+            h("span", { text: `${addOn.meta.name} ${addOn.meta.version}` }),
+            h("button", {
+              className: "action action-pass",
+              text: "Remove",
+              attrs: { "aria-label": `Remove ${addOn.meta.name}` },
+              onClick: () => removeAddOn(addOn.meta.id),
+            }),
+          ]),
+        ),
+      ),
+    ]);
+  }
+
   async function loadPackFile(file: File): Promise<void> {
     const text = await file.text();
-    const parsed = parsePackText(text);
+    const parsed = parseLibraryFile(text);
     if (!parsed.ok) {
       openMenu(parsed.error);
       return;
     }
-    if (!packStore.save(text)) {
-      openMenu(["The pack is too large for this browser to remember."]);
+    const stored =
+      parsed.value.type === "core"
+        ? library.saveCore(text)
+        : library.saveAddOns(withAddOn(library.loadAddOns(), text, parsed.value.addOn));
+    if (!stored) {
+      openMenu(["The file is too large for this browser to remember."]);
       return;
     }
     location.reload();
   }
 
-  function useDemoPack(): void {
-    packStore.clear();
+  function removeAddOn(id: string): void {
+    library.saveAddOns(withoutAddOn(library.loadAddOns(), id));
+    location.reload();
+  }
+
+  function useDemoCore(): void {
+    library.clearCore();
     location.reload();
   }
 
@@ -325,28 +367,49 @@ function start(active: ActivePack, packStore: PackStore, engine: Engine, store: 
   resume();
 }
 
-function choosePack(packStore: PackStore): ActivePack | null {
-  const stored = packStore.load();
-  let notice = "";
-  if (stored !== null) {
-    const parsed = parsePackText(stored);
-    if (parsed.ok) return { pack: parsed.value, fromFile: true, notice };
-    notice = "The remembered pack could not be read, so the demo pack is used.";
-  }
+function storedCore(library: LibraryStore): { core: Pack | null; notices: string[] } {
+  const stored = library.loadCore();
+  if (stored === null) return { core: null, notices: [] };
+  const parsed = parsePackText(stored);
+  return parsed.ok
+    ? { core: parsed.value, notices: [] }
+    : { core: null, notices: ["The remembered core could not be read, so the demo core is used."] };
+}
+
+function chooseGame(library: LibraryStore): ActivePack | null {
   const demo = parsePack(demoPackData);
   if (!demo.ok) {
     console.error("Demo pack is invalid", demo.error);
     return null;
   }
-  return { pack: demo.value, fromFile: false, notice };
+  const { core, notices } = storedCore(library);
+  const texts = library.loadAddOns();
+  const addOns = texts.flatMap((text) => {
+    const addOn = parseAddOnText(text);
+    return addOn === null ? [] : [addOn];
+  });
+  if (addOns.length < texts.length) notices.push("Some remembered add-ons could not be read.");
+  const base = core ?? demo.value;
+  const fitting = addOns.filter((addOn) => addOn.meta.core === base.meta.id);
+  const combined = combineAddOns(base, fitting);
+  if (combined.ok) {
+    return { pack: combined.value, fromFile: core !== null, addOns, notice: notices.join(" ") };
+  }
+  const reason = `These files do not fit together: ${combined.error.slice(0, 3).join("; ")}.`;
+  return {
+    pack: demo.value,
+    fromFile: core !== null,
+    addOns,
+    notice: [...notices, reason].join(" "),
+  };
 }
 
-const packStore = new LocalStoragePackStore(PACK_KEY, localStorage);
-const active = choosePack(packStore);
+const library = new LocalStorageLibraryStore(PACK_KEY, ADD_ONS_KEY, localStorage);
+const active = chooseGame(library);
 if (active !== null) {
   start(
     active,
-    packStore,
+    library,
     createEngine(active.pack),
     new LocalStorageSaveStore(SAVE_KEY_PREFIX + active.pack.meta.id, localStorage),
   );

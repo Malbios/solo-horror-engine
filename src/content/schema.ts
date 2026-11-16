@@ -2,12 +2,16 @@ import { z } from "zod";
 import {
   findMissingReferences,
   LAYERED_COLLECTIONS,
+  offeredModules,
   PACK_SCHEMA_VERSION,
   procedureIssues,
+  type AddOn,
   type BoolExpr,
   type Content,
   type Counter,
   type Effect,
+  type LayeredCollection,
+  type Module,
   type NumExpr,
   type Pack,
   type SpaceRef,
@@ -608,6 +612,7 @@ const contentSchema = z.strictObject({
   endConditions: z.array(endConditionSchema).default([]),
   procedures: z.array(procedureSchema).default([]),
   setup: effectListSchema,
+  setupEnd: effectListSchema,
   round: hooksSchema.prefault({}),
   phases: z.array(phaseSchema).default([]),
 });
@@ -646,12 +651,18 @@ const moduleSchema = z.strictObject({
 const choiceSchema = z
   .strictObject({
     id: idSchema,
-    options: z.array(idSchema).min(1),
+    options: z.array(idSchema).default([]),
+    kind: nameSchema.nullable().default(null),
     min: z.int().min(0),
     max: z.int().min(1),
   })
   .refine(
-    (choice) => choice.min <= choice.max && choice.max <= choice.options.length,
+    (choice) => choice.kind !== null || choice.options.length > 0,
+    "choice needs options or a kind",
+  )
+  .refine(
+    (choice) =>
+      choice.min <= choice.max && (choice.kind !== null || choice.max <= choice.options.length),
     "choice must satisfy min <= max <= number of options",
   );
 
@@ -677,25 +688,36 @@ function contentIssues(content: Content, path: (string | number)[]): Issue[] {
   });
 }
 
+function neverChosenTogether(pack: Pack, a: Module, b: Module): boolean {
+  return pack.choices.some((choice) => {
+    const offered = offeredModules(pack, choice);
+    return choice.max === 1 && offered.includes(a.id) && offered.includes(b.id);
+  });
+}
+
+function sharedIds(a: Module, b: Module, collection: LayeredCollection): string[] {
+  const idsOf = (module: Module) =>
+    new Set(module.content[collection].map((item: { id: string }) => item.id));
+  const theirs = idsOf(b);
+  return [...idsOf(a)].filter((id) => theirs.has(id));
+}
+
 function precedenceConflicts(pack: Pack): Issue[] {
   const issues: Issue[] = [];
-  const precedences = new Set(pack.modules.map((module) => module.precedence));
-  for (const precedence of precedences) {
-    const peers = pack.modules.filter((module) => module.precedence === precedence);
-    for (const collection of LAYERED_COLLECTIONS) {
-      const ids = peers.flatMap((module) => {
-        const items: readonly { id: string }[] = module.content[collection];
-        return [...new Set(items.map((item) => item.id))];
-      });
-      for (const id of duplicates(ids)) {
-        issues.push({
-          path: ["modules"],
-          message: `modules with precedence ${precedence} both define ${collection} "${id}"`,
-        });
+  pack.modules.forEach((a, index) => {
+    for (const b of pack.modules.slice(index + 1)) {
+      if (a.precedence !== b.precedence || neverChosenTogether(pack, a, b)) continue;
+      for (const collection of LAYERED_COLLECTIONS) {
+        for (const id of sharedIds(a, b, collection)) {
+          issues.push({
+            path: ["modules"],
+            message: `modules with precedence ${a.precedence} both define ${collection} "${id}"`,
+          });
+        }
       }
     }
-  }
-  return issues;
+  });
+  return [...new Map(issues.map((issue) => [issue.message, issue])).values()];
 }
 
 function choiceIssues(pack: Pack): Issue[] {
@@ -720,7 +742,18 @@ function choiceIssues(pack: Pack): Issue[] {
   ];
 }
 
-function packIssues(pack: Pack): Issue[] {
+/** Checks that need every module present, so they run on a core combined with its add-ons. */
+export function combinedChoiceIssues(pack: Pack): string[] {
+  return pack.choices
+    .filter((choice) => offeredModules(pack, choice).length < Math.max(choice.min, 1))
+    .map((choice) =>
+      choice.kind === null
+        ? `choice "${choice.id}" cannot be met`
+        : `choice "${choice.id}" needs at least ${Math.max(choice.min, 1)} of kind "${choice.kind}"`,
+    );
+}
+
+export function packIssues(pack: Pack): Issue[] {
   const contents = [pack.base, ...pack.modules.map((module) => module.content)];
   return [
     ...contentIssues(pack.base, ["base"]),
@@ -758,7 +791,33 @@ export const packSchema = z
     }
   });
 
+/** An add-on alone only gets shape checks; references are checked once it joins its core. */
+export const addOnSchema = z
+  .strictObject({
+    meta: z.strictObject({
+      id: idSchema,
+      version: z.string().min(1),
+      schemaVersion: z.literal(PACK_SCHEMA_VERSION),
+      name: nameSchema,
+      core: idSchema,
+    }),
+    module: moduleSchema,
+  })
+  .superRefine((addOn, ctx) => {
+    const issues = [
+      ...contentIssues(addOn.module.content, ["module", "content"]),
+      ...(depthOf(addOn) > MAX_PACK_DEPTH
+        ? [{ path: [], message: `add-on nesting deeper than ${MAX_PACK_DEPTH}` }]
+        : []),
+    ];
+    for (const issue of issues) {
+      ctx.addIssue({ code: "custom", path: issue.path, message: issue.message });
+    }
+  });
+
 type Equals<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 const schemaMatchesCoreType: Equals<z.infer<typeof packSchema>, Pack> = true;
 void schemaMatchesCoreType;
+const addOnSchemaMatchesCoreType: Equals<z.infer<typeof addOnSchema>, AddOn> = true;
+void addOnSchemaMatchesCoreType;

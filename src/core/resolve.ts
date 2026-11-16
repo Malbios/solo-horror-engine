@@ -66,6 +66,7 @@ import type {
   WindowBuy,
   WindowPlay,
 } from "./pack";
+import { offeredModules } from "./pack";
 import { assertNever, type Result } from "./result";
 import { nextInt, shuffle } from "./rng";
 
@@ -1663,6 +1664,7 @@ export function createResolver(
       ]),
     );
     work.stage = "setup";
+    pushEffects(composed.setupEnd, EMPTY_CONTEXT, null);
     pushEffects(composed.setup, EMPTY_CONTEXT, null);
   }
 
@@ -1672,8 +1674,9 @@ export function createResolver(
       startSetup();
       return;
     }
-    const remaining = choice.options.filter((moduleId) => !work.modules.includes(moduleId));
-    const picked = choice.options.length - remaining.length;
+    const offered = offeredModules(pack, choice);
+    const remaining = offered.filter((moduleId) => !work.modules.includes(moduleId));
+    const picked = offered.length - remaining.length;
     if (picked >= choice.max || remaining.length === 0) {
       work.choiceIndex += 1;
       return;

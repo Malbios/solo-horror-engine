@@ -1,43 +1,67 @@
-import { parsePack, type PackIssue } from "../content";
-import { err, ok, type Pack, type Result } from "../core";
+import { parseAddOn, parsePack, type PackIssue } from "../content";
+import { err, ok, type AddOn, type Pack, type Result } from "../core";
 
 const ISSUES_SHOWN = 5;
 
-export interface PackStore {
-  load(): string | null;
-  save(text: string): boolean;
-  clear(): void;
+/** The files a player has loaded: at most one core and any number of add-ons, kept as text. */
+export interface LibraryStore {
+  loadCore(): string | null;
+  saveCore(text: string): boolean;
+  clearCore(): void;
+  loadAddOns(): string[];
+  saveAddOns(texts: readonly string[]): boolean;
 }
 
-export class LocalStoragePackStore implements PackStore {
+export class LocalStorageLibraryStore implements LibraryStore {
   constructor(
-    private readonly key: string,
+    private readonly coreKey: string,
+    private readonly addOnsKey: string,
     private readonly storage: Storage,
   ) {}
 
-  load(): string | null {
+  loadCore(): string | null {
     try {
-      return this.storage.getItem(this.key);
+      return this.storage.getItem(this.coreKey);
     } catch {
       return null;
     }
   }
 
-  save(text: string): boolean {
+  saveCore(text: string): boolean {
+    return this.write(this.coreKey, text);
+  }
+
+  clearCore(): void {
     try {
-      this.storage.setItem(this.key, text);
-      return true;
+      this.storage.removeItem(this.coreKey);
     } catch (error) {
-      console.warn("Could not store pack", error);
-      return false;
+      console.warn("Could not clear the stored core", error);
     }
   }
 
-  clear(): void {
+  loadAddOns(): string[] {
     try {
-      this.storage.removeItem(this.key);
+      const raw = this.storage.getItem(this.addOnsKey);
+      const parsed: unknown = raw === null ? [] : JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.filter((item): item is string => typeof item === "string")
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  saveAddOns(texts: readonly string[]): boolean {
+    return this.write(this.addOnsKey, JSON.stringify(texts));
+  }
+
+  private write(key: string, text: string): boolean {
+    try {
+      this.storage.setItem(key, text);
+      return true;
     } catch (error) {
-      console.warn("Could not clear stored pack", error);
+      console.warn("Could not store a loaded file", error);
+      return false;
     }
   }
 }
@@ -45,20 +69,56 @@ export class LocalStoragePackStore implements PackStore {
 function describeIssues(issues: PackIssue[]): string[] {
   const shown = issues
     .slice(0, ISSUES_SHOWN)
-    .map((issue) => `${issue.path === "" ? "(pack)" : issue.path}: ${issue.message}`);
+    .map((issue) => `${issue.path === "" ? "(file)" : issue.path}: ${issue.message}`);
   const hidden = issues.length - shown.length;
   return hidden > 0 ? [...shown, `and ${hidden} more`] : shown;
 }
 
-export function parsePackText(text: string): Result<Pack, string[]> {
-  let data: unknown;
+export type LibraryFile = { type: "core"; pack: Pack } | { type: "addOn"; addOn: AddOn };
+
+function parseJson(text: string): Result<unknown, string[]> {
   try {
-    data = JSON.parse(text);
+    return ok(JSON.parse(text));
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     return err([`The file is not valid JSON (${reason}).`]);
   }
-  const parsed = parsePack(data);
-  if (parsed.ok) return ok(parsed.value);
-  return err(["The file is not a valid pack.", ...describeIssues(parsed.error.issues)]);
+}
+
+/** Reads a loaded file as a core or, when it carries a single module, as an add-on. */
+export function parseLibraryFile(text: string): Result<LibraryFile, string[]> {
+  const data = parseJson(text);
+  if (!data.ok) return data;
+  const isAddOn = typeof data.value === "object" && data.value !== null && "module" in data.value;
+  if (isAddOn) {
+    const parsed = parseAddOn(data.value);
+    if (parsed.ok) return ok({ type: "addOn", addOn: parsed.value });
+    return err(["The file is not a valid add-on.", ...describeIssues(parsed.error.issues)]);
+  }
+  const parsed = parsePack(data.value);
+  if (parsed.ok) return ok({ type: "core", pack: parsed.value });
+  return err(["The file is not a valid core.", ...describeIssues(parsed.error.issues)]);
+}
+
+export function parsePackText(text: string): Result<Pack, string[]> {
+  const parsed = parseLibraryFile(text);
+  if (!parsed.ok) return parsed;
+  return parsed.value.type === "core"
+    ? ok(parsed.value.pack)
+    : err(["The file is an add-on, not a core."]);
+}
+
+export function parseAddOnText(text: string): AddOn | null {
+  const parsed = parseLibraryFile(text);
+  return parsed.ok && parsed.value.type === "addOn" ? parsed.value.addOn : null;
+}
+
+/** The stored add-on texts with the one carrying `addOn`'s id replaced or appended. */
+export function withAddOn(texts: readonly string[], text: string, addOn: AddOn): string[] {
+  const others = texts.filter((stored) => parseAddOnText(stored)?.meta.id !== addOn.meta.id);
+  return [...others, text];
+}
+
+export function withoutAddOn(texts: readonly string[], id: string): string[] {
+  return texts.filter((stored) => parseAddOnText(stored)?.meta.id !== id);
 }

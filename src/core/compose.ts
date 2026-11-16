@@ -72,6 +72,7 @@ function applyModule(content: Content, module: Module): Content {
     procedures: layer(content.procedures, added.procedures, remove.procedures),
     phases: layer(content.phases, added.phases, remove.phases),
     setup: [...content.setup, ...added.setup],
+    setupEnd: [...content.setupEnd, ...added.setupEnd],
     round: {
       onEnter: [...content.round.onEnter, ...added.round.onEnter],
       onExit: [...content.round.onExit, ...added.round.onExit],
