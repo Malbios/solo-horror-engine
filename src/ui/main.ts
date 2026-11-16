@@ -4,12 +4,10 @@ import {
   canUndo,
   createEngine,
   ENGINE_VERSION,
-  replay,
   undo,
   view,
   viewActions,
   viewError,
-  viewEvents,
   type Action,
   type AddOn,
   type Engine,
@@ -21,14 +19,8 @@ import {
 import { renderMap } from "./board";
 import { renderDecision } from "./decision";
 import { h, requireElement } from "./dom";
-import {
-  createLabels,
-  describeAction,
-  describeEvent,
-  displayRules,
-  moduleInfo,
-  type Labels,
-} from "./labels";
+import { logEntry, replayWithLog, withEntry } from "./game-log";
+import { createLabels, displayRules, moduleInfo, type Labels } from "./labels";
 import { renderLog, renderTracks, renderZones, type LogEntry } from "./panels";
 import {
   describeSaveMismatch,
@@ -60,7 +52,6 @@ import "./style.css";
 const PACK_KEY = "solo-horror-engine:pack";
 const ADD_ONS_KEY = "solo-horror-engine:add-ons";
 const SAVE_KEY_PREFIX = "solo-horror-engine:save:";
-const LOG_LIMIT = 100;
 
 type ActivePack = { pack: Pack; fromFile: boolean; addOns: AddOn[]; notice: string };
 const PANELS = ["tracks", "cards", "log"] as const;
@@ -188,21 +179,13 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
       render(`That action was refused (${viewError(outcome.error, session.state).type}).`);
       return;
     }
-    const before = view(session.state);
-    const title = describeAction(action, before, labelsFor(before));
     const { state, events, undoBarrier } = outcome.value;
-    const shown = view(state);
-    const labels = labelsFor(shown);
-    const lines = viewEvents(events, state).flatMap((event) => {
-      const line = describeEvent(event, shown, labels);
-      return line === null ? [] : [line];
-    });
     session = {
       ...session,
       actions: [...session.actions, action],
       state,
       undoable: !undoBarrier,
-      log: [...session.log, { title, lines }].slice(-LOG_LIMIT),
+      log: withEntry(session.log, logEntry(action, session.state, state, events, labelsFor)),
     };
     persist(session);
     sheet.close();
@@ -227,7 +210,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
       state,
       actions,
       undoable: canUndo(engine, session.seed, actions),
-      log: [...session.log, { title: "Took back the last action", lines: [] }].slice(-LOG_LIMIT),
+      log: withEntry(session.log, { title: "Took back the last action", lines: [] }),
     };
     persist(session);
     render();
@@ -423,7 +406,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
           return;
         }
         const { seed, actions } = loaded.save;
-        const replayed = replay(engine, seed, actions);
+        const replayed = replayWithLog(engine, seed, actions, labelsFor);
         if (!replayed.ok) {
           render("The saved game could not be replayed. Start a new game.");
           return;
@@ -431,9 +414,9 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
         session = {
           seed,
           actions,
-          state: replayed.value,
+          state: replayed.value.state,
           undoable: canUndo(engine, seed, actions),
-          log: [{ title: `Resumed after ${actions.length} actions`, lines: [] }],
+          log: withEntry(replayed.value.log, { title: "Game resumed", lines: [] }),
         };
         render(active.notice);
         return;
