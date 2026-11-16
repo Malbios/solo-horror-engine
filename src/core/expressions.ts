@@ -91,21 +91,24 @@ export function traversableFor(filterId: string, scope: ExpressionScope): Traver
   };
 }
 
-function closestUnit(
-  kind: string,
-  origin: string,
-  filterId: string,
+/** The reachable unit of a kind nearest to (or farthest from) the origin; ties go to the lowest id. */
+function extremeUnit(
+  query: { kind: string; origin: SpaceRef; filter: string },
+  farthest: boolean,
   scope: ExpressionScope,
 ): string | null {
-  const distances = distancesFrom(scope.world.edges, origin, traversableFor(filterId, scope));
+  const origin = resolveSpace(query.origin, scope);
+  if (origin === null) return null;
+  const distances = distancesFrom(scope.world.edges, origin, traversableFor(query.filter, scope));
   let best: { id: string; distance: number } | null = null;
   for (const unit of Object.values(scope.world.units).sort((a, b) => (a.id < b.id ? -1 : 1))) {
-    if (unit.kind !== kind) continue;
+    if (unit.kind !== query.kind) continue;
     const space = spaceOfUnit(scope.world.units, unit.id);
     const distance = space === null ? undefined : distances.get(space);
-    if (distance !== undefined && (best === null || distance < best.distance)) {
-      best = { id: unit.id, distance };
-    }
+    if (distance === undefined) continue;
+    const better =
+      best === null || (farthest ? distance > best.distance : distance < best.distance);
+    if (better) best = { id: unit.id, distance };
   }
   return best?.id ?? null;
 }
@@ -116,8 +119,8 @@ export function resolveUnit(ref: UnitRef, scope: ExpressionScope): string | null
     return self !== null && scope.world.units[self] !== undefined ? self : null;
   }
   if ("id" in ref) return scope.world.units[ref.id] === undefined ? null : ref.id;
-  const origin = resolveSpace(ref.closest.origin, scope);
-  return origin === null ? null : closestUnit(ref.closest.kind, origin, ref.closest.filter, scope);
+  if ("closest" in ref) return extremeUnit(ref.closest, false, scope);
+  return extremeUnit(ref.farthest, true, scope);
 }
 
 export function resolveSpace(ref: SpaceRef, scope: ExpressionScope): string | null {
@@ -293,5 +296,9 @@ export function evaluateBoolean(expr: BoolExpr, scope: ExpressionScope): boolean
     return first !== null && first !== undefined && first === second;
   }
   if ("thisCard" in expr) return thisCardMatches(expr.thisCard, scope);
+  if ("topFaceUp" in expr) {
+    const top = scope.zones[expr.topFaceUp]?.[0];
+    return top !== undefined && scope.world.faceUp[top] === true;
+  }
   return assertNever(expr);
 }

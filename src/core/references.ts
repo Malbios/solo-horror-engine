@@ -23,6 +23,7 @@ const REFERENCE_KEYS: ReadonlyMap<string, ReferenceKind> = new Map([
   ["from", "zone"],
   ["to", "zone"],
   ["abilitiesFrom", "zone"],
+  ["topFaceUp", "zone"],
   ["card", "card"],
   ["endCondition", "endCondition"],
   ["space", "space"],

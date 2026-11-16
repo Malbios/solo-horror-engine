@@ -37,7 +37,7 @@ Each entry ends with the invented fixture that tests it.
 
 11. **Costs.** Effects and edges may require payment from counters or by discarding cards. Payability, after modifiers, is checked before an option is listed, so every listed option can be paid. Pass means declining an optional effect; committed costs have no pass. _Fixture: an option that disappears when its cost cannot be paid._
 
-12. **Units.** A unit has an id, a kind, attributes (counters) and a location. New ids come from a counter in state. Changing a unit's kind keeps its id; removing a unit retires its id permanently. A unit's location is one of: on a space, inside another unit, or off the map. Units inside another unit move with it. Selectors whose referent has no location use a pack-defined fallback: a substitute location, or skip. _Fixture: a container moved with one unit inside._
+12. **Units.** A unit has an id, a kind, attributes (counters) and a location. New ids come from a counter in state. Changing a unit's kind keeps its id; removing a unit retires its id permanently. A unit's location is one of: on a space, inside another unit, or off the map. Units inside another unit move with it. Selectors whose referent has no location use a pack-defined fallback: a substitute location, or skip. A unit may be named as the closest or the farthest reachable unit of a kind from a space (ties by id). _Fixture: a container moved with one unit inside._
 
 13. **Map and graph queries.** Spaces have stable ids and tags. Effects may add, remove or retarget edges at runtime. Edges may be directed and carry tags and gates. Distance, reachability and paths are queries; each names a pack-defined edge filter, evaluated at query time (gates included), and has an empty-set policy. Moves respect the filter; placements ignore it. _Fixture: one edge retargeted to a different space, changing a distance._
 
@@ -45,9 +45,9 @@ Each entry ends with the invented fixture that tests it.
 
 15. **Random selection.** Compute the eligible set first, then make one seeded draw over it, keeping relative weights. Lookup tables map dice results to selectors. A pack-defined outcome applies when the eligible set is empty. _Fixture: a six-entry table with two ineligible entries, resolved with one draw over the remaining four._
 
-16. **Dice.** Pools whose size comes from expressions, custom face tables, rerolls, and modifiers that may change the pool's contents. Dice have stable ids within a roll. Assigning dice to roles is a decision. _Fixture: two dice assigned to two roles._
+16. **Dice.** Pools whose size comes from expressions, custom face tables, rerolls, and modifiers that may change the pool's contents. Dice have stable ids within a roll. Assigning dice to roles is a decision. A chosen reroll may cap how many dice the player picks. _Fixture: two dice assigned to two roles._
 
-17. **Cards and zones.** Zones hold ordered cards with a face state. Operations: draw, insert at a position, shuffle, peek, and move between zones at scope hooks. Expressions count the face-up cards in a zone, optionally by card or by tag, so a card lying in a zone can switch triggers and modifiers on and off; face-down cards never count, so a condition cannot reveal a hidden card. _Fixture: a discard zone emptied back into a draw zone at a scope exit._
+17. **Cards and zones.** Zones hold ordered cards with a face state. Operations: draw, insert at a position, shuffle, peek, and move between zones at scope hooks. Expressions count the face-up cards in a zone, optionally by card or by tag, and tell whether its top card is face up (face states are public), so a card lying in a zone can switch triggers and modifiers on and off; face-down cards never count, so a condition cannot reveal a hidden card. _Fixture: a discard zone emptied back into a draw zone at a scope exit._
 
 18. **Modules and layering.** Modules have a pack-defined kind and a total precedence order. Later layers patch earlier ones by stable id (effect data, not text) when the rule set is composed, never at draw time. Unresolved conflicts are `parsePack` errors. _Fixture: a module that replaces one card of another module by id._
 
@@ -93,3 +93,4 @@ Each entry ends with the invented fixture that tests it.
 14. Core and add-ons: separately loaded modules, choices by kind, end of setup.
 15. End tags on edges and forced steps.
 16. This card, card counters, moving a card itself, visiting each card in a zone, and picking cards.
+17. Capped chosen rerolls, farthest units, and a condition on whether a zone's top card is face up.

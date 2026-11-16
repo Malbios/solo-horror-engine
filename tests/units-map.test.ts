@@ -187,6 +187,47 @@ describe("graph queries", () => {
     expect(spaceOfUnit(state.units, "lost")).toBe("island");
   });
 
+  it("finds the farthest reachable unit, ties by id", () => {
+    const engine = createEngine(
+      fixturePack({
+        ...LINE,
+        spaces: [...LINE.spaces, { id: "island", name: "Island" }],
+        unitKinds: [
+          { id: "target", name: "Target" },
+          { id: "marker", name: "Marker" },
+        ],
+        setup: [
+          create("target", "near", onSpace("b")),
+          create("target", "far-two", onSpace("d")),
+          create("target", "far-one", onSpace("d")),
+          create("target", "lost", onSpace("island")),
+          create("marker", "flag", onSpace("a")),
+          {
+            type: "placeUnit",
+            unit: unit("flag"),
+            placement: {
+              onSpace: {
+                locationOf: { farthest: { kind: "target", origin: at("a"), filter: "any" } },
+                fallback: null,
+              },
+            },
+          },
+          {
+            type: "placeUnit",
+            unit: { farthest: { kind: "target", origin: at("a"), filter: "any" } },
+            placement: onSpace("c"),
+          },
+        ],
+        phases: [PAUSE_PHASE],
+      }),
+    );
+    const state = engine.init(1);
+    expect(spaceOfUnit(state.units, "flag")).toBe("d");
+    expect(spaceOfUnit(state.units, "far-one")).toBe("c");
+    expect(spaceOfUnit(state.units, "far-two")).toBe("d");
+    expect(spaceOfUnit(state.units, "lost")).toBe("island");
+  });
+
   it("honours edge direction", () => {
     const engine = createEngine(
       fixturePack({

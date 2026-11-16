@@ -38,6 +38,9 @@ export const unitRefSchema: z.ZodType<UnitRef> = z.lazy(() =>
     z.strictObject({
       closest: z.strictObject({ kind: idSchema, origin: spaceRefSchema, filter: idSchema }),
     }),
+    z.strictObject({
+      farthest: z.strictObject({ kind: idSchema, origin: spaceRefSchema, filter: idSchema }),
+    }),
   ]),
 );
 
@@ -113,6 +116,7 @@ export const boolExprSchema: z.ZodType<BoolExpr> = z.lazy(() => {
     z.strictObject({ spaceHasTag: z.strictObject({ at: spaceRefSchema, tag: idSchema }) }),
     z.strictObject({ unitIsKind: z.strictObject({ unit: unitRefSchema, kind: idSchema }) }),
     z.strictObject({ sameSpace: z.tuple([unitRefSchema, unitRefSchema]) }),
+    z.strictObject({ topFaceUp: idSchema }),
     z.strictObject({
       thisCard: z.strictObject({
         zone: idSchema.nullable().default(null),
@@ -335,6 +339,7 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       pool: idSchema,
       faces: z.array(idSchema).nullable().default(null),
       mode: z.enum(["all", "choose"]).default("all"),
+      max: numExprSchema.nullable().default(null),
     }),
     z.strictObject({
       type: z.literal("setDieFace"),

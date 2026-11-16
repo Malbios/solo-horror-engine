@@ -684,7 +684,10 @@ export function createResolver(
     if (marked.length > 0) announceRoll(poolId);
   }
 
-  function startReroll(effect: Extract<Effect, { type: "rerollDice" }>): void {
+  function startReroll(
+    effect: Extract<Effect, { type: "rerollDice" }>,
+    scope: ExpressionScope,
+  ): void {
     if (effect.mode === "all") {
       const marked = poolDice(effect.pool)
         .filter((die) => showsFace(die, effect.faces))
@@ -692,7 +695,13 @@ export function createResolver(
       rerollMarked(effect.pool, marked);
       return;
     }
-    work.stack.push({ kind: "reroll", pool: effect.pool, faces: effect.faces, marked: [] });
+    work.stack.push({
+      kind: "reroll",
+      pool: effect.pool,
+      faces: effect.faces,
+      marked: [],
+      max: effect.max === null ? null : evaluateNumber(effect.max, scope),
+    });
   }
 
   function finishReroll(frame: RerollFrame): void {
@@ -704,7 +713,8 @@ export function createResolver(
     const eligible = poolDice(frame.pool).filter(
       (die) => showsFace(die, frame.faces) && !frame.marked.includes(die.id),
     );
-    if (eligible.length === 0) {
+    const capReached = frame.max !== null && frame.marked.length >= frame.max;
+    if (eligible.length === 0 || capReached) {
       finishReroll(frame);
       return;
     }
@@ -1388,7 +1398,7 @@ export function createResolver(
         );
         return;
       case "rerollDice":
-        startReroll(effect);
+        startReroll(effect, scope);
         return;
       case "setDieFace":
         work.stack.push({

@@ -7,7 +7,10 @@ export type ContextKey = "from" | "to" | "amount";
 export type NumberPair = [NumExpr, NumExpr];
 
 export type UnitRef =
-  "self" | { id: string } | { closest: { kind: string; origin: SpaceRef; filter: string } };
+  | "self"
+  | { id: string }
+  | { closest: { kind: string; origin: SpaceRef; filter: string } }
+  | { farthest: { kind: string; origin: SpaceRef; filter: string } };
 
 export type SpaceRef =
   "candidate" | { space: string } | { locationOf: UnitRef; fallback: SpaceRef | null };
@@ -51,6 +54,8 @@ export type BoolExpr =
   | { spaceHasTag: { at: SpaceRef; tag: string } }
   | { unitIsKind: { unit: UnitRef; kind: string } }
   | { sameSpace: [UnitRef, UnitRef] }
+  /** The zone's top card is face up (false when the zone is empty). */
+  | { topFaceUp: string }
   /** This card lies in the zone and/or has the tag; false without a card in context. */
   | { thisCard: { zone: string | null; tag: string | null } };
 
@@ -169,7 +174,14 @@ export type Effect =
   | { type: "deliver"; quantity: string; amount: NumExpr; recipient: UnitRef | null }
   | { type: "rollDice"; pool: string; die: string; count: NumExpr }
   | { type: "addDice"; pool: string; die: string; count: NumExpr }
-  | { type: "rerollDice"; pool: string; faces: string[] | null; mode: "all" | "choose" }
+  | {
+      type: "rerollDice";
+      pool: string;
+      faces: string[] | null;
+      mode: "all" | "choose";
+      /** In choose mode, the most dice the player may pick (null: no limit). */
+      max: NumExpr | null;
+    }
   | { type: "setDieFace"; pool: string; faces: string[]; toFace: string; count: NumExpr }
   | { type: "assignDice"; pool: string; roles: DiceRole[] }
   | { type: "lookup"; value: NumExpr; entries: LookupEntry[]; otherwise: Effect[] }

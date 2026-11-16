@@ -115,6 +115,7 @@ export type RerollFrame = {
   pool: string;
   faces: string[] | null;
   marked: string[];
+  max: number | null;
 };
 
 export type SetFaceFrame = {

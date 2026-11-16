@@ -157,6 +157,20 @@ describe("dice", () => {
     expect(state.pending?.kind).toBe("chooseOption");
   });
 
+  it("stops a chosen reroll once the most dice allowed are picked", () => {
+    const pack = dicePack([
+      { type: "rollDice", pool: "pool", die: "six", count: 3 },
+      { type: "rerollDice", pool: "pool", mode: "choose", max: 1 },
+    ]);
+    const engine = createEngine(pack);
+    let state = engine.init(2);
+    const before = faces(state);
+    const rngBefore = state.rng;
+    state = act(engine, state, { type: "pickDie", die: "d3" });
+    expect(state.pending?.kind).toBe("chooseOption");
+    expect(faces(state).slice(0, 2)).toEqual(before.slice(0, 2));
+    expect(state.rng).not.toEqual(rngBefore);
+  });
   it("turns a chosen die to another face, paid for with a discard", () => {
     const pack = dicePack(
       [

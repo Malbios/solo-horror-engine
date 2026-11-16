@@ -75,3 +75,36 @@ describe("picking cards", () => {
     expect(state.zones["basket"]).toEqual([]);
   });
 });
+
+describe("top card face", () => {
+  it("tells whether a zone's top card is face up, and is false for an empty zone", () => {
+    const flag = (counter: string, zone: string) => ({
+      type: "if",
+      condition: { topFaceUp: zone },
+      then: [{ type: "changeCounter", counter, amount: 1 }],
+    });
+    const engine = createEngine(
+      fixturePack({
+        counters: ["heap-up", "under-up", "basket-up", "turned-up"].map((id) => ({ id, start: 0 })),
+        zones: [{ id: "heap" }, { id: "basket" }, { id: "under", face: "down" }],
+        cards,
+        setup: [
+          { type: "createCards", card: "acorn", zone: "heap" },
+          { type: "createCards", card: "berry", zone: "under" },
+          flag("heap-up", "heap"),
+          flag("under-up", "under"),
+          flag("basket-up", "basket"),
+          { type: "turnCards", zone: "under", count: 1, face: "up" },
+          flag("turned-up", "under"),
+        ],
+        phases: [PAUSE_PHASE],
+      }),
+    );
+    expect(engine.init(1).counters).toEqual({
+      "heap-up": 1,
+      "under-up": 0,
+      "basket-up": 0,
+      "turned-up": 1,
+    });
+  });
+});
