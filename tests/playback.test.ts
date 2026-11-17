@@ -1,0 +1,120 @@
+import { describe, expect, it } from "vitest";
+import { createEngine, view, type GameEvent, type GameView, type UnitState } from "../src/core";
+import { playbackBeats, type PlaybackStep } from "../src/ui/playback";
+import { loadDemoPack } from "./helpers";
+
+const onSpace = (id: string, kind: string, space: string): UnitState => ({
+  id,
+  kind,
+  attributes: {},
+  placement: { type: "space", space },
+});
+
+function baseView(overrides: Partial<GameView>): GameView {
+  const shown = view(createEngine(loadDemoPack()).init(1));
+  return { ...shown, round: 1, pending: null, units: {}, counters: {}, zones: {}, ...overrides };
+}
+
+const describeAll = (event: GameEvent): string => event.type;
+const moved = (unit: string, from: string | null, to: string | null): GameEvent => ({
+  type: "unitMoved",
+  unit,
+  kind: "walker",
+  fromSpace: from,
+  toSpace: to,
+});
+
+function beatsOf(
+  before: GameView,
+  events: GameEvent[],
+  after: GameView,
+  ownMove: string | null = null,
+) {
+  const steps: PlaybackStep[] = [{ events, after }];
+  return playbackBeats({ before, steps, ownMove, describe: describeAll });
+}
+
+describe("playbackBeats", () => {
+  it("makes one beat per step of a move, with the piece where it stood then", () => {
+    const before = baseView({ units: { walker: onSpace("walker", "walker", "a") } });
+    const after = baseView({ units: { walker: onSpace("walker", "walker", "c") } });
+    const beats = beatsOf(before, [moved("walker", "a", "b"), moved("walker", "b", "c")], after);
+    expect(beats.map((beat) => beat.view.units["walker"]?.placement)).toEqual([
+      { type: "space", space: "b" },
+      { type: "space", space: "c" },
+    ]);
+    expect(beats.map((beat) => beat.focus)).toEqual([
+      ["a", "b"],
+      ["b", "c"],
+    ]);
+  });
+
+  it("adds caption-only events to the current beat, and earlier ones to the first beat", () => {
+    const before = baseView({
+      units: { walker: onSpace("walker", "walker", "a") },
+      counters: { fear: 0 },
+    });
+    const after = baseView({
+      units: { walker: onSpace("walker", "walker", "b") },
+      counters: { fear: 2 },
+    });
+    const events: GameEvent[] = [
+      { type: "diceRolled", pool: "pool", dice: [] },
+      moved("walker", "a", "b"),
+      { type: "counterChanged", counter: "fear", from: 0, to: 2 },
+    ];
+    const beats = beatsOf(before, events, after);
+    expect(beats).toHaveLength(1);
+    expect(beats[0]?.lines).toEqual(["diceRolled", "unitMoved", "counterChanged"]);
+    expect(beats[0]?.view.counters["fear"]).toBe(2);
+  });
+
+  it("skips the player's own first move but plays a follower's", () => {
+    const before = baseView({
+      units: { you: onSpace("you", "walker", "a"), friend: onSpace("friend", "walker", "a") },
+    });
+    const after = baseView({
+      units: { you: onSpace("you", "walker", "b"), friend: onSpace("friend", "walker", "b") },
+    });
+    const beats = beatsOf(
+      before,
+      [moved("you", "a", "b"), moved("friend", "a", "b")],
+      after,
+      "you",
+    );
+    expect(beats).toHaveLength(1);
+    expect(beats[0]?.view.units["friend"]?.placement).toEqual({ type: "space", space: "b" });
+  });
+
+  it("shows a piece created and removed in the same step, then takes it away", () => {
+    const before = baseView({});
+    const after = baseView({});
+    const events: GameEvent[] = [
+      moved("ghost", null, "a"),
+      { type: "unitCreated", unit: "ghost", kind: "walker" },
+      { type: "unitRemoved", unit: "ghost", kind: "walker", fromSpace: "a" },
+    ];
+    const beats = beatsOf(before, events, after);
+    expect(beats.map((beat) => Object.keys(beat.view.units))).toEqual([["ghost"], []]);
+    expect(beats[1]?.focus).toEqual(["a"]);
+  });
+
+  it("plays nothing back from setup", () => {
+    const before = baseView({ round: 0, units: { walker: onSpace("walker", "walker", "a") } });
+    const after = baseView({ round: 0, units: { walker: onSpace("walker", "walker", "b") } });
+    expect(beatsOf(before, [moved("walker", "a", "b")], after)).toEqual([]);
+  });
+
+  it("shows a resolved card only when the player can see which card it is", () => {
+    const before = baseView({});
+    const after = baseView({
+      zones: { open: [{ ref: "card-1", card: "notice" }], closed: [{ ref: "h1", card: null }] },
+    });
+    const events: GameEvent[] = [
+      { type: "cardResolved", card: "h1" },
+      { type: "cardResolved", card: "card-1" },
+    ];
+    const beats = beatsOf(before, events, after);
+    expect(beats.map((beat) => beat.card)).toEqual([{ ref: "card-1", card: "notice" }]);
+  });
+});

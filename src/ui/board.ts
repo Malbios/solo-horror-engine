@@ -25,7 +25,7 @@ function unitChip(unit: UnitState, labels: Labels): HTMLElement {
   const chip = h("span", {
     className: "unit-chip",
     text: kind?.badge ?? name.slice(0, 1),
-    attrs: { title: name },
+    attrs: { title: name, "data-unit": unit.id },
   });
   const color = kind?.color ?? null;
   if (color !== null) {
@@ -70,6 +70,7 @@ function spaceButton(
   labels: Labels,
   targets: Map<string, Action>,
   handlers: BoardHandlers,
+  focus: ReadonlySet<string>,
 ): HTMLButtonElement {
   const units = unitsOn(shown, space.id);
   const marks = marksAt(space.id, labels);
@@ -80,7 +81,13 @@ function spaceButton(
   const button = h(
     "button",
     {
-      className: target === undefined ? "space" : "space space-target",
+      className: [
+        "space",
+        target === undefined ? "" : "space-target",
+        focus.has(space.id) ? "space-focus" : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
       attrs: {
         "aria-label": target === undefined ? description : `Move to ${description}`,
       },
@@ -154,6 +161,7 @@ function renderBoard(
   labels: Labels,
   targets: Map<string, Action>,
   handlers: BoardHandlers,
+  focus: ReadonlySet<string>,
 ): HTMLElement {
   const onBoard = spaces.filter((space) => space.position?.board === board.id);
   const surface = h("div", { className: "board-surface" }, [
@@ -161,18 +169,22 @@ function renderBoard(
       ? null
       : h("img", { className: "board-image", attrs: { src: board.image, alt: "" } }),
     edgeLines(shown, board, spaces, labels),
-    ...onBoard.map((space) => spaceButton(space, shown, labels, targets, handlers)),
+    ...onBoard.map((space) => spaceButton(space, shown, labels, targets, handlers, focus)),
   ]);
   surface.style.setProperty("--aspect", String(board.aspect));
   return h("figure", { className: "board", attrs: { "aria-label": board.name } }, [surface]);
 }
 
-/** The map: each board with its spaces as buttons, plus a plain list for spaces without a position. */
+/**
+ * The map: each board with its spaces as buttons, plus a plain list for spaces without a position.
+ * Spaces in `focus` are pointed at (a piece just moved there or was removed there).
+ */
 export function renderMap(
   shown: GameView,
   actions: readonly Action[],
   labels: Labels,
   handlers: BoardHandlers,
+  focus: ReadonlySet<string> = new Set(),
 ): HTMLElement[] {
   const spaces = labels.spaces();
   const boards = labels.boards();
@@ -182,14 +194,14 @@ export function renderMap(
     (space) => space.position === null || !boardIds.has(space.position.board),
   );
   return [
-    ...boards.map((board) => renderBoard(board, spaces, shown, labels, targets, handlers)),
+    ...boards.map((board) => renderBoard(board, spaces, shown, labels, targets, handlers, focus)),
     ...(loose.length === 0
       ? []
       : [
           h(
             "div",
             { className: "space-list" },
-            loose.map((space) => spaceButton(space, shown, labels, targets, handlers)),
+            loose.map((space) => spaceButton(space, shown, labels, targets, handlers, focus)),
           ),
         ]),
   ];

@@ -1,6 +1,7 @@
 import type { Action, GameView, ViewCard } from "../core";
 import { h } from "./dom";
 import { describeAction, describeCost, describeDecision, type Labels } from "./labels";
+import type { Beat } from "./playback";
 
 export type DecisionHandlers = {
   takeAction: (action: Action) => void;
@@ -298,5 +299,44 @@ export function renderDecision(
       { className: "actions" },
       withUnavailableBuys(rows.actions, shown, labels, handlers, rows.discardFor),
     ),
+  ];
+}
+
+export type PlaybackHandlers = {
+  next: () => void;
+  skip: () => void;
+  openCard: (card: ViewCard) => void;
+};
+
+/** The pinned bar while automatic steps play out: what just happened, and buttons to go on. */
+export function renderPlayback(
+  beat: Beat,
+  position: { index: number; count: number },
+  labels: Labels,
+  handlers: PlaybackHandlers,
+): HTMLElement[] {
+  const { card } = beat;
+  return [
+    h("div", { className: "playback", attrs: { "aria-live": "polite" } }, [
+      card === null
+        ? null
+        : h("button", {
+            className: "playback-card",
+            text: labels.card(card),
+            onClick: () => handlers.openCard(card),
+          }),
+      ...beat.lines.map((line) => h("p", { className: "playback-line", text: line })),
+    ]),
+    h("div", { className: "actions" }, [
+      h("button", {
+        className: "action",
+        text:
+          position.index + 1 < position.count
+            ? `Next (${position.index + 1} of ${position.count})`
+            : "Done",
+        onClick: handlers.next,
+      }),
+      h("button", { className: "action action-pass", text: "Skip to now", onClick: handlers.skip }),
+    ]),
   ];
 }

@@ -8,6 +8,7 @@ import {
   view,
   viewActions,
   viewError,
+  viewEvents,
   type Action,
   type AddOn,
   type Engine,
@@ -17,10 +18,11 @@ import {
   type Rules,
 } from "../core";
 import { renderMap } from "./board";
-import { automaticPass, renderDecision } from "./decision";
+import { automaticPass, renderDecision, renderPlayback } from "./decision";
 import { h, requireElement } from "./dom";
 import { logEntry, replayWithLog, withEntry } from "./game-log";
-import { createLabels, displayRules, moduleInfo, type Labels } from "./labels";
+import { createLabels, describeEvent, displayRules, moduleInfo, type Labels } from "./labels";
+import { playbackBeats, type Beat, type PlaybackStep } from "./playback";
 import { renderLog, renderTracks, renderZones, type LogEntry, type MoreState } from "./panels";
 import { renderStatus } from "./status";
 import {
@@ -53,6 +55,9 @@ import "./style.css";
 const PACK_KEY = "solo-horror-engine:pack";
 const ADD_ONS_KEY = "solo-horror-engine:add-ons";
 const SAVE_KEY_PREFIX = "solo-horror-engine:save:";
+const PLAYBACK_KEY = "solo-horror-engine:playback";
+const BEAT_MILLISECONDS = 900;
+const SLIDE_MILLISECONDS = 350;
 
 type ActivePack = { pack: Pack; fromFile: boolean; addOns: AddOn[]; notice: string };
 const PANELS = ["cards", "tracks"] as const;
@@ -66,6 +71,55 @@ type Session = {
   undoable: boolean;
   log: LogEntry[];
 };
+
+/** A session after an action, with each step taken on the way (the action and its automatic passes). */
+type Taken = { session: Session; steps: PlaybackStep[] };
+
+type Playback = { beats: Beat[]; index: number; timer: number | null };
+
+function playbackWanted(): boolean {
+  try {
+    return localStorage.getItem(PLAYBACK_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+function rememberPlaybackWanted(wanted: boolean): void {
+  try {
+    localStorage.setItem(PLAYBACK_KEY, wanted ? "on" : "off");
+  } catch {
+    // Not remembered: the choice holds until the page reloads.
+  }
+}
+
+const reducedMotion = (): boolean => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function unitPositions(area: HTMLElement): Map<string, DOMRect> {
+  return new Map(
+    [...area.querySelectorAll<HTMLElement>("[data-unit]")].flatMap((chip) => {
+      const unit = chip.dataset["unit"];
+      return unit === undefined ? [] : [[unit, chip.getBoundingClientRect()]];
+    }),
+  );
+}
+
+/** Slides each piece from where it was drawn before to where it is drawn now. */
+function slidePieces(area: HTMLElement, before: Map<string, DOMRect>): void {
+  if (reducedMotion()) return;
+  for (const chip of area.querySelectorAll<HTMLElement>("[data-unit]")) {
+    const old = before.get(chip.dataset["unit"] ?? "");
+    if (old === undefined) continue;
+    const now = chip.getBoundingClientRect();
+    const dx = old.left - now.left;
+    const dy = old.top - now.top;
+    if (dx === 0 && dy === 0) continue;
+    chip.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }], {
+      duration: SLIDE_MILLISECONDS,
+      easing: "ease-out",
+    });
+  }
+}
 
 function randomSeed(): number {
   return crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
@@ -104,6 +158,8 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     packVersion: pack.meta.version,
   };
   let session: Session | null = null;
+  let playback: Playback | null = null;
+  let showPlayback = playbackWanted();
   let activePanel: Panel = "cards";
   let rulesCache: { key: string; rules: Rules } | null = null;
   const modules = moduleInfo(pack);
@@ -157,8 +213,9 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
       );
       return;
     }
-    const shown = view(current.state);
-    const actions = viewActions(current.state);
+    const beat = playback === null ? null : (playback.beats[playback.index] ?? null);
+    const shown = beat?.view ?? view(current.state);
+    const actions = beat === null ? viewActions(current.state) : [];
     const labels = labelsFor(shown);
     const openCard = (card: Parameters<typeof cardDetails>[0]) =>
       sheet.open(labels.card(card), cardDetails(card, labels));
@@ -166,23 +223,85 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     statusStrip.replaceChildren(...renderStatus(shown, labels));
     statusStrip.hidden = statusStrip.childElementCount === 0;
     undoButton.disabled = !current.undoable;
+    const piecesBefore = unitPositions(mapArea);
     mapArea.replaceChildren(
-      ...renderMap(shown, actions, labels, {
-        takeAction: take,
-        showSpace: (space) => sheet.open(space.name, spaceDetails(space, shown, labels)),
-      }),
+      ...renderMap(
+        shown,
+        actions,
+        labels,
+        {
+          takeAction: take,
+          showSpace: (space) => sheet.open(space.name, spaceDetails(space, shown, labels)),
+        },
+        new Set(beat?.focus ?? []),
+      ),
     );
+    slidePieces(mapArea, piecesBefore);
     panels.replaceChildren(
       panelSection("cards", renderZones(shown, labels, openCard, more)),
       panelSection("tracks", renderTracks(shown, labels, more)),
     );
     decisionBar.replaceChildren(
-      ...renderDecision(shown, actions, labels, {
-        takeAction: take,
-        openCard,
-        newGame: confirmNewGame,
-      }),
+      ...(beat === null || playback === null
+        ? renderDecision(shown, actions, labels, {
+            takeAction: take,
+            openCard,
+            newGame: confirmNewGame,
+          })
+        : renderPlayback(beat, { index: playback.index, count: playback.beats.length }, labels, {
+            next: nextBeat,
+            skip: endPlayback,
+            openCard,
+          })),
     );
+  }
+
+  function scheduleBeat(): void {
+    if (playback === null) return;
+    playback.timer = window.setTimeout(nextBeat, BEAT_MILLISECONDS);
+  }
+
+  function nextBeat(): void {
+    if (playback === null) return;
+    if (playback.timer !== null) window.clearTimeout(playback.timer);
+    if (playback.index + 1 >= playback.beats.length) {
+      endPlayback();
+      return;
+    }
+    playback = { ...playback, index: playback.index + 1, timer: null };
+    render();
+    scheduleBeat();
+  }
+
+  /** Shows the game as it is now; any automatic steps still to show are skipped. */
+  function endPlayback(): void {
+    if (playback === null) return;
+    if (playback.timer !== null) window.clearTimeout(playback.timer);
+    playback = null;
+    render();
+    focusDecision();
+  }
+
+  function startPlayback(
+    before: GameState,
+    action: Action,
+    steps: readonly PlaybackStep[],
+  ): boolean {
+    if (!showPlayback) return false;
+    const shownBefore = view(before);
+    const pending = shownBefore.pending;
+    const beats = playbackBeats({
+      before: shownBefore,
+      steps,
+      ownMove: action.type === "moveTo" && pending?.kind === "moveUnit" ? pending.unit : null,
+      describe: (event, shown) => describeEvent(event, shown, labelsFor(shown)),
+    });
+    if (beats.length === 0) return false;
+    playback = { beats, index: 0, timer: null };
+    render();
+    decisionBar.querySelector<HTMLButtonElement>("button.action")?.focus({ preventScroll: true });
+    scheduleBeat();
+    return true;
   }
 
   function panelSection(panel: Panel, body: HTMLElement): HTMLElement {
@@ -196,18 +315,21 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     decisionBar.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
   }
 
-  function applied(current: Session, action: Action): Session | string {
+  function applied(current: Session, action: Action): Taken | string {
     const outcome = engine.step(current.state, action);
     if (!outcome.ok) {
       return `That action was refused (${viewError(outcome.error, current.state).type}).`;
     }
     const { state, events, undoBarrier } = outcome.value;
     return {
-      ...current,
-      actions: [...current.actions, action],
-      state,
-      undoable: !undoBarrier,
-      log: withEntry(current.log, logEntry(action, current.state, state, events, labelsFor)),
+      session: {
+        ...current,
+        actions: [...current.actions, action],
+        state,
+        undoable: !undoBarrier,
+        log: withEntry(current.log, logEntry(action, current.state, state, events, labelsFor)),
+      },
+      steps: [{ events: viewEvents(events, state), after: view(state) }],
     };
   }
 
@@ -215,23 +337,30 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     return automaticPass(view(state), viewActions(state));
   }
 
-  function appliedWithAutomaticPasses(current: Session, action: Action): Session | string {
+  function appliedWithAutomaticPasses(current: Session, action: Action): Taken | string {
     const next = applied(current, action);
     if (typeof next === "string") return next;
-    const pass = automaticPassFor(next.state);
-    return pass === null ? next : appliedWithAutomaticPasses(next, pass);
+    const pass = automaticPassFor(next.session.state);
+    if (pass === null) return next;
+    const rest = appliedWithAutomaticPasses(next.session, pass);
+    return typeof rest === "string"
+      ? rest
+      : { session: rest.session, steps: [...next.steps, ...rest.steps] };
   }
 
   function take(action: Action): void {
     if (session === null) return;
+    endPlayback();
+    const before = session.state;
     const next = appliedWithAutomaticPasses(session, action);
     if (typeof next === "string") {
       render(next);
       return;
     }
-    session = next;
+    session = next.session;
     persist(session);
     sheet.close();
+    if (startPlayback(before, action, next.steps)) return;
     render();
     focusDecision();
   }
@@ -245,6 +374,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
 
   function takeBack(): void {
     if (session === null) return;
+    endPlayback();
     const undone = undoneActions(session.seed, session.actions);
     if (!undone.ok) {
       render(
@@ -273,6 +403,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
   }
 
   function newGame(): void {
+    endPlayback();
     const seed = randomSeed();
     session = { seed, actions: [], state: engine.init(seed), undoable: false, log: [] };
     persist(session);
@@ -307,6 +438,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
       const file = fileInput.files?.[0];
       if (file !== undefined) void loadPackFile(file);
     });
+    endPlayback();
     sheet.open("Menu", [
       h("p", { text: `${pack.meta.name} ${pack.meta.version}` }),
       h("p", { className: "muted", text: `Engine ${ENGINE_VERSION}` }),
@@ -320,6 +452,16 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
           onClick: () => fileInput.click(),
         }),
         ...folderButtons(),
+        h("button", {
+          className: "action action-pass",
+          text: showPlayback ? "Show automatic steps: on" : "Show automatic steps: off",
+          attrs: { "aria-pressed": String(showPlayback) },
+          onClick: () => {
+            showPlayback = !showPlayback;
+            rememberPlaybackWanted(showPlayback);
+            openMenu();
+          },
+        }),
         active.fromFile
           ? h("button", { className: "action", text: "Use demo core", onClick: useDemoCore })
           : null,

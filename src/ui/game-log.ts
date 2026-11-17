@@ -13,20 +13,11 @@ import {
 } from "../core";
 import { describeAction, describeEvent, type Labels } from "./labels";
 import type { LogEntry } from "./panels";
+import { shownEvents } from "./playback";
 
 export const LOG_LIMIT = 100;
 
 export type LabelsFor = (shown: GameView) => Labels;
-
-const isRoundStart = (event: GameEvent): boolean =>
-  event.type === "scopeEntered" && event.scope === "round";
-
-/** Setup bookkeeping is left out: from an action taken during setup, only the first round onward. */
-function shownEvents(events: readonly GameEvent[], before: GameView): readonly GameEvent[] {
-  if (before.round > 0) return events;
-  const roundStart = events.findIndex(isRoundStart);
-  return roundStart === -1 ? [] : events.slice(roundStart);
-}
 
 export function logEntry(
   action: Action,
