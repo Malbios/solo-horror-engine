@@ -308,6 +308,7 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       forced: z.boolean().default(false),
       stopWhen: boolExprSchema.default(false),
       freeWhen: boolExprSchema.default(false),
+      enterWhen: boolExprSchema.default(true),
       instead: z
         .strictObject({ when: boolExprSchema, effects: z.array(effectSchema) })
         .nullable()

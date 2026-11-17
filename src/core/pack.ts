@@ -177,6 +177,8 @@ export type Effect =
       stopWhen: BoolExpr;
       /** A step into a space where this holds (candidate = that space) does not use up a step. */
       freeWhen: BoolExpr;
+      /** Only spaces where this holds (candidate = that space) are offered as steps. */
+      enterWhen: BoolExpr;
       /** Steps taken from a space where `when` holds run `effects` instead of a chosen step. */
       instead: StepInstead | null;
     }

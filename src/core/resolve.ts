@@ -1139,7 +1139,12 @@ export function createResolver(
     const traversable = traversableFor(frame.filter, scope);
     if (frame.mode === "choose" || frame.mode === "forced") {
       const options = neighbours(work.edges, here, traversable).filter(
-        (space) => payableEdge(frame, here, space, traversable) !== null,
+        (space) =>
+          payableEdge(frame, here, space, traversable) !== null &&
+          evaluateBoolean(
+            frame.enterWhen,
+            scopeOf({ ...frame.context, self: frame.unit, candidate: space }),
+          ),
       );
       const [only] = options;
       if (only === undefined) {
@@ -1434,6 +1439,7 @@ export function createResolver(
             target: effect.target,
             stopWhen: effect.stopWhen,
             freeWhen: effect.freeWhen,
+            enterWhen: true,
             instead: null,
             order: effect.order,
             followers: effect.followers,
@@ -1452,6 +1458,7 @@ export function createResolver(
             target: null,
             stopWhen: effect.stopWhen,
             freeWhen: effect.freeWhen,
+            enterWhen: effect.enterWhen,
             instead: effect.instead,
             order: null,
             followers: effect.followers,

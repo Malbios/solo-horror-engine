@@ -57,6 +57,23 @@ describe("free steps", () => {
   });
 });
 
+describe("allowed steps", () => {
+  it("offers only spaces where the condition holds", () => {
+    const engine = createEngine(
+      packWith(
+        [place("walker", "walker", "middle")],
+        walk(1, { enterWhen: { not: intoCorridor } }),
+      ),
+    );
+    const state = engine.init(1);
+    expect(state.pending).toMatchObject({ kind: "moveUnit", options: ["east", "west"] });
+    const blocked = createEngine(
+      packWith([place("walker", "walker", "west")], walk(1, { enterWhen: { not: intoCorridor } })),
+    );
+    expect(blocked.init(1).pending?.kind).not.toBe("moveUnit");
+  });
+});
+
 describe("steps resolved by effects", () => {
   const slideEast = {
     when: { eq: [{ countUnits: { kind: "walker", at: { space: "west" } } }, 1] },

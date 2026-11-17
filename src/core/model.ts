@@ -57,6 +57,7 @@ export type MoveFrame = {
   target: SpaceRef | null;
   stopWhen: BoolExpr;
   freeWhen: BoolExpr;
+  enterWhen: BoolExpr;
   instead: StepInstead | null;
   /** Where the mover stood before a step resolved by `instead`, until its followers are offered. */
   insteadFrom: string | null;
