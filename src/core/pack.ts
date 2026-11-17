@@ -145,6 +145,8 @@ export type Effect =
   | { type: "choose"; optional: boolean; options: ChooseOption[] }
   | PlayWindowEffect
   | { type: "resolveCard"; zone: string; to: string | null; ifEmpty: Effect[] }
+  /** Reveals one part of the zone's top card (its text becomes known) and runs its effects; the card stays face down. */
+  | { type: "revealCardPart"; zone: string; part: string }
   | { type: "endScope"; scope: Scope }
   | { type: "endGame"; endCondition: string }
   | { type: "createUnit"; kind: string; id: string | null; placement: Placement }
@@ -313,7 +315,11 @@ export type Card = {
   abilities: Ability[];
   /** Counters each copy of the card carries, read and changed as "this card". */
   counters: CardCounter[];
+  /** Pieces of a card that can be revealed one at a time while it stays face down. */
+  parts: CardPart[];
 };
+
+export type CardPart = { id: string; text: string; effects: Effect[] };
 
 export type CardCounter = {
   id: string;

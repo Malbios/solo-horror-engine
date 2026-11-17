@@ -27,6 +27,7 @@ exports[`engine on the demo pack > matches the initial state snapshot 1`] = `
   },
   "pools": {},
   "retiredUnits": [],
+  "revealedParts": {},
   "rng": {
     "a": 1197569939,
     "b": 3122121817,

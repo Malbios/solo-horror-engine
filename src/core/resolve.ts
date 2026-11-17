@@ -1164,6 +1164,16 @@ export function createResolver(
     chosenStep(frame, next ?? fault("No next step to take"));
   }
 
+  function revealCardPart(zoneId: string, partId: string): void {
+    const [top] = zoneCards(zoneId);
+    if (top === undefined) return;
+    const part = cardDefinition(top).parts.find((candidate) => candidate.id === partId);
+    const revealed = work.revealedParts[top] ?? [];
+    if (part === undefined || revealed.some((entry) => entry.part === partId)) return;
+    work.revealedParts[top] = [...revealed, { part: part.id, text: part.text }];
+    pushEffects(part.effects, cardContext(top), null);
+  }
+
   function resolveTopCard(effect: Extract<Effect, { type: "resolveCard" }>): void {
     const [top] = zoneCards(effect.zone);
     if (top === undefined) {
@@ -1363,6 +1373,9 @@ export function createResolver(
         return;
       case "resolveCard":
         resolveTopCard(effect);
+        return;
+      case "revealCardPart":
+        revealCardPart(effect.zone, effect.part);
         return;
       case "endScope":
         endScope(effect.scope);

@@ -682,6 +682,56 @@ h3 {
   border-radius: var(--radius);
 }
 
+.card-veiled {
+  --veil: #b3122a;
+  background: repeating-linear-gradient(
+    -12deg,
+    color-mix(in srgb, var(--veil) 85%, black) 0 3px,
+    var(--veil) 3px 7px
+  );
+  color: #fff4f4;
+  border-color: var(--veil);
+}
+
+.veil-lines {
+  margin: 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: 4px;
+  font-size: 0.8rem;
+}
+
+.veil-line {
+  background: rgb(0 0 0 / 0.45);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.veil-lines-sheet .veil-line {
+  background: var(--surface-2);
+}
+
+.veil-rest {
+  display: block;
+  height: 18px;
+  border-radius: 4px;
+  background: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.15) 0 6px, transparent 6px 10px);
+}
+
+.veil-line-new {
+  animation: veil-sweep 1.2s ease-out;
+}
+
+@keyframes veil-sweep {
+  from {
+    clip-path: inset(0 100% 0 0);
+    background: #ff3b52;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
 .card-text-full {
   white-space: pre-line;
 }
@@ -777,5 +827,9 @@ h3 {
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+  }
+
+  .veil-line-new {
+    animation: none;
   }
 }

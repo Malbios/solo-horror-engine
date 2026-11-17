@@ -148,12 +148,46 @@ export function groupCopies(cards: readonly ViewCard[]): CardGroup[] {
   return [...groups.values()];
 }
 
+/** Revealed lines already shown once, so only a newly revealed line plays its reveal. */
+const shownLines = new Set<string>();
+
+function revealedLine(card: ViewCard, text: string, index: number): HTMLElement {
+  const key = `${card.ref}:${index}`;
+  const fresh = !shownLines.has(key);
+  shownLines.add(key);
+  return h("li", { className: fresh ? "veil-line veil-line-new" : "veil-line", text });
+}
+
+/** A face-down card with some parts revealed: the revealed lines over a veil hiding the rest. */
+function veiledTile(card: ViewCard, labels: Labels, onOpen: CardHandler): HTMLButtonElement {
+  const lines = card.revealed ?? [];
+  return h(
+    "button",
+    {
+      className: "card card-veiled",
+      attrs: { "aria-label": `${labels.card(card)}, ${lines.length} revealed, details` },
+      onClick: () => onOpen(card),
+    },
+    [
+      h("span", { className: "card-name", text: labels.card(card) }),
+      h(
+        "ol",
+        { className: "veil-lines" },
+        lines.map((text, index) => revealedLine(card, text, index)),
+      ),
+      h("span", { className: "veil-rest", attrs: { "aria-hidden": "true" } }),
+    ],
+  );
+}
+
 export function cardTile(
   card: ViewCard,
   labels: Labels,
   onOpen: CardHandler,
   copies = 1,
 ): HTMLButtonElement {
+  if (card.card === null && (card.revealed?.length ?? 0) > 0)
+    return veiledTile(card, labels, onOpen);
   const definition = labels.cardDefinition(card);
   const copiesText = copies > 1 ? `, ${copies} copies` : "";
   return h(
@@ -181,7 +215,8 @@ function zoneSection(
   labels: Labels,
   onOpen: CardHandler,
 ): HTMLElement {
-  const allHidden = cards.length > 0 && cards.every((card) => card.card === null);
+  const allHidden =
+    cards.length > 0 && cards.every((card) => card.card === null && card.revealed === undefined);
   const body = allHidden
     ? h("div", { className: "card card-back card-stack", attrs: { "aria-hidden": "true" } }, [
         h("span", { className: "card-name", text: `${cards.length}` }),

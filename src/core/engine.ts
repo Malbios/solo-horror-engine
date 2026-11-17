@@ -30,6 +30,7 @@ function createInitialState(pack: Pack, seed: number): GameState {
     known: {},
     cardSerials: {},
     cardCounters: {},
+    revealedParts: {},
     units: {},
     unitSerial: 0,
     retiredUnits: [],
@@ -65,6 +66,7 @@ function identifiedCards(state: GameState): Set<string> {
 /** True when a step drew randomness or let the player identify a card they could not before. */
 function isUndoBarrier(before: GameState, after: GameState): boolean {
   if (JSON.stringify(before.rng) !== JSON.stringify(after.rng)) return true;
+  if (JSON.stringify(before.revealedParts) !== JSON.stringify(after.revealedParts)) return true;
   const identifiedBefore = identifiedCards(before);
   return [...identifiedCards(after)].some(
     (card) => card in before.faceUp && !identifiedBefore.has(card),

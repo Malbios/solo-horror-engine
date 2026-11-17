@@ -260,6 +260,7 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       to: idSchema.nullable().default(null),
       ifEmpty: effects,
     }),
+    z.strictObject({ type: z.literal("revealCardPart"), zone: idSchema, part: idSchema }),
     z.strictObject({ type: z.literal("endScope"), scope: scopeSchema }),
     z.strictObject({ type: z.literal("endGame"), endCondition: idSchema }),
     z.strictObject({
@@ -590,6 +591,12 @@ const cardSchema = z.strictObject({
     .array(cardCounterSchema)
     .default([])
     .refine(hasUniqueIds, "card counter ids must be unique"),
+  parts: z
+    .array(
+      z.strictObject({ id: idSchema, text: z.string().default(""), effects: effectListSchema }),
+    )
+    .default([])
+    .refine(hasUniqueIds, "card part ids must be unique"),
 });
 
 const dieTypeSchema = z.strictObject({

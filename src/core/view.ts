@@ -20,7 +20,13 @@ import { assertNever } from "./result";
  * A card as the player sees it: `ref` is a handle while face down, `card` is null while unknown.
  * `counters` is present only on a face-up card that carries counters.
  */
-export type ViewCard = { ref: string; card: string | null; counters?: Record<string, number> };
+export type ViewCard = {
+  ref: string;
+  card: string | null;
+  counters?: Record<string, number>;
+  /** Texts of the parts revealed so far, also while the card is face down. */
+  revealed?: string[];
+};
 
 export type OptionChoiceView = { id: string; label: string; cost: Cost[] };
 
@@ -73,7 +79,12 @@ function viewCard(state: GameState, card: string): ViewCard {
     card: isIdentified(state, card) ? cardDefinitionId(card) : null,
   };
   const counters = state.cardCounters[card];
-  return isFaceUp(state, card) && counters !== undefined ? { ...seen, counters } : seen;
+  const withCounters =
+    isFaceUp(state, card) && counters !== undefined ? { ...seen, counters } : seen;
+  const revealed = state.revealedParts[card];
+  return revealed === undefined
+    ? withCounters
+    : { ...withCounters, revealed: revealed.map((entry) => entry.text) };
 }
 
 function hiddenCards(state: GameState): string[] {

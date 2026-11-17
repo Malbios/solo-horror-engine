@@ -200,6 +200,8 @@ export type GameState = {
   cardSerials: Record<string, number>;
   /** Counters carried by card instances, by card then counter id. */
   cardCounters: Record<string, Record<string, number>>;
+  /** Parts of cards revealed so far, by card, in reveal order (the text the player has seen). */
+  revealedParts: Record<string, { part: string; text: string }[]>;
   units: Record<string, UnitState>;
   unitSerial: number;
   retiredUnits: string[];

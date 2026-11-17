@@ -43,7 +43,19 @@ function costLine(title: string, costs: readonly Cost[], labels: Labels): Child 
 
 export function cardDetails(card: ViewCard, labels: Labels): Child[] {
   const definition = labels.cardDefinition(card);
-  if (definition === null) return [h("p", { className: "muted", text: "Its face is hidden." })];
+  const revealed = card.revealed ?? [];
+  if (definition === null) {
+    return [
+      h("p", { className: "muted", text: "Its face is hidden." }),
+      revealed.length === 0
+        ? null
+        : h(
+            "ol",
+            { className: "veil-lines veil-lines-sheet" },
+            revealed.map((text) => h("li", { className: "veil-line", text })),
+          ),
+    ];
+  }
   return [
     definition.image === null
       ? null
