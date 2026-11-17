@@ -261,6 +261,18 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       ifEmpty: effects,
     }),
     z.strictObject({ type: z.literal("revealCardPart"), zone: idSchema, part: idSchema }),
+    z.strictObject({
+      type: z.literal("selectSpaces"),
+      where: boolExprSchema.default(true),
+      order: orderSchema
+        .prefault({})
+        .refine(
+          (order) => order.tieBreak !== "decision",
+          "selectSpaces cannot ask: tieBreak id or random",
+        ),
+      count: numExprSchema.default(1),
+      effects,
+    }),
     z.strictObject({ type: z.literal("endScope"), scope: scopeSchema }),
     z.strictObject({ type: z.literal("endGame"), endCondition: idSchema }),
     z.strictObject({

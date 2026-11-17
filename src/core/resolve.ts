@@ -491,6 +491,29 @@ export function createResolver(
     return groups;
   }
 
+  function selectSpaces(
+    effect: Extract<Effect, { type: "selectSpaces" }>,
+    context: ExpressionContext,
+  ): void {
+    const bind = (space: string) => ({ ...context, candidate: space });
+    const candidates = requireRules()
+      .spaces.map((space) => space.id)
+      .sort()
+      .filter((space) => evaluateBoolean(effect.where, scopeOf(bind(space))));
+    const chosen: string[] = [];
+    let wanted = evaluateNumber(effect.count, scopeOf(context));
+    for (const group of orderedGroups(candidates, effect.order, bind)) {
+      const pool = [...group];
+      while (wanted > 0 && pool.length > 0) {
+        const index = effect.order.tieBreak === "random" ? randomIndex(pool.length) : 0;
+        chosen.push(...pool.splice(index, 1));
+        wanted -= 1;
+      }
+      if (wanted <= 0) break;
+    }
+    for (const space of [...chosen].reverse()) pushEffects(effect.effects, bind(space), null);
+  }
+
   function randomIndex(size: number): number {
     if (size <= 1) return 0;
     const [drawn, rng] = nextInt(work.rng, size);
@@ -1468,6 +1491,9 @@ export function createResolver(
       }
       case "forEachUnit":
         startSelect(effect.units, effect.order, null, effect.effects, context);
+        return;
+      case "selectSpaces":
+        selectSpaces(effect, context);
         return;
       case "selectUnits":
         startSelect(

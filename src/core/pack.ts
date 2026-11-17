@@ -186,6 +186,11 @@ export type Effect =
   | { type: "setSpaceCounter"; at: SpaceRef; spaceCounter: string; value: NumExpr }
   | { type: "forEachUnit"; units: UnitSet; order: Order; effects: Effect[] }
   | { type: "selectUnits"; units: UnitSet; order: Order; count: NumExpr; effects: Effect[] }
+  /**
+   * Up to `count` spaces where `where` holds (candidate = the space), best first by `order` (ties by id or
+   * at random; no decision); `effects` run once per chosen space with it as candidate.
+   */
+  | { type: "selectSpaces"; where: BoolExpr; order: Order; count: NumExpr; effects: Effect[] }
   | { type: "deliver"; quantity: string; amount: NumExpr; recipient: UnitRef | null }
   | { type: "rollDice"; pool: string; die: string; count: NumExpr }
   | { type: "addDice"; pool: string; die: string; count: NumExpr }
