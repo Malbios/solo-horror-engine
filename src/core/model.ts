@@ -13,6 +13,7 @@ import type {
   PlayWindowEffect,
   Scope,
   SpaceRef,
+  StepInstead,
   TieBreak,
 } from "./pack";
 import type { Rng } from "./rng";
@@ -55,6 +56,10 @@ export type MoveFrame = {
   mode: "toward" | "choose" | "forced";
   target: SpaceRef | null;
   stopWhen: BoolExpr;
+  freeWhen: BoolExpr;
+  instead: StepInstead | null;
+  /** Where the mover stood before a step resolved by `instead`, until its followers are offered. */
+  insteadFrom: string | null;
   order: Order | null;
   followers: Followers | null;
   context: ExpressionContext;

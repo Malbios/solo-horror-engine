@@ -73,6 +73,9 @@ export type Followers = {
   when: BoolExpr;
 };
 
+/** A step resolved by effects; followers then follow the mover to wherever the effects left it. */
+export type StepInstead = { when: BoolExpr; effects: Effect[] };
+
 export type Cost =
   | { counter: string; amount: NumExpr; floor: NumExpr | null }
   | { attribute: string; of: UnitRef; amount: NumExpr }
@@ -157,6 +160,8 @@ export type Effect =
       stopWhen: BoolExpr;
       order: Order;
       followers: Followers | null;
+      /** A step into a space where this holds (candidate = that space) does not use up a step. */
+      freeWhen: BoolExpr;
     }
   | {
       type: "stepMove";
@@ -166,6 +171,12 @@ export type Effect =
       followers: Followers | null;
       /** No stopping early: a single possible step is taken without asking. */
       forced: boolean;
+      /** Checked before every step: when it holds, the move ends. */
+      stopWhen: BoolExpr;
+      /** A step into a space where this holds (candidate = that space) does not use up a step. */
+      freeWhen: BoolExpr;
+      /** Steps taken from a space where `when` holds run `effects` instead of a chosen step. */
+      instead: StepInstead | null;
     }
   | { type: "changeAttribute"; unit: UnitRef; attribute: string; amount: NumExpr }
   | { type: "setAttribute"; unit: UnitRef; attribute: string; value: NumExpr }

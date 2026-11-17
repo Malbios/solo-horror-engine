@@ -279,6 +279,7 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       stopWhen: boolExprSchema.default(false),
       order: orderSchema.prefault({}),
       followers: followersSchema,
+      freeWhen: boolExprSchema.default(false),
     }),
     z.strictObject({
       type: z.literal("stepMove"),
@@ -287,6 +288,12 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       filter: idSchema,
       followers: followersSchema,
       forced: z.boolean().default(false),
+      stopWhen: boolExprSchema.default(false),
+      freeWhen: boolExprSchema.default(false),
+      instead: z
+        .strictObject({ when: boolExprSchema, effects: z.array(effectSchema) })
+        .nullable()
+        .default(null),
     }),
     z.strictObject({
       type: z.literal("changeAttribute"),

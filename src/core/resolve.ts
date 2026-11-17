@@ -992,14 +992,14 @@ export function createResolver(
   }
 
   function startMove(
-    frame: Omit<MoveFrame, "kind" | "unit" | "remaining">,
+    frame: Omit<MoveFrame, "kind" | "unit" | "remaining" | "insteadFrom">,
     unitRef: Parameters<typeof resolveUnit>[0],
     steps: number,
     scope: ExpressionScope,
   ): void {
     const unit = resolveUnit(unitRef, scope);
     if (unit === null || steps <= 0) return;
-    work.stack.push({ kind: "move", unit, remaining: steps, ...frame });
+    work.stack.push({ kind: "move", unit, remaining: steps, insteadFrom: null, ...frame });
   }
 
   function payableEdge(
@@ -1066,7 +1066,11 @@ export function createResolver(
 
   function takeStep(frame: MoveFrame, space: string, edge: Edge): void {
     const left = spaceOfUnit(work.units, frame.unit);
-    frame.remaining -= 1;
+    const free = evaluateBoolean(
+      frame.freeWhen,
+      scopeOf({ ...frame.context, self: frame.unit, candidate: space }),
+    );
+    if (!free) frame.remaining -= 1;
     setPlacement(frame.unit, { type: "space", space });
     if (evaluateBoolean(frame.stopWhen, scopeOf({ ...frame.context, self: frame.unit }))) {
       frame.remaining = 0;
@@ -1090,11 +1094,25 @@ export function createResolver(
 
   function runMove(frame: MoveFrame): void {
     const here = work.units[frame.unit] === undefined ? null : spaceOfUnit(work.units, frame.unit);
-    if (frame.remaining <= 0 || here === null) {
+    if (frame.insteadFrom !== null) {
+      const left = frame.insteadFrom;
+      frame.insteadFrom = null;
+      if (here !== null && here !== left) {
+        startFollowing(frame, left, here);
+        return;
+      }
+    }
+    const scope = scopeOf({ ...frame.context, self: frame.unit });
+    if (frame.remaining <= 0 || here === null || evaluateBoolean(frame.stopWhen, scope)) {
       work.stack.pop();
       return;
     }
-    const scope = scopeOf({ ...frame.context, self: frame.unit });
+    if (frame.instead !== null && evaluateBoolean(frame.instead.when, scope)) {
+      frame.remaining -= 1;
+      frame.insteadFrom = here;
+      pushEffects(frame.instead.effects, { ...frame.context, self: frame.unit }, null);
+      return;
+    }
     const traversable = traversableFor(frame.filter, scope);
     if (frame.mode === "choose" || frame.mode === "forced") {
       const options = neighbours(work.edges, here, traversable).filter(
@@ -1378,6 +1396,8 @@ export function createResolver(
             mode: "toward",
             target: effect.target,
             stopWhen: effect.stopWhen,
+            freeWhen: effect.freeWhen,
+            instead: null,
             order: effect.order,
             followers: effect.followers,
             context,
@@ -1393,7 +1413,9 @@ export function createResolver(
             filter: effect.filter,
             mode: effect.forced ? "forced" : "choose",
             target: null,
-            stopWhen: false,
+            stopWhen: effect.stopWhen,
+            freeWhen: effect.freeWhen,
+            instead: effect.instead,
             order: null,
             followers: effect.followers,
             context,
