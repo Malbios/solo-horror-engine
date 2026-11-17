@@ -45,6 +45,11 @@ function pack() {
                     label: "Second",
                     effects: [{ type: "revealCardPart", zone: "vault", part: "second" }],
                   },
+                  {
+                    id: "shuffle",
+                    label: "Shuffle",
+                    effects: [{ type: "shuffle", zone: "vault" }],
+                  },
                 ],
               },
             ],
@@ -77,5 +82,16 @@ describe("card parts", () => {
     state = act(engine, state, { type: "chooseOption", option: "first" });
     expect(state.counters["opened"]).toBe(1);
     expect(view(state).zones["vault"]?.[0]?.revealed).toEqual(["Not the blue door"]);
+  });
+
+  it("forget revealed parts when the zone is shuffled, so they can be revealed again", () => {
+    const engine = createEngine(pack());
+    let state = act(engine, engine.init(1), { type: "chooseOption", option: "first" });
+    state = act(engine, state, { type: "chooseOption", option: "continue" });
+    state = act(engine, state, { type: "chooseOption", option: "shuffle" });
+    expect(view(state).zones["vault"]?.[0]?.revealed).toBeUndefined();
+    state = act(engine, state, { type: "chooseOption", option: "continue" });
+    state = act(engine, state, { type: "chooseOption", option: "first" });
+    expect(state.counters["opened"]).toBe(2);
   });
 });

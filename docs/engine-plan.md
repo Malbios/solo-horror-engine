@@ -100,3 +100,4 @@ Each entry ends with the invented fixture that tests it.
 21. Conditions on the closest and farthest unit selectors.
 22. Card parts revealed one at a time while the card stays face down.
 23. Selecting spaces by condition and order.
+24. Shuffling forgets revealed card parts, so a reshuffled card hides them again.

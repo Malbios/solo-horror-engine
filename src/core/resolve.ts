@@ -1287,6 +1287,7 @@ export function createResolver(
     for (const card of shuffled) {
       if (work.faceUp[card] === true) continue;
       delete work.known[card];
+      delete work.revealedParts[card];
       mintHandle(card);
     }
   }
