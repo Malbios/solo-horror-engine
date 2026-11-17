@@ -97,3 +97,4 @@ Each entry ends with the invented fixture that tests it.
 18. Unit kinds that count as other kinds, follower filters that see the destination, and removal triggers that know the space a unit left.
 19. Windows that close on their own once a condition holds.
 20. Movement rules per step: steps that cost nothing, steps resolved by effects (followers still follow), and stop conditions checked before every step.
+21. Conditions on the closest and farthest unit selectors.

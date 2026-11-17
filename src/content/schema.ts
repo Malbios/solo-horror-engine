@@ -33,16 +33,21 @@ function hasUniqueIds(items: readonly { id: string }[]): boolean {
   return new Set(items.map((item) => item.id)).size === items.length;
 }
 
+const unitSelectorSchema = z.lazy(() =>
+  z.strictObject({
+    kind: idSchema,
+    origin: spaceRefSchema,
+    filter: idSchema,
+    where: boolExprSchema.default(true),
+  }),
+);
+
 export const unitRefSchema: z.ZodType<UnitRef> = z.lazy(() =>
   z.union([
     z.literal("self"),
     z.strictObject({ id: idSchema }),
-    z.strictObject({
-      closest: z.strictObject({ kind: idSchema, origin: spaceRefSchema, filter: idSchema }),
-    }),
-    z.strictObject({
-      farthest: z.strictObject({ kind: idSchema, origin: spaceRefSchema, filter: idSchema }),
-    }),
+    z.strictObject({ closest: unitSelectorSchema }),
+    z.strictObject({ farthest: unitSelectorSchema }),
   ]),
 );
 

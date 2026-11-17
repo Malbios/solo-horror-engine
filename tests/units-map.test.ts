@@ -228,6 +228,43 @@ describe("graph queries", () => {
     expect(spaceOfUnit(state.units, "lost")).toBe("island");
   });
 
+  it("skips units the selector's condition rules out", () => {
+    const engine = createEngine(
+      fixturePack({
+        ...LINE,
+        unitKinds: [
+          { id: "target", name: "Target" },
+          { id: "hidden", name: "Hidden", countsAs: ["target"] },
+          { id: "marker", name: "Marker" },
+        ],
+        setup: [
+          create("hidden", "veiled", onSpace("b")),
+          create("target", "plain", onSpace("c")),
+          create("marker", "flag", onSpace("a")),
+          {
+            type: "placeUnit",
+            unit: unit("flag"),
+            placement: {
+              onSpace: {
+                locationOf: {
+                  closest: {
+                    kind: "target",
+                    origin: at("a"),
+                    filter: "any",
+                    where: { not: { unitIsKind: { unit: "self", kind: "hidden" } } },
+                  },
+                },
+                fallback: null,
+              },
+            },
+          },
+        ],
+        phases: [PAUSE_PHASE],
+      }),
+    );
+    expect(spaceOfUnit(engine.init(1).units, "flag")).toBe("c");
+  });
+
   it("honours edge direction", () => {
     const engine = createEngine(
       fixturePack({

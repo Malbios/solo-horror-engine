@@ -7,10 +7,10 @@ export type ContextKey = "from" | "to" | "amount";
 export type NumberPair = [NumExpr, NumExpr];
 
 export type UnitRef =
-  | "self"
-  | { id: string }
-  | { closest: { kind: string; origin: SpaceRef; filter: string } }
-  | { farthest: { kind: string; origin: SpaceRef; filter: string } };
+  "self" | { id: string } | { closest: UnitSelector } | { farthest: UnitSelector };
+
+/** A unit of `kind` reachable from `origin` along `filter`; `where` (self = the candidate unit) narrows it. */
+export type UnitSelector = { kind: string; origin: SpaceRef; filter: string; where: BoolExpr };
 
 export type SpaceRef =
   "candidate" | { space: string } | { locationOf: UnitRef; fallback: SpaceRef | null };

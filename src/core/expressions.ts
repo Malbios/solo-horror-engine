@@ -10,6 +10,7 @@ import type {
   Space,
   SpaceRef,
   UnitRef,
+  UnitSelector,
 } from "./pack";
 import { assertNever } from "./result";
 
@@ -105,7 +106,7 @@ export function traversableFor(filterId: string, scope: ExpressionScope): Traver
 
 /** The reachable unit of a kind nearest to (or farthest from) the origin; ties go to the lowest id. */
 function extremeUnit(
-  query: { kind: string; origin: SpaceRef; filter: string },
+  query: UnitSelector,
   farthest: boolean,
   scope: ExpressionScope,
 ): string | null {
@@ -115,6 +116,8 @@ function extremeUnit(
   let best: { id: string; distance: number } | null = null;
   for (const unit of Object.values(scope.world.units).sort((a, b) => (a.id < b.id ? -1 : 1))) {
     if (!kindMatches(scope.world.kindCountsAs, unit.kind, query.kind)) continue;
+    const candidateScope = { ...scope, context: { ...scope.context, self: unit.id } };
+    if (!evaluateBoolean(query.where, candidateScope)) continue;
     const space = spaceOfUnit(scope.world.units, unit.id);
     const distance = space === null ? undefined : distances.get(space);
     if (distance === undefined) continue;
