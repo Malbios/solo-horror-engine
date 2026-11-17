@@ -25,8 +25,19 @@ function placementText(unit: UnitState, labels: Labels): string {
   }
 }
 
+/** Attributes to show: never hidden ones, and "flag" ones only while not 0. */
+export function shownAttributes(unit: UnitState, labels: Labels): [string, number][] {
+  const definitions = labels.rules.unitKindById.get(unit.kind)?.attributes ?? [];
+  return Object.entries(unit.attributes).filter(([id, value]) => {
+    const definition = definitions.find((candidate) => candidate.id === id);
+    if (definition === undefined) return true;
+    if (definition.hidden) return false;
+    return definition.show !== "flag" || value !== 0;
+  });
+}
+
 function unitCard(unit: UnitState, labels: Labels): HTMLElement {
-  const attributes = Object.entries(unit.attributes).map(([id, value]) =>
+  const attributes = shownAttributes(unit, labels).map(([id, value]) =>
     stat(labels.attribute(unit.kind, id), String(value)),
   );
   return h("section", { className: "unit" }, [
@@ -71,7 +82,7 @@ export function piecesWithoutAttributes(
 ): { kind: string; name: string; count: number }[] {
   const counts = new Map<string, number>();
   for (const unit of Object.values(shown.units)) {
-    if (Object.keys(unit.attributes).length > 0) continue;
+    if (shownAttributes(unit, labels).length > 0) continue;
     counts.set(unit.kind, (counts.get(unit.kind) ?? 0) + 1);
   }
   return [...counts].map(([kind, count]) => ({ kind, name: labels.unitKind(kind), count }));
@@ -102,7 +113,7 @@ export function renderTracks(shown: GameView, labels: Labels, more: MoreState): 
       ? null
       : h("dl", { className: "stats" }, [...counters, ...pieces]),
     ...Object.values(shown.units)
-      .filter((unit) => Object.keys(unit.attributes).length > 0)
+      .filter((unit) => shownAttributes(unit, labels).length > 0)
       .map((unit) => unitCard(unit, labels)),
     ...pools.map(([pool, dice]) =>
       h("section", { className: "pool" }, [

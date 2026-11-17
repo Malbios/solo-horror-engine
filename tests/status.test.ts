@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createEngine, view } from "../src/core";
 import { createLabels, displayRules } from "../src/ui/labels";
-import { piecesWithoutAttributes, zoneLayout } from "../src/ui/panels";
+import { piecesWithoutAttributes, shownAttributes, zoneLayout } from "../src/ui/panels";
 import { statusItems } from "../src/ui/status";
 import { fixturePack } from "./helpers";
 
@@ -27,7 +27,14 @@ function screenPack() {
         name: "Walker",
         attributes: [{ id: "grit", name: "Grit", start: 5, show: "main" }],
       },
-      { id: "stone", name: "Stone" },
+      {
+        id: "stone",
+        name: "Stone",
+        attributes: [
+          { id: "moss", name: "Moss", start: 0, show: "flag" },
+          { id: "age", name: "Age", start: 3, hidden: true },
+        ],
+      },
     ],
     spaces: [{ id: "mill", name: "Mill" }],
     setup: [
@@ -67,7 +74,17 @@ describe("panels", () => {
     });
   });
 
-  it("counts pieces without attributes per kind", () => {
+  it("hides hidden attributes and flag attributes at 0", () => {
+    const { shown, labels } = screen();
+    const stone = Object.values(shown.units).find((unit) => unit.kind === "stone");
+    if (stone === undefined) throw new Error("no stone");
+    expect(shownAttributes(stone, labels)).toEqual([]);
+    expect(shownAttributes({ ...stone, attributes: { moss: 1, age: 3 } }, labels)).toEqual([
+      ["moss", 1],
+    ]);
+  });
+
+  it("counts pieces without attributes to show per kind", () => {
     const { shown, labels } = screen();
     expect(piecesWithoutAttributes(shown, labels)).toEqual([
       { kind: "stone", name: "Stone", count: 2 },
