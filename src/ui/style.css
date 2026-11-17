@@ -688,8 +688,35 @@ h3 {
 
 @container (min-width: 720px) {
   .table {
-    grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+    container-type: size;
+    grid-template-columns: auto minmax(280px, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     align-items: start;
+    overflow: hidden;
+  }
+
+  .map,
+  .side {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .side {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 32px;
+  }
+
+  .panel-body {
+    max-height: none;
+  }
+
+  .card-text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+    overflow: hidden;
   }
 
   .tabs {
@@ -713,12 +740,23 @@ h3 {
   }
 
   .board-surface {
-    --board-height: 70dvh;
+    --board-height: calc(100cqh - 24px);
+    width: min(60cqw, calc(var(--board-height) * var(--aspect, 1)));
+    margin-inline: 0;
   }
 
   .sheet {
     margin: auto;
     border-radius: 16px;
+  }
+}
+
+@container (min-width: 1200px) {
+  .panels {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(220px, 2fr);
+    gap: 16px;
+    align-items: start;
   }
 }
 
