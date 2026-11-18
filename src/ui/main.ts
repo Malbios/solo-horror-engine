@@ -24,6 +24,13 @@ import { logEntry, replayWithLog, withEntry } from "./game-log";
 import { createLabels, describeEvent, displayRules, moduleInfo, type Labels } from "./labels";
 import { playbackBeats, readingMilliseconds, type Beat, type PlaybackStep } from "./playback";
 import { clearToasts, showToast, toastTexts } from "./toast";
+import {
+  loadSettings,
+  READING_SPEEDS,
+  readingFactor,
+  saveSettings,
+  type Settings,
+} from "./settings";
 import { renderLog, renderTracks, renderZones, type LogEntry, type MoreState } from "./panels";
 import { renderStatus } from "./status";
 import {
@@ -56,7 +63,6 @@ import "./style.css";
 const PACK_KEY = "solo-horror-engine:pack";
 const ADD_ONS_KEY = "solo-horror-engine:add-ons";
 const SAVE_KEY_PREFIX = "solo-horror-engine:save:";
-const PLAYBACK_KEY = "solo-horror-engine:playback";
 const SLIDE_MILLISECONDS = 350;
 
 type ActivePack = { pack: Pack; fromFile: boolean; addOns: AddOn[]; notice: string };
@@ -77,21 +83,8 @@ type Taken = { session: Session; steps: PlaybackStep[] };
 
 type Playback = { beats: Beat[]; index: number; timer: number | null };
 
-function playbackWanted(): boolean {
-  try {
-    return localStorage.getItem(PLAYBACK_KEY) !== "off";
-  } catch {
-    return true;
-  }
-}
-
-function rememberPlaybackWanted(wanted: boolean): void {
-  try {
-    localStorage.setItem(PLAYBACK_KEY, wanted ? "on" : "off");
-  } catch {
-    // Not remembered: the choice holds until the page reloads.
-  }
-}
+/** A typical two-line note, to show what the chosen reading speed means. */
+const SAMPLE_NOTE = ["A piece moves from the north path to the old shed", "Score +1 (now 4)"];
 
 const reducedMotion = (): boolean => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -160,7 +153,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
   };
   let session: Session | null = null;
   let playback: Playback | null = null;
-  let showPlayback = playbackWanted();
+  let settings: Settings = loadSettings(localStorage);
   let activePanel: Panel = "cards";
   let rulesCache: { key: string; rules: Rules } | null = null;
   const modules = moduleInfo(pack);
@@ -261,7 +254,10 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     const beat = playback?.beats[playback.index];
     if (playback === null || beat === undefined) return;
     const labels = labelsFor(beat.view);
-    const duration = readingMilliseconds(toastTexts(beat, labels));
+    const duration = readingMilliseconds(
+      toastTexts(beat, labels),
+      readingFactor(settings.readingSpeed),
+    );
     showToast(toastRegion, beat, labels, duration, {
       onTap: nextBeat,
       openCard: (card) => sheet.open(labels.card(card), cardDetails(card, labels)),
@@ -299,7 +295,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     action: Action,
     steps: readonly PlaybackStep[],
   ): boolean {
-    if (!showPlayback) return false;
+    if (!settings.showAutomaticSteps) return false;
     const shownBefore = view(before);
     const pending = shownBefore.pending;
     const beats = playbackBeats({
@@ -456,6 +452,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
       h("p", { className: "muted", text: `Engine ${ENGINE_VERSION}` }),
       ...message.map((line) => h("p", { className: "sheet-error", text: line })),
       renderAddOnList(),
+      renderSettings(),
       h("div", { className: "actions" }, [
         h("button", { className: "action", text: "New game", onClick: confirmNewGame }),
         h("button", {
@@ -464,22 +461,52 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
           onClick: () => fileInput.click(),
         }),
         ...folderButtons(),
-        h("button", {
-          className: "action action-pass",
-          text: showPlayback ? "Show automatic steps: on" : "Show automatic steps: off",
-          attrs: { "aria-pressed": String(showPlayback) },
-          onClick: () => {
-            showPlayback = !showPlayback;
-            rememberPlaybackWanted(showPlayback);
-            openMenu();
-          },
-        }),
         active.fromFile
           ? h("button", { className: "action", text: "Use demo core", onClick: useDemoCore })
           : null,
       ]),
       folder === null ? null : h("p", { className: "muted", text: `Packs folder: ${folder.name}` }),
       fileInput,
+    ]);
+  }
+
+  function changeSettings(changed: Partial<Settings>): void {
+    settings = { ...settings, ...changed };
+    saveSettings(localStorage, settings);
+    openMenu();
+  }
+
+  /** The menu's settings: whether automatic steps play out, and how long their notes stay up. */
+  function renderSettings(): HTMLElement {
+    const on = settings.showAutomaticSteps;
+    const sample = readingMilliseconds(SAMPLE_NOTE, readingFactor(settings.readingSpeed));
+    return h("section", { className: "settings" }, [
+      h("h3", { text: "Settings" }),
+      h("button", {
+        className: "action action-pass",
+        text: on ? "Show automatic steps: on" : "Show automatic steps: off",
+        attrs: { "aria-pressed": String(on) },
+        onClick: () => changeSettings({ showAutomaticSteps: !on }),
+      }),
+      h("p", { className: "settings-label", text: "Reading speed of step notes" }),
+      h(
+        "div",
+        { className: "choice-row", attrs: { role: "group", "aria-label": "Reading speed" } },
+        READING_SPEEDS.map((speed) => {
+          const button = h("button", {
+            className: "choice",
+            text: speed.label,
+            attrs: { "aria-pressed": String(speed.id === settings.readingSpeed) },
+            onClick: () => changeSettings({ readingSpeed: speed.id }),
+          });
+          button.disabled = !on;
+          return button;
+        }),
+      ),
+      h("p", {
+        className: "muted",
+        text: `A two-line note stays about ${(sample / 1000).toFixed(1)} s.`,
+      }),
     ]);
   }
 

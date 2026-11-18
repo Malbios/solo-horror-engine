@@ -132,6 +132,12 @@ describe("readingMilliseconds", () => {
     expect(readingMilliseconds(["Card name", words(10)])).toBeGreaterThan(one);
   });
 
+  it("scales every part with the speed factor, limits included", () => {
+    expect(readingMilliseconds(["Moved"], 0.5)).toBe(1000);
+    expect(readingMilliseconds([words(500)], 0.5)).toBe(5000);
+    expect(readingMilliseconds([words(10)], 1)).toBe(readingMilliseconds([words(10)]));
+  });
+
   it("stops at the maximum for very long texts", () => {
     expect(readingMilliseconds([words(500)])).toBe(10000);
   });
