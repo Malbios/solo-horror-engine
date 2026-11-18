@@ -268,7 +268,7 @@ export function createResolver(
     }
   }
 
-  /** A card-filtered move pattern sees the first moved copy of that card lying face up as "this card". */
+  /** A move trigger that names which cards it matches sees the first such copy that is faceup after the card moves as "this card". */
   function contextOfTrigger(
     pattern: EventPattern,
     event: GameEvent,

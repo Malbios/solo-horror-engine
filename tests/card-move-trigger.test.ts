@@ -39,8 +39,8 @@ function engineWith(setup: object[]) {
   );
 }
 
-describe("card-filtered move triggers", () => {
-  it("fire for the named card landing face up and see it as this card", () => {
+describe("move triggers that name which cards they match", () => {
+  it("fire for the named card when it is faceup after the card moves, and see it as this card", () => {
     const state = engineWith([
       create("stone", "pile"),
       create("lamp", "pile"),
@@ -51,7 +51,7 @@ describe("card-filtered move triggers", () => {
     expect(state.zones["bin"]?.length).toBe(1);
   });
 
-  it("stay silent when the named card lands face down", () => {
+  it("stay silent when the named card is face down after it moves", () => {
     const state = engineWith([create("lamp", "pile"), move("box", 1)]).init(1);
     expect(state.counters["fired"]).toBe(0);
     expect(state.zones["box"]?.length).toBe(1);
