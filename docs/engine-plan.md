@@ -8,7 +8,7 @@ Generic engine design. Implementation follows the roadmap at the end.
 - The action log (seed plus actions) is the only persisted truth. Replay folds `step` over the log. Undo replays all but the last action, and is limited by the undo rule under Decisions.
 - `GameState` holds everything needed to continue: the pending decision, the resolution stack, all counters and zones. It is plain JSON.
 - Packs are JSON data, never code. Everything a pack can express goes through the primitives below.
-- Packs may carry optional display data (names, card text, images, board layouts with space positions, marks that colour and badge edges carrying a tag, a short note per module shown when it is offered). Only the UI reads it; rules never depend on it.
+- Packs may carry optional display data (names, card text, images, board layouts with space positions, optionally following a counter so a map piece can be drawn where it currently lies, marks that colour and badge edges carrying a tag, a short note per module shown when it is offered). Only the UI reads it; rules never depend on it.
 - Every primitive is exercised by an invented fixture pack in `tests/` or by `content/demo`. A primitive without a fixture does not ship.
 
 ## Primitives

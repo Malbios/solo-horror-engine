@@ -507,6 +507,15 @@ const spaceSchema = z.strictObject({
     .strictObject({ board: idSchema, x: percentSchema, y: percentSchema })
     .nullable()
     .default(null),
+  positionBy: z
+    .strictObject({
+      counter: idSchema,
+      positions: z.array(
+        z.strictObject({ value: z.int(), board: idSchema, x: percentSchema, y: percentSchema }),
+      ),
+    })
+    .nullable()
+    .default(null),
 });
 
 const imageSchema = z.string().min(1).nullable().default(null);

@@ -242,7 +242,19 @@ export type EventPattern =
 
 export type SpacePosition = { board: string; x: number; y: number };
 
-export type Space = { id: string; name: string; tags: string[]; position: SpacePosition | null };
+/** Display only: where the space is drawn while a counter has a given value (a map piece that moves). */
+export type SpacePositionBy = {
+  counter: string;
+  positions: { value: number; board: string; x: number; y: number }[];
+};
+
+export type Space = {
+  id: string;
+  name: string;
+  tags: string[];
+  position: SpacePosition | null;
+  positionBy: SpacePositionBy | null;
+};
 
 export type Board = { id: string; name: string; image: string | null; aspect: number };
 

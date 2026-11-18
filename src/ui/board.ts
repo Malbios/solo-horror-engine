@@ -175,6 +175,16 @@ function renderBoard(
   return h("figure", { className: "board", attrs: { "aria-label": board.name } }, [surface]);
 }
 
+/** The space as drawn now: at the `positionBy` entry matching its counter's value, else at `position`. */
+export function drawnSpace(space: Space, counters: Readonly<Record<string, number>>): Space {
+  if (space.positionBy === null) return space;
+  const value = counters[space.positionBy.counter];
+  const entry = space.positionBy.positions.find((candidate) => candidate.value === value);
+  return entry === undefined
+    ? space
+    : { ...space, position: { board: entry.board, x: entry.x, y: entry.y } };
+}
+
 /**
  * The map: each board with its spaces as buttons, plus a plain list for spaces without a position.
  * Spaces in `focus` are pointed at (a piece just moved there or was removed there).
@@ -186,7 +196,7 @@ export function renderMap(
   handlers: BoardHandlers,
   focus: ReadonlySet<string> = new Set(),
 ): HTMLElement[] {
-  const spaces = labels.spaces();
+  const spaces = labels.spaces().map((space) => drawnSpace(space, shown.counters));
   const boards = labels.boards();
   const targets = moveTargets(actions);
   const boardIds = new Set(boards.map((board) => board.id));
