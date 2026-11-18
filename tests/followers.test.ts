@@ -185,4 +185,17 @@ describe("followers", () => {
     const issues = parsed.ok ? [] : parsed.error.issues.map((issue) => issue.message);
     expect(issues).toContain('undefined unitKind "ghost"');
   });
+
+  it("offers no pass until the minimum number of followers has followed", () => {
+    const engine = createEngine(packWith(flock, walk(1, { min: 1 })));
+    let state = act(engine, engine.init(1), moveTo("middle"));
+    expect(state.pending).toEqual({
+      kind: "pickUnit",
+      options: ["s1", "s2", "s3"],
+      canPass: false,
+    });
+    expect(engine.legalActions(state)).not.toContainEqual(PASS);
+    state = act(engine, state, pick("s2"));
+    expect(engine.legalActions(state)).toContainEqual(PASS);
+  });
 });

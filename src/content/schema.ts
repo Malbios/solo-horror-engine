@@ -183,6 +183,7 @@ const followersSchema = z
       })
       .prefault({}),
     max: numExprSchema,
+    min: numExprSchema.default(0),
     when: boolExprSchema.default(true),
   })
   .nullable()

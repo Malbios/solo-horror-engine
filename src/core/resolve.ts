@@ -1088,7 +1088,8 @@ export function createResolver(
     const remaining = evaluateNumber(followers.max, moverScope);
     const candidates = followerCandidates(frame, left, arrived, followers);
     if (remaining <= 0 || candidates.length === 0) return;
-    work.stack.push({ kind: "follow", to: arrived, candidates, remaining });
+    const required = Math.max(0, evaluateNumber(followers.min, moverScope));
+    work.stack.push({ kind: "follow", to: arrived, candidates, remaining, required });
   }
 
   function runFollow(frame: FollowFrame): void {
@@ -1097,13 +1098,18 @@ export function createResolver(
       work.stack.pop();
       return;
     }
-    work.pending = { kind: "pickUnit", options: [...frame.candidates], canPass: true };
+    work.pending = {
+      kind: "pickUnit",
+      options: [...frame.candidates],
+      canPass: frame.required <= 0,
+    };
   }
 
   function takeFollower(frame: FollowFrame, unit: string): void {
     if (!frame.candidates.includes(unit)) fault(`Unit "${unit}" cannot follow`);
     frame.candidates = frame.candidates.filter((candidate) => candidate !== unit);
     frame.remaining -= 1;
+    frame.required -= 1;
     setPlacement(unit, { type: "space", space: frame.to });
   }
 

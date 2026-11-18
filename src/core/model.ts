@@ -71,6 +71,8 @@ export type FollowFrame = {
   to: string;
   candidates: string[];
   remaining: number;
+  /** Followers still required before the player may pass. */
+  required: number;
 };
 
 export type SelectFrame = {

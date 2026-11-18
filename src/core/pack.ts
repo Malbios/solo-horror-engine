@@ -70,6 +70,8 @@ export type UnitSet = { kind: string | null; at: SpaceRef | null; where: BoolExp
 export type Followers = {
   units: { kind: string | null; where: BoolExpr };
   max: NumExpr;
+  /** Units that must follow while any are left to pick (no pass until then). */
+  min: NumExpr;
   when: BoolExpr;
 };
 
