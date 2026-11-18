@@ -467,7 +467,12 @@ const optionalIdSchema = idSchema.nullable().default(null);
 
 const eventPatternSchema = z.discriminatedUnion("event", [
   z.strictObject({ event: z.literal("counterChanged"), counter: idSchema }),
-  z.strictObject({ event: z.literal("cardsMoved"), from: optionalIdSchema, to: optionalIdSchema }),
+  z.strictObject({
+    event: z.literal("cardsMoved"),
+    from: optionalIdSchema,
+    to: optionalIdSchema,
+    card: optionalIdSchema,
+  }),
   z.strictObject({ event: z.literal("scopeEntered"), scope: scopeSchema, id: optionalIdSchema }),
   z.strictObject({ event: z.literal("scopeExited"), scope: scopeSchema, id: optionalIdSchema }),
   z.strictObject({ event: z.literal("unitCreated"), kind: optionalIdSchema }),

@@ -227,7 +227,7 @@ export type Effect =
 
 export type EventPattern =
   | { event: "counterChanged"; counter: string }
-  | { event: "cardsMoved"; from: string | null; to: string | null }
+  | { event: "cardsMoved"; from: string | null; to: string | null; card: string | null }
   | { event: "scopeEntered"; scope: Scope; id: string | null }
   | { event: "scopeExited"; scope: Scope; id: string | null }
   | { event: "unitCreated"; kind: string | null }

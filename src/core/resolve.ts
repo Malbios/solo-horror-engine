@@ -252,16 +252,36 @@ export function createResolver(
     if (rules === null) return;
     const kindCountsAs = kindCountsAsOf(rules);
     const scope = scopeOf(context);
-    const fired = rules.triggers.filter(
-      (trigger) =>
-        matchesPattern(trigger.on, event, kindCountsAs) &&
-        !(trigger.once && work.firedTriggers.includes(trigger.id)) &&
-        evaluateBoolean(trigger.condition, scope),
-    );
-    for (const trigger of [...fired].reverse()) {
+    const fired = rules.triggers.flatMap((trigger) => {
+      if (!matchesPattern(trigger.on, event, kindCountsAs)) return [];
+      if (trigger.once && work.firedTriggers.includes(trigger.id)) return [];
+      const triggerContext = contextOfTrigger(trigger.on, event, context);
+      if (triggerContext === null) return [];
+      const triggerScope =
+        triggerContext === context ? scope : { ...scope, context: triggerContext };
+      if (!evaluateBoolean(trigger.condition, triggerScope)) return [];
+      return [{ trigger, context: triggerContext }];
+    });
+    for (const { trigger, context: triggerContext } of [...fired].reverse()) {
       if (trigger.once) work.firedTriggers.push(trigger.id);
-      pushEffects(trigger.effects, context, null);
+      pushEffects(trigger.effects, triggerContext, null);
     }
+  }
+
+  /** A card-filtered move pattern sees the first moved copy of that card lying face up as "this card". */
+  function contextOfTrigger(
+    pattern: EventPattern,
+    event: GameEvent,
+    context: ExpressionContext,
+  ): ExpressionContext | null {
+    if (pattern.event !== "cardsMoved" || pattern.card === null || event.type !== "cardsMoved") {
+      return context;
+    }
+    const wanted = pattern.card;
+    const card = event.cards.find(
+      (moved) => cardDefinitionId(moved) === wanted && work.faceUp[moved] === true,
+    );
+    return card === undefined ? null : { ...context, card };
   }
 
   function writeBounded(
