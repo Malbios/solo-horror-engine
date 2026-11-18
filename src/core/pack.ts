@@ -242,7 +242,7 @@ export type EventPattern =
 
 export type SpacePosition = { board: string; x: number; y: number };
 
-/** Display only: where the space is drawn while a counter has a given value (a map piece that moves). */
+/** Display only: where the space is drawn while a counter has a given value (a space on a movable map tile). */
 export type SpacePositionBy = {
   counter: string;
   positions: { value: number; board: string; x: number; y: number }[];
