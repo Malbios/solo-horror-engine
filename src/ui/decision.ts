@@ -1,7 +1,6 @@
 import type { Action, GameView, ViewCard } from "../core";
 import { h } from "./dom";
 import { describeAction, describeCost, describeDecision, type Labels } from "./labels";
-import type { Beat } from "./playback";
 
 export type DecisionHandlers = {
   takeAction: (action: Action) => void;
@@ -305,37 +304,18 @@ export function renderDecision(
 export type PlaybackHandlers = {
   next: () => void;
   skip: () => void;
-  openCard: (card: ViewCard) => void;
 };
 
-/** The pinned bar while automatic steps play out: what just happened, and buttons to go on. */
+/** The pinned bar while automatic steps play out (the toasts describe them): go on, or skip to now. */
 export function renderPlayback(
-  beat: Beat,
   position: { index: number; count: number },
-  labels: Labels,
   handlers: PlaybackHandlers,
 ): HTMLElement[] {
-  const { card } = beat;
+  const last = position.index + 1 >= position.count;
   return [
-    h("div", { className: "playback", attrs: { "aria-live": "polite" } }, [
-      card === null
-        ? null
-        : h("button", {
-            className: "playback-card",
-            text: labels.card(card),
-            onClick: () => handlers.openCard(card),
-          }),
-      ...beat.lines.map((line) => h("p", { className: "playback-line", text: line })),
-    ]),
+    h("p", { className: "prompt", text: `Watching: ${position.index + 1} of ${position.count}` }),
     h("div", { className: "actions" }, [
-      h("button", {
-        className: "action",
-        text:
-          position.index + 1 < position.count
-            ? `Next (${position.index + 1} of ${position.count})`
-            : "Done",
-        onClick: handlers.next,
-      }),
+      h("button", { className: "action", text: last ? "Done" : "Next", onClick: handlers.next }),
       h("button", { className: "action action-pass", text: "Skip to now", onClick: handlers.skip }),
     ]),
   ];

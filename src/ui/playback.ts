@@ -171,3 +171,15 @@ export function playbackBeats({ before, steps, ownMove, describe }: PlaybackInpu
   }
   return beats;
 }
+
+const READING_BASE_MILLISECONDS = 1500;
+const MILLISECONDS_PER_WORD = 300;
+const MIN_READING_MILLISECONDS = 2000;
+const MAX_READING_MILLISECONDS = 10000;
+
+/** How long a beat's texts (card name and lines) stay up: enough to read them at a calm pace. */
+export function readingMilliseconds(texts: readonly string[]): number {
+  const words = texts.flatMap((text) => text.split(/\s+/).filter(Boolean)).length;
+  const wanted = READING_BASE_MILLISECONDS + words * MILLISECONDS_PER_WORD;
+  return Math.min(MAX_READING_MILLISECONDS, Math.max(MIN_READING_MILLISECONDS, wanted));
+}

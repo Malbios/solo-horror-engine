@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createEngine, view, type GameEvent, type GameView, type UnitState } from "../src/core";
-import { playbackBeats, type PlaybackStep } from "../src/ui/playback";
+import { playbackBeats, readingMilliseconds, type PlaybackStep } from "../src/ui/playback";
 import { loadDemoPack } from "./helpers";
 
 const onSpace = (id: string, kind: string, space: string): UnitState => ({
@@ -116,5 +116,23 @@ describe("playbackBeats", () => {
     ];
     const beats = beatsOf(before, events, after);
     expect(beats.map((beat) => beat.card)).toEqual([{ ref: "card-1", card: "notice" }]);
+  });
+});
+
+describe("readingMilliseconds", () => {
+  const words = (count: number) => Array.from({ length: count }, () => "word").join(" ");
+
+  it("gives a short line the minimum time", () => {
+    expect(readingMilliseconds(["Moved"])).toBe(2000);
+  });
+
+  it("gives more words more time, counting every text", () => {
+    const one = readingMilliseconds([words(10)]);
+    expect(readingMilliseconds([words(20)])).toBeGreaterThan(one);
+    expect(readingMilliseconds(["Card name", words(10)])).toBeGreaterThan(one);
+  });
+
+  it("stops at the maximum for very long texts", () => {
+    expect(readingMilliseconds([words(500)])).toBe(10000);
   });
 });

@@ -595,27 +595,98 @@ h3 {
   font-weight: 600;
 }
 
-.playback {
+/* Toasts describing automatic steps, just above the decision bar. */
+.toasts {
+  position: fixed;
+  left: max(16px, env(safe-area-inset-left));
+  right: max(16px, env(safe-area-inset-right));
+  bottom: calc(var(--decision-height, 120px) + 8px);
+  z-index: 5;
   display: grid;
-  gap: 4px;
+  gap: 6px;
+  pointer-events: none;
 }
 
-.playback-line {
-  margin: 0;
+.toast {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  overflow: hidden;
+  padding: 8px 12px 10px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 25%);
+  pointer-events: auto;
+  animation: toast-in 0.2s ease-out;
+  transition: opacity 0.2s ease;
+}
+
+.toast-old {
+  border-left-color: var(--line);
+  box-shadow: none;
+  color: var(--muted);
+}
+
+.toast-old .toast-card {
+  color: inherit;
+}
+
+.toast-leaving {
+  opacity: 0;
+}
+
+.toast-card,
+.toast-text {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.toast-card {
+  justify-self: start;
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.toast-text {
+  display: grid;
+  gap: 2px;
+}
+
+.toast-line {
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
-.playback-card {
-  justify-self: start;
-  min-height: 44px;
-  padding: 0 12px;
-  border: 2px solid var(--accent);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--accent);
-  font: inherit;
-  font-weight: 700;
+.toast-timer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  animation: toast-timer linear forwards;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes toast-timer {
+  to {
+    transform: scaleX(0);
+  }
 }
 .actions {
   display: flex;
@@ -869,7 +940,8 @@ h3 {
   }
 
   .veil-line-new,
-  .space-focus {
+  .space-focus,
+  .toast {
     animation: none;
   }
 }

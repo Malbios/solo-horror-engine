@@ -22,7 +22,8 @@ import { automaticPass, renderDecision, renderPlayback } from "./decision";
 import { h, requireElement } from "./dom";
 import { logEntry, replayWithLog, withEntry } from "./game-log";
 import { createLabels, describeEvent, displayRules, moduleInfo, type Labels } from "./labels";
-import { playbackBeats, type Beat, type PlaybackStep } from "./playback";
+import { playbackBeats, readingMilliseconds, type Beat, type PlaybackStep } from "./playback";
+import { clearToasts, showToast, toastTexts } from "./toast";
 import { renderLog, renderTracks, renderZones, type LogEntry, type MoreState } from "./panels";
 import { renderStatus } from "./status";
 import {
@@ -56,7 +57,6 @@ const PACK_KEY = "solo-horror-engine:pack";
 const ADD_ONS_KEY = "solo-horror-engine:add-ons";
 const SAVE_KEY_PREFIX = "solo-horror-engine:save:";
 const PLAYBACK_KEY = "solo-horror-engine:playback";
-const BEAT_MILLISECONDS = 900;
 const SLIDE_MILLISECONDS = 350;
 
 type ActivePack = { pack: Pack; fromFile: boolean; addOns: AddOn[]; notice: string };
@@ -138,6 +138,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
   const decisionBar = requireElement("decision", HTMLElement);
   const notice = requireElement("notice", HTMLParagraphElement);
   const statusStrip = requireElement("status", HTMLDivElement);
+  const toastRegion = requireElement("toasts", HTMLDivElement);
   const openMore = new Set<string>();
   const more: MoreState = {
     isOpen: (key) => openMore.has(key),
@@ -248,33 +249,44 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
             openCard,
             newGame: confirmNewGame,
           })
-        : renderPlayback(beat, { index: playback.index, count: playback.beats.length }, labels, {
-            next: nextBeat,
-            skip: endPlayback,
-            openCard,
-          })),
+        : renderPlayback(
+            { index: playback.index, count: playback.beats.length },
+            { next: nextBeat, skip: () => endPlayback(true) },
+          )),
     );
   }
 
-  function scheduleBeat(): void {
-    if (playback === null) return;
-    playback.timer = window.setTimeout(nextBeat, BEAT_MILLISECONDS);
+  /** Describes the current beat in a toast and moves on once its text could be read. */
+  function announceBeat(): void {
+    const beat = playback?.beats[playback.index];
+    if (playback === null || beat === undefined) return;
+    const labels = labelsFor(beat.view);
+    const duration = readingMilliseconds(toastTexts(beat, labels));
+    showToast(toastRegion, beat, labels, duration, {
+      onTap: nextBeat,
+      openCard: (card) => sheet.open(labels.card(card), cardDetails(card, labels)),
+    });
+    playback.timer = window.setTimeout(nextBeat, duration);
   }
 
   function nextBeat(): void {
     if (playback === null) return;
     if (playback.timer !== null) window.clearTimeout(playback.timer);
     if (playback.index + 1 >= playback.beats.length) {
-      endPlayback();
+      endPlayback(false);
       return;
     }
     playback = { ...playback, index: playback.index + 1, timer: null };
     render();
-    scheduleBeat();
+    announceBeat();
   }
 
-  /** Shows the game as it is now; any automatic steps still to show are skipped. */
-  function endPlayback(): void {
+  /**
+   * Shows the game as it is now; any automatic steps still to show are skipped. Toasts are cleared when
+   * the player cut the playback short, and left to run out after its last beat.
+   */
+  function endPlayback(clear = true): void {
+    if (clear) clearToasts(toastRegion);
     if (playback === null) return;
     if (playback.timer !== null) window.clearTimeout(playback.timer);
     playback = null;
@@ -300,7 +312,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     playback = { beats, index: 0, timer: null };
     render();
     decisionBar.querySelector<HTMLButtonElement>("button.action")?.focus({ preventScroll: true });
-    scheduleBeat();
+    announceBeat();
     return true;
   }
 
@@ -633,6 +645,13 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     logDrawer.style.setProperty("--page-scrollbar", `${scrollbar}px`);
   }
 
+  const decisionWatch = new ResizeObserver(() => {
+    document.documentElement.style.setProperty(
+      "--decision-height",
+      `${decisionBar.offsetHeight}px`,
+    );
+  });
+  decisionWatch.observe(decisionBar);
   const scrollbarWatch = new ResizeObserver(keepTagClearOfScrollbar);
   for (const watched of [table, ...table.children]) scrollbarWatch.observe(watched);
   logTag.addEventListener("click", () => showLog(!logOpen));
