@@ -99,6 +99,115 @@ describe("steps resolved by effects", () => {
   });
 });
 
+const toward = (steps: number, extra: object = {}) => ({
+  type: "moveToward",
+  unit: { id: "walker" },
+  target: { space: "far" },
+  steps,
+  filter: "any",
+  ...extra,
+});
+
+describe("automatic moves that may only end on some spaces", () => {
+  const notInCorridor = { not: intoCorridor };
+
+  it("passes a space it may not end on when it has the steps to go beyond", () => {
+    const engine = createEngine(
+      packWith([place("walker", "walker", "west")], toward(2, { endWhen: notInCorridor })),
+    );
+    expect(spaceOf(engine.init(1), "walker")).toBe("east");
+  });
+
+  it("stays put when every space it could reach is one it may not end on", () => {
+    const engine = createEngine(
+      packWith([place("walker", "walker", "west")], toward(1, { endWhen: notInCorridor })),
+    );
+    expect(spaceOf(engine.init(1), "walker")).toBe("west");
+  });
+
+  it("counts a step into a free space as no step when looking ahead", () => {
+    const engine = createEngine(
+      packWith(
+        [place("walker", "walker", "west")],
+        toward(1, { endWhen: notInCorridor, freeWhen: intoCorridor }),
+      ),
+    );
+    expect(spaceOf(engine.init(1), "walker")).toBe("east");
+  });
+
+  it("takes the branch that can end on an allowed space over a better ordered one", () => {
+    const forkSpaces = ["start", "a-side", "b-side", "far"];
+    const engine = createEngine(
+      fixturePack({
+        spaces: forkSpaces.map((id) => ({
+          id,
+          name: id,
+          tags: id === "a-side" ? ["corridor"] : [],
+        })),
+        edges: [
+          ["start", "a-side"],
+          ["start", "b-side"],
+          ["a-side", "far"],
+          ["b-side", "far"],
+        ].map(([fromSpace, toSpace]) => ({ id: `${fromSpace}-${toSpace}`, fromSpace, toSpace })),
+        edgeFilters: [{ id: "any" }],
+        unitKinds: [{ id: "walker", name: "walker" }],
+        setup: [place("walker", "walker", "start")],
+        phases: [
+          { id: "go", steps: [{ id: "go", effects: [toward(1, { endWhen: notInCorridor })] }] },
+          PAUSE_PHASE,
+        ],
+      }),
+    );
+    expect(spaceOf(engine.init(1), "walker")).toBe("b-side");
+  });
+});
+
+describe("automatic moves that refuse a space", () => {
+  const blockedAt = (space: string) => ({
+    type: "if",
+    condition: {
+      eq: [
+        {
+          distance: {
+            origin: "candidate",
+            destination: { space },
+            filter: "any",
+            ifUnreachable: 99,
+          },
+        },
+        0,
+      ],
+    },
+    then: [{ type: "changeCounter", counter: "halt", amount: 1 }],
+    else: [],
+  });
+
+  it("runs the blocked effects once, for the refused space, and ends the move", () => {
+    const engine = createEngine(
+      packWith(
+        [place("walker", "walker", "west")],
+        toward(3, {
+          enterWhen: { not: { spaceHasTag: { at: "candidate", tag: "corridor" } } },
+          blocked: [blockedAt("middle")],
+        }),
+      ),
+    );
+    const state = engine.init(1);
+    expect(spaceOf(state, "walker")).toBe("west");
+    expect(state.counters["halt"]).toBe(1);
+  });
+
+  it("does not run the blocked effects when it reaches its target", () => {
+    const engine = createEngine(
+      packWith([place("walker", "walker", "west")], toward(3, { blocked: [blockedAt("middle")] })),
+    );
+    const state = engine.init(1);
+    expect(spaceOf(state, "walker")).toBe("far");
+    expect(state.counters["halt"]).toBe(0);
+  });
+});
+
 describe("stop condition", () => {
   const haltOnArrival = {
     id: "halt-on-arrival",

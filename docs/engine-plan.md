@@ -102,3 +102,4 @@ Each entry ends with the invented fixture that tests it.
 23. Selecting spaces by condition and order.
 24. Shuffling forgets revealed card parts, so a reshuffled card hides them again.
 25. A step-by-step move may offer only the spaces where a condition holds.
+26. An automatic move may refuse spaces (running effects when every step toward its target is refused, which ends it) and may pass spaces it is not allowed to end on, looking ahead so that it stops as far along as it can on an allowed one.

@@ -166,6 +166,12 @@ export type Effect =
       followers: Followers | null;
       /** A step into a space where this holds (candidate = that space) does not use up a step. */
       freeWhen: BoolExpr;
+      /** Only steps into spaces where this holds (candidate = that space) are taken. */
+      enterWhen: BoolExpr;
+      /** Runs when `enterWhen` refused every step toward the target (candidate = the first refused space); the move then ends. */
+      blocked: Effect[];
+      /** The move may pass other spaces but ends only on one where this holds (candidate = that space). */
+      endWhen: BoolExpr;
     }
   | {
       type: "stepMove";

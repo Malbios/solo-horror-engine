@@ -58,6 +58,10 @@ export type MoveFrame = {
   stopWhen: BoolExpr;
   freeWhen: BoolExpr;
   enterWhen: BoolExpr;
+  /** Automatic moves: effects when every step toward the target was refused by `enterWhen`. */
+  blocked: Effect[];
+  /** Automatic moves: the move ends only on a space where this holds. */
+  endWhen: BoolExpr;
   instead: StepInstead | null;
   /** Where the mover stood before a step resolved by `instead`, until its followers are offered. */
   insteadFrom: string | null;

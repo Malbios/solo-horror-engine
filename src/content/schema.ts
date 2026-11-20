@@ -299,6 +299,9 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       order: orderSchema.prefault({}),
       followers: followersSchema,
       freeWhen: boolExprSchema.default(false),
+      enterWhen: boolExprSchema.default(true),
+      blocked: z.array(effectSchema).default([]),
+      endWhen: boolExprSchema.default(true),
     }),
     z.strictObject({
       type: z.literal("stepMove"),

@@ -1141,6 +1141,46 @@ export function createResolver(
     takeStep(frame, space, edge);
   }
 
+  /**
+   * The next steps from which an automatic move can still end on a space where `endWhen` holds, within the
+   * steps it has left, going only closer to its target (a step into a free space costs nothing).
+   */
+  function withinReachOfEnd(
+    frame: MoveFrame,
+    towardTarget: ReadonlyMap<string, number>,
+    traversable: Traversable,
+    enterable: (space: string) => boolean,
+    nextSteps: readonly string[],
+  ): string[] {
+    const bind = (space: string): ExpressionContext => ({
+      ...frame.context,
+      self: frame.unit,
+      candidate: space,
+    });
+    const stepCost = (space: string): number =>
+      evaluateBoolean(frame.freeWhen, scopeOf(bind(space))) ? 0 : 1;
+    const costs = new Map<string, number>();
+    const costToEnd = (space: string): number => {
+      const known = costs.get(space);
+      if (known !== undefined) return known;
+      let cost = Infinity;
+      if (evaluateBoolean(frame.endWhen, scopeOf(bind(space)))) {
+        cost = 0;
+      } else {
+        const distance = towardTarget.get(space);
+        if (distance !== undefined && distance > 0) {
+          for (const next of neighbours(work.edges, space, traversable)) {
+            if (towardTarget.get(next) !== distance - 1 || !enterable(next)) continue;
+            cost = Math.min(cost, stepCost(next) + costToEnd(next));
+          }
+        }
+      }
+      costs.set(space, cost);
+      return cost;
+    };
+    return nextSteps.filter((space) => stepCost(space) + costToEnd(space) <= frame.remaining);
+  }
+
   function runMove(frame: MoveFrame): void {
     const here = work.units[frame.unit] === undefined ? null : spaceOfUnit(work.units, frame.unit);
     if (frame.insteadFrom !== null) {
@@ -1201,11 +1241,25 @@ export function createResolver(
               payableEdge(frame, here, space, traversable) !== null,
           );
     const order = frame.order ?? fault("Automatic movement needs an order");
-    const best = orderedGroups(closer, order, (space) => ({
+    const bind = (space: string): ExpressionContext => ({
       ...frame.context,
       self: frame.unit,
       candidate: space,
-    }))[0];
+    });
+    const enterable = (space: string): boolean =>
+      evaluateBoolean(frame.enterWhen, scopeOf(bind(space)));
+    const allowed = closer.filter(enterable);
+    const [refused] = orderedGroups(closer, order, bind)[0] ?? [];
+    if (allowed.length === 0 && refused !== undefined) {
+      work.stack.pop();
+      pushEffects(frame.blocked, bind(refused), null);
+      return;
+    }
+    const eligible =
+      frame.endWhen === true || towardTarget === null
+        ? allowed
+        : withinReachOfEnd(frame, towardTarget, traversable, enterable, allowed);
+    const best = orderedGroups(eligible, order, bind)[0];
     if (best === undefined) {
       work.stack.pop();
       return;
@@ -1465,7 +1519,9 @@ export function createResolver(
             target: effect.target,
             stopWhen: effect.stopWhen,
             freeWhen: effect.freeWhen,
-            enterWhen: true,
+            enterWhen: effect.enterWhen,
+            blocked: effect.blocked,
+            endWhen: effect.endWhen,
             instead: null,
             order: effect.order,
             followers: effect.followers,
@@ -1485,6 +1541,8 @@ export function createResolver(
             stopWhen: effect.stopWhen,
             freeWhen: effect.freeWhen,
             enterWhen: effect.enterWhen,
+            blocked: [],
+            endWhen: true,
             instead: effect.instead,
             order: null,
             followers: effect.followers,
