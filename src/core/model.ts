@@ -86,7 +86,13 @@ export type SelectFrame = {
   tieBreak: TieBreak;
   effects: Effect[];
   context: ExpressionContext;
+  /** The unit the loop is working on now. */
+  current: string | null;
+  /** Per-group triggers that fire once the loop ends, each with the context of its first event. */
+  deferred: DeferredTrigger[];
 };
+
+export type DeferredTrigger = { trigger: string; context: ExpressionContext };
 
 export type DeliverFrame = {
   kind: "deliver";

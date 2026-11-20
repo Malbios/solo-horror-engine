@@ -400,6 +400,11 @@ export type Trigger = {
   condition: BoolExpr;
   effects: Effect[];
   once: boolean;
+  /**
+   * Events about the unit a running unit loop is working on fire this trigger once for the whole loop, when the
+   * loop ends (the event's unit: the unit of a unit event, else the "self" of the effect that caused it).
+   */
+  perGroup: boolean;
 };
 
 export type Procedure = { id: string; params: string[]; effects: Effect[] };

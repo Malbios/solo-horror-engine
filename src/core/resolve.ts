@@ -64,6 +64,7 @@ import type {
   Placement,
   Scope,
   ScopeHooks,
+  Trigger,
   UnitSet,
   WindowBuy,
   WindowPlay,
@@ -161,6 +162,8 @@ export function createResolver(
   events: GameEvent[],
 ): Resolver {
   let operations = 0;
+  /** The "self" of the effect being applied, for events that carry no unit of their own (per-group triggers). */
+  let causingSelf: string | null = null;
   let rules: Rules | null = work.stage === "choices" ? null : loadRules();
 
   function loadRules(): Rules {
@@ -262,9 +265,40 @@ export function createResolver(
       if (!evaluateBoolean(trigger.condition, triggerScope)) return [];
       return [{ trigger, context: triggerContext }];
     });
+    const eventUnit = "unit" in event ? event.unit : causingSelf;
     for (const { trigger, context: triggerContext } of [...fired].reverse()) {
-      if (trigger.once) work.firedTriggers.push(trigger.id);
-      pushEffects(trigger.effects, triggerContext, null);
+      const group = trigger.perGroup ? groupLoopOf(eventUnit) : null;
+      if (group === null) {
+        fireTrigger(trigger, triggerContext);
+      } else if (!group.deferred.some((deferred) => deferred.trigger === trigger.id)) {
+        group.deferred.push({ trigger: trigger.id, context: triggerContext });
+      }
+    }
+  }
+
+  function fireTrigger(trigger: Trigger, context: ExpressionContext): void {
+    if (trigger.once) work.firedTriggers.push(trigger.id);
+    pushEffects(trigger.effects, context, null);
+  }
+
+  /** The innermost running unit loop that is working on `unit`. */
+  function groupLoopOf(unit: string | null): SelectFrame | null {
+    if (unit === null) return null;
+    for (let index = work.stack.length - 1; index >= 0; index -= 1) {
+      const frame = work.stack[index];
+      if (frame?.kind === "select" && frame.current === unit) return frame;
+    }
+    return null;
+  }
+
+  /** A unit loop has ended: its per-group triggers fire, in the order their first events came. */
+  function fireDeferred(frames: readonly SelectFrame[]): void {
+    const deferred = frames.flatMap((frame) => frame.deferred);
+    for (const { trigger: triggerId, context } of [...deferred].reverse()) {
+      const trigger = requireRules().triggers.find((candidate) => candidate.id === triggerId);
+      if (trigger === undefined) fault(`Unknown trigger "${triggerId}"`);
+      if (trigger.once && work.firedTriggers.includes(trigger.id)) continue;
+      fireTrigger(trigger, context);
     }
   }
 
@@ -561,6 +595,8 @@ export function createResolver(
       tieBreak: order.tieBreak,
       effects,
       context,
+      current: null,
+      deferred: [],
     });
   }
 
@@ -569,6 +605,7 @@ export function createResolver(
     if (!group.includes(unitId)) fault(`Unit "${unitId}" is not among the tied units`);
     frame.groups[0] = group.filter((candidate) => candidate !== unitId);
     if (frame.remaining !== null) frame.remaining -= 1;
+    frame.current = unitId;
     pushEffects(frame.effects, { ...frame.context, self: unitId }, null);
   }
 
@@ -579,6 +616,7 @@ export function createResolver(
     const group = frame.groups[0];
     if (group === undefined || frame.remaining === 0) {
       work.stack.pop();
+      fireDeferred([frame]);
       return;
     }
     if (group.length > 1 && frame.tieBreak === "decision") {
@@ -1404,7 +1442,11 @@ export function createResolver(
     for (const frame of [target, ...innerScopes]) {
       if (frame.status !== "closing") frame.status = "exit";
     }
+    const droppedLoops = work.stack
+      .slice(targetIndex + 1)
+      .filter((frame): frame is SelectFrame => frame.kind === "select");
     work.stack = [...work.stack.slice(0, targetIndex + 1), ...innerScopes];
+    fireDeferred(droppedLoops);
   }
 
   function beginEnd(endConditionId: string): void {
@@ -1859,7 +1901,10 @@ export function createResolver(
       return;
     }
     frame.index += 1;
+    const outer = causingSelf;
+    causingSelf = frame.context.self;
     executeEffect(effect, frame.context);
+    causingSelf = outer;
   }
 
   function runFrame(frame: Frame): void {

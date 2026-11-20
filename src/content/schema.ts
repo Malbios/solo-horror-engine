@@ -693,6 +693,7 @@ const triggerSchema = z.strictObject({
   condition: boolExprSchema.default(true),
   effects: effectListSchema,
   once: z.boolean().default(false),
+  perGroup: z.boolean().default(false),
 });
 
 const checkSchema = z.strictObject({
