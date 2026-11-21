@@ -760,6 +760,12 @@ h3 {
   border-color: var(--line);
 }
 
+.roll-result {
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
 .action-with-info {
   flex: 1 1 180px;
   display: flex;

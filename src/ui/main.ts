@@ -18,7 +18,7 @@ import {
   type Rules,
 } from "../core";
 import { renderMap } from "./board";
-import { automaticAction, renderDecision, renderPlayback } from "./decision";
+import { automaticAction, renderDecision, renderPlayback, rollToShow } from "./decision";
 import { h, requireElement } from "./dom";
 import { logEntry, replayWithLog, withEntry } from "./game-log";
 import { createLabels, describeEvent, displayRules, moduleInfo, type Labels } from "./labels";
@@ -157,6 +157,8 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
   };
   let session: Session | null = null;
   let playback: Playback | null = null;
+  // The dice pool the current decision is about (shown under the prompt), set by the last action taken.
+  let rollPool: string | null = null;
   let settings: Settings = loadSettings(localStorage);
   let activePanel: Panel = "cards";
   let rulesCache: { key: string; rules: Rules } | null = null;
@@ -247,12 +249,18 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     );
     decisionBar.replaceChildren(
       ...(beat === null || playback === null
-        ? renderDecision(shown, actions, labels, {
-            takeAction: take,
-            openCard,
-            previewCard,
-            newGame: confirmNewGame,
-          })
+        ? renderDecision(
+            shown,
+            actions,
+            labels,
+            {
+              takeAction: take,
+              openCard,
+              previewCard,
+              newGame: confirmNewGame,
+            },
+            rollPool,
+          )
         : renderPlayback(
             { index: playback.index, count: playback.beats.length },
             { next: nextBeat, skip: () => endPlayback(true) },
@@ -391,6 +399,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
       return;
     }
     session = next.session;
+    rollPool = rollToShow(next.steps, view(session.state));
     persist(session);
     sheet.close();
     if (startPlayback(before, action, next.steps)) return;
@@ -432,6 +441,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
       log: withEntry(session.log, { title: "Took back the last action", lines: [] }),
     });
     session = settledSession;
+    rollPool = null;
     persist(session);
     render(notice);
     focusDecision();
@@ -461,6 +471,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
       log: [],
     });
     session = settledSession;
+    rollPool = null;
     persist(session);
     sheet.close();
     render(notice);
@@ -697,6 +708,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
           log: withEntry(replayed.value.log, { title: "Game resumed", lines: [] }),
         });
         session = settledSession;
+        rollPool = null;
         if (session.actions.length !== actions.length) persist(session);
         render(notice === "" ? active.notice : notice);
         return;

@@ -1,6 +1,14 @@
 import type { Action, GameView, ViewCard } from "../core";
 import { h } from "./dom";
-import { describeAction, describeDecision, knownCosts, priceText, type Labels } from "./labels";
+import {
+  describeAction,
+  describeDecision,
+  describeEvent,
+  knownCosts,
+  priceText,
+  type Labels,
+} from "./labels";
+import type { PlaybackStep } from "./playback";
 
 export type DecisionHandlers = {
   takeAction: (action: Action) => void;
@@ -264,12 +272,24 @@ function actionControl(
   return row;
 }
 
-/** The pinned bar: what the game is waiting for and one button per offered action. */
+/**
+ * The dice pool to show under the prompt: the last one rolled (or rerolled) by the steps just taken, else the
+ * pool of dice being picked. An adjustment that changes no dice leads to a prompt without the roll.
+ */
+export function rollToShow(steps: readonly PlaybackStep[], shown: GameView): string | null {
+  const rolls = steps.flatMap((step) => step.events).filter((event) => event.type === "diceRolled");
+  const last = rolls.at(-1);
+  if (last !== undefined) return last.pool;
+  return shown.pending?.kind === "pickDie" ? shown.pending.pool : null;
+}
+
+/** The pinned bar: what the game is waiting for, the roll it is about (`roll`, a pool) and one button per action. */
 export function renderDecision(
   shown: GameView,
   actions: readonly Action[],
   labels: Labels,
   handlers: DecisionHandlers,
+  roll: string | null = null,
 ): HTMLElement[] {
   const prompt = h("p", {
     className: "prompt",
@@ -296,8 +316,16 @@ export function renderDecision(
     ];
   }
   const rows = discardsBesidePlays(stableOrder(actions, shown, labels), shown);
+  const dice = roll === null ? [] : (shown.pools[roll] ?? []);
+  const rollLine =
+    dice.length === 0
+      ? null
+      : describeEvent({ type: "diceRolled", pool: roll ?? "", dice }, shown, labels);
   return [
     prompt,
+    ...(rollLine === null
+      ? []
+      : [h("p", { className: "roll-result", text: rollLine, attrs: { "aria-live": "polite" } })]),
     h(
       "div",
       { className: "actions" },

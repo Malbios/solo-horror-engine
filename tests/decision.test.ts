@@ -3,6 +3,7 @@ import { createEngine, view, viewActions, type GameState } from "../src/core";
 import {
   actionLabel,
   automaticAction,
+  rollToShow,
   buyNote,
   discardsBesidePlays,
   stableOrder,
@@ -263,6 +264,28 @@ describe("automatic action", () => {
     });
     const state = createEngine(pack).init(1);
     expect(automaticAction(viewActions(state))).toEqual({ type: "chooseOption", option: "only" });
+  });
+});
+
+describe("rollToShow", () => {
+  const shown = view(createEngine(shopPack()).init(1));
+  const rolled = (pool: string) => ({ type: "diceRolled" as const, pool, dice: [] });
+
+  it("shows the pool rolled last by the steps just taken", () => {
+    const steps = [
+      { events: [rolled("first")], after: shown },
+      { events: [rolled("second")], after: shown },
+    ];
+    expect(rollToShow(steps, shown)).toBe("second");
+  });
+
+  it("shows the dice being picked when nothing was rolled, else nothing", () => {
+    const picking = {
+      ...shown,
+      pending: { kind: "pickDie" as const, pool: "tray", dice: ["d1"], canPass: true },
+    };
+    expect(rollToShow([{ events: [], after: picking }], picking)).toBe("tray");
+    expect(rollToShow([{ events: [], after: shown }], shown)).toBeNull();
   });
 });
 
