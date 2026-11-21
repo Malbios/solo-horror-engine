@@ -167,6 +167,12 @@ export type Frame =
 
 export type AbilityOffer = { card: string; ability: string };
 
+/** A cost with its amount worked out for the current state. */
+export type CostDue =
+  | { counter: string; amount: number }
+  | { attribute: string; amount: number }
+  | { discard: string; count: number };
+
 export type OptionView = { id: string; label: string; cost: Cost[]; effects: Effect[] };
 
 export type Decision =
@@ -185,6 +191,8 @@ export type Decision =
       /** The zone cards are bought from, so the player can see what is not affordable. */
       buyFrom: string | null;
       buyFree: boolean;
+      /** The buy cost of every card in `buyFrom` as it stands now, by card instance. */
+      buyPrices: Record<string, CostDue[]>;
       abilities: AbilityOffer[];
     }
   | { kind: "moveUnit"; unit: string; options: string[]; canPass: boolean }

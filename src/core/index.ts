@@ -14,6 +14,7 @@ export {
 export { distancesFrom, distancesTo, neighbours, spaceOfUnit } from "./graph";
 export type {
   Action,
+  CostDue,
   UnitPlacement,
   UnitState,
   Decision,

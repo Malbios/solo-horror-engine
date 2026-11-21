@@ -25,6 +25,7 @@ import {
 import type {
   Action,
   AssignFrame,
+  CostDue,
   Decision,
   DeliverFrame,
   Die,
@@ -1868,8 +1869,29 @@ export function createResolver(
       buy: buyOffers(frame.buy),
       buyFrom: frame.buy?.from ?? null,
       buyFree: frame.buy?.free ?? false,
+      buyPrices: frame.buy === null ? {} : buyPrices(frame.buy.from),
       abilities: abilityOffers(frame.abilitiesFrom),
     };
+  }
+
+  function costDue(cost: Cost, context: ExpressionContext): CostDue {
+    const scope = scopeOf(context);
+    if ("counter" in cost)
+      return { counter: cost.counter, amount: evaluateNumber(cost.amount, scope) };
+    if ("attribute" in cost) {
+      return { attribute: cost.attribute, amount: evaluateNumber(cost.amount, scope) };
+    }
+    return { discard: cost.discard.from, count: evaluateNumber(cost.discard.count, scope) };
+  }
+
+  /** The buy cost of each card in `zone` as it stands now (evaluated as `buyOffers` does). */
+  function buyPrices(zone: string): Record<string, CostDue[]> {
+    return Object.fromEntries(
+      zoneCards(zone).map((card) => [
+        card,
+        cardDefinition(card).buyCost.map((cost) => costDue(cost, EMPTY_CONTEXT)),
+      ]),
+    );
   }
 
   function playOffers(play: WindowPlay | null): string[] {

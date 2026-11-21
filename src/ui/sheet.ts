@@ -1,6 +1,6 @@
-import type { Cost, GameView, Space, ViewCard } from "../core";
+import type { Cost, CostDue, GameView, Space, ViewCard } from "../core";
 import { h, type Child } from "./dom";
-import { describeCost, describeMarkFrom, type Labels } from "./labels";
+import { describeMarkFrom, knownCosts, priceText, type Labels } from "./labels";
 
 export type Sheet = {
   open: (title: string, body: readonly Child[]) => void;
@@ -35,10 +35,17 @@ export function createSheet(dialog: HTMLDialogElement): Sheet {
   };
 }
 
-function costLine(title: string, costs: readonly Cost[], labels: Labels): Child {
-  if (costs.length === 0) return null;
-  const text = `${title}: ${costs.map((cost) => describeCost(cost, labels)).join(", ")}`;
-  return h("p", { className: "muted", text });
+/** A cost line: the current amounts when known, else only the amounts fixed in the card; nothing left, no line. */
+function costLine(
+  title: string,
+  costs: readonly Cost[],
+  current: CostDue[] | null,
+  labels: Labels,
+): Child {
+  const dues = current ?? knownCosts(costs);
+  const text = priceText(dues, labels);
+  if (current === null && text === "Free") return null;
+  return h("p", { className: "muted", text: `${title}: ${text}` });
 }
 
 export function cardDetails(card: ViewCard, labels: Labels): Child[] {
@@ -64,8 +71,10 @@ export function cardDetails(card: ViewCard, labels: Labels): Child[] {
           attrs: { src: definition.image, alt: definition.name },
         }),
     definition.text === "" ? null : h("p", { className: "card-text-full", text: definition.text }),
-    costLine("Cost", definition.cost, labels),
-    costLine("Price", definition.buyCost, labels),
+    costLine("Cost", definition.cost, null, labels),
+    definition.buyCost.length === 0
+      ? null
+      : costLine("Price", definition.buyCost, labels.price(card), labels),
     definition.abilities.length === 0
       ? null
       : h(

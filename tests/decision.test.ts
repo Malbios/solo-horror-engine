@@ -8,7 +8,7 @@ import {
   stableOrder,
   unavailableBuys,
 } from "../src/ui/decision";
-import { createLabels, displayRules } from "../src/ui/labels";
+import { createLabels, displayRules, knownCosts } from "../src/ui/labels";
 import { groupCopies } from "../src/ui/panels";
 import { act, fixturePack, PAUSE_PHASE } from "./helpers";
 
@@ -78,6 +78,89 @@ describe("decision buttons", () => {
       "Buy Rope [Free]",
       "Pass",
     ]);
+  });
+});
+
+describe("current prices", () => {
+  function formulaPack(faceDownShelf = false) {
+    return fixturePack({
+      zones: [
+        faceDownShelf
+          ? { id: "shelf", name: "Shelf", face: "down" }
+          : { id: "shelf", name: "Shelf" },
+        { id: "bag", name: "Bag" },
+      ],
+      counters: [
+        { id: "coins", name: "Coins", start: 9, min: 0 },
+        { id: "markup", name: "Markup", start: 2 },
+        { id: "lock", start: 0, hidden: true },
+      ],
+      cards: [
+        {
+          id: "lamp",
+          name: "Lamp",
+          buyCost: [{ counter: "coins", amount: { counter: "markup" } }],
+        },
+        {
+          id: "bell",
+          name: "Bell",
+          buyCost: [
+            { counter: "coins", amount: { sub: [{ counter: "markup" }, 2] } },
+            { counter: "lock", amount: 0 },
+          ],
+        },
+      ],
+      setup: [
+        { type: "createCards", card: "lamp", zone: "shelf" },
+        { type: "createCards", card: "bell", zone: "shelf" },
+      ],
+      phases: [
+        {
+          id: "shop",
+          steps: [
+            {
+              id: "go",
+              effects: [{ type: "playWindow", buy: { from: "shelf", to: "bag", cards: {} } }],
+            },
+          ],
+        },
+        PAUSE_PHASE,
+      ],
+    });
+  }
+
+  it("shows a price given by an expression as its current amount, and leaves out zero and hidden costs", () => {
+    const pack = formulaPack();
+    const state = createEngine(pack).init(1);
+    expect(state.pending).toMatchObject({
+      buyPrices: {
+        "lamp:1": [{ counter: "coins", amount: 2 }],
+        "bell:1": [
+          { counter: "coins", amount: 0 },
+          { counter: "lock", amount: 0 },
+        ],
+      },
+    });
+    expect(buttons(state, pack)).toEqual(["Buy Bell [Free]", "Buy Lamp [2 Coins]", "Pass"]);
+  });
+
+  it("gives the price only of cards the player can identify, by their ref", () => {
+    const state = createEngine(formulaPack(true)).init(1);
+    const shown = view(state);
+    if (shown.pending?.kind !== "window") throw new Error("no window");
+    expect(
+      Object.keys(state.pending?.kind === "window" ? state.pending.buyPrices : {}).length,
+    ).toBe(2);
+    expect(shown.pending.buyPrices).toEqual({});
+  });
+
+  it("knows a card's cost outside a buy window only where it is a plain number", () => {
+    expect(
+      knownCosts([
+        { counter: "coins", amount: 3, floor: null },
+        { counter: "coins", amount: { counter: "markup" }, floor: null },
+      ]),
+    ).toEqual([{ counter: "coins", amount: 3 }]);
   });
 });
 

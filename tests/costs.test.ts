@@ -82,6 +82,7 @@ describe("costs", () => {
       buy: [],
       buyFrom: null,
       buyFree: false,
+      buyPrices: {},
       abilities: [],
     });
     const played = act(engine, window, { type: "playCard", card: "cheap:1" });

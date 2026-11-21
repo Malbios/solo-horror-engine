@@ -1,6 +1,6 @@
 import type { Action, GameView, ViewCard } from "../core";
 import { h } from "./dom";
-import { describeAction, describeCost, describeDecision, type Labels } from "./labels";
+import { describeAction, describeDecision, knownCosts, priceText, type Labels } from "./labels";
 
 export type DecisionHandlers = {
   takeAction: (action: Action) => void;
@@ -54,15 +54,21 @@ export function actionLabel(action: Action, shown: GameView, labels: Labels): st
   return copies > 1 && action.type !== "buyCard" ? `${label} (${copies})` : label;
 }
 
+/** The card's price as it stands now, or the part of it known without the current state. */
+function currentPrice(card: ViewCard, labels: Labels): string {
+  return priceText(
+    labels.price(card) ?? knownCosts(labels.cardDefinition(card)?.buyCost ?? []),
+    labels,
+  );
+}
+
 /** The second line of a buy button: its price (unless free) and how many copies are left. */
 export function buyNote(action: Action, shown: GameView, labels: Labels): string | null {
   if (action.type !== "buyCard") return null;
   const pending = shown.pending;
   const free = pending?.kind === "window" && pending.buyFree;
   const card = offeredCard(action, shown);
-  const definition = card === null ? null : labels.cardDefinition(card);
-  const prices = definition?.buyCost.map((cost) => describeCost(cost, labels)) ?? [];
-  const price = free ? null : prices.length === 0 ? "Free" : prices.join(", ");
+  const price = free || card === null ? null : currentPrice(card, labels);
   const copies = copiesOffered(action, shown);
   const left = copies > 1 ? `${copies} left` : null;
   const parts = [price, left].filter((part) => part !== null);
@@ -126,12 +132,7 @@ function unavailableControl(
       ? (shown.zones[pending.buyFrom] ?? [])
       : [];
   const copies = shopCards.filter((other) => other.card === card.card).length;
-  const definition = labels.cardDefinition(card);
-  const prices = definition?.buyCost.map((cost) => describeCost(cost, labels)) ?? [];
-  const parts = [
-    prices.length === 0 ? "Free" : prices.join(", "),
-    copies > 1 ? `${copies} left` : null,
-  ];
+  const parts = [currentPrice(card, labels), copies > 1 ? `${copies} left` : null];
   const note = parts.filter((part) => part !== null).join(" · ");
   const greyed = h(
     "button",

@@ -5,13 +5,13 @@ import {
   type Board,
   type Card,
   type Cost,
+  type CostDue,
   type Die,
   type DieSymbol,
   type Edge,
   type EdgeMark,
   type GameEvent,
   type GameView,
-  type NumExpr,
   type Pack,
   type Rules,
   type Space,
@@ -29,6 +29,8 @@ export type Labels = {
   spaceCounter(id: string): string;
   card(card: ViewCard): string;
   cardDefinition(card: ViewCard): Card | null;
+  /** The card's buy price as it stands now (while a buy window offers its zone), else null. */
+  price(card: ViewCard): CostDue[] | null;
   /** A piece named so the player can tell it apart, e.g. "Walker 2 at Mill". */
   unit(id: string): string;
   /** A piece named among those on its own space, e.g. "Walker 2". */
@@ -127,6 +129,8 @@ export function createLabels(
     spaceCounter: (id) => rules.spaceCounterById.get(id)?.name ?? id,
     card: cardName,
     cardDefinition,
+    price: (card) =>
+      shown.pending?.kind === "window" ? (shown.pending.buyPrices[card.ref] ?? null) : null,
     unit: (id) => {
       const unit = shown.units[id];
       return unit === undefined ? id : unitName(unit);
@@ -296,14 +300,43 @@ export function describeEvent(event: GameEvent, shown: GameView, labels: Labels)
   }
 }
 
-function amountText(amount: NumExpr): string {
-  return typeof amount === "number" ? String(amount) : "some";
+export function describeDue(due: CostDue, labels: Labels): string {
+  if ("counter" in due) return `${due.amount} ${labels.counter(due.counter)}`;
+  if ("attribute" in due) return `${due.amount} ${due.attribute}`;
+  return `Discard ${due.count} from ${labels.zone(due.discard)}`;
 }
 
-export function describeCost(cost: Cost, labels: Labels): string {
-  if ("counter" in cost) return `${amountText(cost.amount)} ${labels.counter(cost.counter)}`;
-  if ("attribute" in cost) return `${amountText(cost.amount)} ${cost.attribute}`;
-  return `Discard from ${labels.zone(cost.discard.from)}`;
+function shownDue(due: CostDue, labels: Labels): boolean {
+  if ("counter" in due)
+    return due.amount !== 0 && labels.rules.counterById.get(due.counter)?.hidden !== true;
+  if ("attribute" in due) return due.amount !== 0;
+  return due.count !== 0;
+}
+
+/** A price for the player: parts that are 0 and costs on hidden counters are left out; nothing left is "Free". */
+export function priceText(dues: readonly CostDue[], labels: Labels): string {
+  const parts = dues.filter((due) => shownDue(due, labels)).map((due) => describeDue(due, labels));
+  return parts.length === 0 ? "Free" : parts.join(", ");
+}
+
+/**
+ * The costs whose amount is known without the current state (a plain number), worked out; costs given by an
+ * expression are left out rather than guessed.
+ */
+export function knownCosts(costs: readonly Cost[]): CostDue[] {
+  return costs.flatMap((cost): CostDue[] => {
+    if ("counter" in cost)
+      return typeof cost.amount === "number"
+        ? [{ counter: cost.counter, amount: cost.amount }]
+        : [];
+    if ("attribute" in cost)
+      return typeof cost.amount === "number"
+        ? [{ attribute: cost.attribute, amount: cost.amount }]
+        : [];
+    return typeof cost.discard.count === "number"
+      ? [{ discard: cost.discard.from, count: cost.discard.count }]
+      : [];
+  });
 }
 
 export function describeOutcome(shown: GameView): string | null {

@@ -4,6 +4,7 @@ import type { UnitState } from "./graph";
 import type {
   AbilityOffer,
   Action,
+  CostDue,
   Decision,
   Die,
   GameEvent,
@@ -40,6 +41,8 @@ export type DecisionView =
       buy: ViewCard[];
       buyFrom: string | null;
       buyFree: boolean;
+      /** Current buy prices of the identified cards in `buyFrom`, by card ref. */
+      buyPrices: Record<string, CostDue[]>;
       abilities: AbilityOffer[];
     }
   | { kind: "pickCard"; cards: ViewCard[]; canPass: boolean };
@@ -114,6 +117,11 @@ function viewDecision(state: GameState, pending: Decision): DecisionView {
         buy: pending.buy.map((card) => viewCard(state, card)),
         buyFrom: pending.buyFrom,
         buyFree: pending.buyFree,
+        buyPrices: Object.fromEntries(
+          Object.entries(pending.buyPrices)
+            .filter(([card]) => isIdentified(state, card))
+            .map(([card, price]) => [cardRef(state, card), price]),
+        ),
         abilities: pending.abilities,
       };
     case "pickCard":
