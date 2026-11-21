@@ -153,6 +153,35 @@ describe("labels", () => {
     expect(text).toContain(HIDDEN_CARD_NAME);
   });
 
+  it("names the zone of a face-down card that is resolved, never the card", () => {
+    const pack = fixturePack({
+      counters: [{ id: "tally", name: "Tally", start: 0 }],
+      zones: [
+        {
+          id: "omen",
+          name: "Omen",
+          face: "down",
+          backEffects: [{ type: "changeCounter", counter: "tally", amount: 1 }],
+        },
+      ],
+      cards: [{ id: SECRET, name: "Grey Oval" }],
+      setup: [
+        { type: "createCards", card: SECRET, zone: "omen" },
+        { type: "resolveCard", zone: "omen", to: null },
+      ],
+      phases: [PAUSE_PHASE],
+    });
+    const engine = createEngine(pack);
+    const state = engine.init(3);
+    const shown = view(state);
+    const labels = createLabels(displayRules(pack, shown.modules), shown);
+    const ref = shown.zones["omen"]?.[0]?.ref ?? "";
+    expect(describeEvent({ type: "cardResolved", card: ref }, shown, labels)).toBe(
+      `Resolved ${HIDDEN_CARD_NAME} (Omen)`,
+    );
+    expect(state.counters["tally"]).toBe(1);
+  });
+
   it("offers a module with its note, and without one when the pack gives none", () => {
     const pack = loadDemoPack();
     const engine = createEngine(pack);

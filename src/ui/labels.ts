@@ -161,8 +161,15 @@ function abilityLabel(ref: string, ability: string, shown: GameView, labels: Lab
   return `${labels.card(card)}: ${label}`;
 }
 
+/** A card's name; one the player cannot identify is named with the zone it lies in (public anyway). */
 function cardLabel(ref: string, shown: GameView, labels: Labels): string {
-  return labels.card(cardsByRef(shown).get(ref) ?? { ref, card: null });
+  const card = cardsByRef(shown).get(ref) ?? { ref, card: null };
+  const name = labels.card(card);
+  if (card.card !== null) return name;
+  const zone = Object.entries(shown.zones).find(([, cards]) =>
+    cards.some((each) => each.ref === ref),
+  )?.[0];
+  return zone === undefined ? name : `${name} (${labels.zone(zone)})`;
 }
 
 function choiceName(choice: string): string {
