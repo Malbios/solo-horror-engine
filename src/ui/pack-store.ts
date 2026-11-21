@@ -1,5 +1,6 @@
 import { parseAddOn, parsePack, type PackIssue } from "../content";
 import { err, ok, type AddOn, type Pack, type Result } from "../core";
+import { LIBRARY_STORE, readStored, writeStored } from "./idb";
 
 const ISSUES_SHOWN = 5;
 
@@ -36,6 +37,16 @@ export class LocalStorageLibraryStore implements LibraryStore {
       this.storage.removeItem(this.coreKey);
     } catch (error) {
       console.warn("Could not clear the stored core", error);
+    }
+  }
+
+  /** Drops the core and the add-ons (after they were moved elsewhere). */
+  clear(): void {
+    this.clearCore();
+    try {
+      this.storage.removeItem(this.addOnsKey);
+    } catch (error) {
+      console.warn("Could not clear the stored add-ons", error);
     }
   }
 
@@ -158,4 +169,58 @@ export function refreshLibrary(
 
 export function withoutAddOn(texts: readonly string[], id: string): string[] {
   return texts.filter((stored) => parseAddOnText(stored)?.meta.id !== id);
+}
+
+/** The loaded files: the core (null for the demo core) and the add-ons, as text. */
+export type LibrarySnapshot = { core: string | null; addOns: string[] };
+
+export const EMPTY_LIBRARY: LibrarySnapshot = { core: null, addOns: [] };
+
+/**
+ * The library to use at start: the stored one, else the files an older version kept in localStorage
+ * (`migrate` then says they should be copied over and the old copies dropped).
+ */
+export function migrateLibrary(
+  stored: LibrarySnapshot | null,
+  legacy: LibrarySnapshot,
+): { library: LibrarySnapshot; migrate: boolean } {
+  if (stored !== null) return { library: stored, migrate: false };
+  const hasLegacy = legacy.core !== null || legacy.addOns.length > 0;
+  return { library: hasLegacy ? legacy : EMPTY_LIBRARY, migrate: hasLegacy };
+}
+
+function isSnapshot(value: unknown): value is LibrarySnapshot {
+  if (typeof value !== "object" || value === null) return false;
+  const { core, addOns } = value as Record<string, unknown>;
+  return (
+    (core === null || typeof core === "string") &&
+    Array.isArray(addOns) &&
+    addOns.every((text) => typeof text === "string")
+  );
+}
+
+/** The library kept in the browser database, which holds far more than localStorage. */
+export class IndexedDbLibraryStore {
+  private static readonly KEY = "library";
+
+  /** The stored library, or null when none was ever stored (or it cannot be read). */
+  async load(): Promise<LibrarySnapshot | null> {
+    try {
+      const stored = await readStored(LIBRARY_STORE, IndexedDbLibraryStore.KEY);
+      return isSnapshot(stored) ? stored : null;
+    } catch (error) {
+      console.warn("Could not read the stored packs", error);
+      return null;
+    }
+  }
+
+  async save(library: LibrarySnapshot): Promise<boolean> {
+    try {
+      await writeStored(LIBRARY_STORE, IndexedDbLibraryStore.KEY, library);
+      return true;
+    } catch (error) {
+      console.warn("Could not store the loaded packs", error);
+      return false;
+    }
+  }
 }

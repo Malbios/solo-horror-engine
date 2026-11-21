@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import demoPackData from "../content/demo/pack.json";
 import {
+  EMPTY_LIBRARY,
   LocalStorageLibraryStore,
+  migrateLibrary,
   parseLibraryFile,
   parsePackText,
   refreshLibrary,
@@ -39,6 +41,15 @@ describe("LocalStorageLibraryStore", () => {
     library.clearCore();
     expect(library.loadCore()).toBeNull();
     expect(library.loadAddOns()).toEqual(["a", "b"]);
+  });
+
+  it("drops both the core and the add-ons on clear", () => {
+    const library = store();
+    library.saveCore("{}");
+    library.saveAddOns(["a"]);
+    library.clear();
+    expect(library.loadCore()).toBeNull();
+    expect(library.loadAddOns()).toEqual([]);
   });
 
   it("reports a failed write", () => {
@@ -137,5 +148,26 @@ describe("parsePackText", () => {
     const parsed = parsePackText(JSON.stringify({ meta: 1, base: 2, modules: 3, choices: 4 }));
     expect(parsed.ok).toBe(false);
     if (!parsed.ok) expect(parsed.error.length).toBeLessThanOrEqual(7);
+  });
+});
+
+describe("migrateLibrary", () => {
+  const legacy = { core: "core-text", addOns: ["lamp-text"] };
+
+  it("moves files an older version kept when nothing is stored yet", () => {
+    expect(migrateLibrary(null, legacy)).toEqual({ library: legacy, migrate: true });
+  });
+
+  it("keeps the stored library and leaves the old files alone", () => {
+    const stored = { core: null, addOns: ["rope-text"] };
+    expect(migrateLibrary(stored, legacy)).toEqual({ library: stored, migrate: false });
+    expect(migrateLibrary(EMPTY_LIBRARY, legacy)).toEqual({
+      library: EMPTY_LIBRARY,
+      migrate: false,
+    });
+  });
+
+  it("starts empty with nothing anywhere", () => {
+    expect(migrateLibrary(null, EMPTY_LIBRARY)).toEqual({ library: EMPTY_LIBRARY, migrate: false });
   });
 });

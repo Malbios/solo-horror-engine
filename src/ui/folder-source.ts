@@ -3,6 +3,8 @@
  * and keep it between visits; the handle is kept in IndexedDB because localStorage holds text only.
  */
 
+import { HANDLES_STORE, readStored, writeStored } from "./idb";
+
 type ReadPermission = "granted" | "denied" | "prompt";
 
 type PermissionHandle = FileSystemDirectoryHandle & {
@@ -12,8 +14,6 @@ type PermissionHandle = FileSystemDirectoryHandle & {
 
 type FolderPicker = (options: { mode: "read"; id: string }) => Promise<FileSystemDirectoryHandle>;
 
-const DATABASE = "solo-horror-engine";
-const STORE = "handles";
 const FOLDER_KEY = "packs-folder";
 const PICKER_ID = "packs";
 const MAX_DEPTH = 6;
@@ -59,34 +59,9 @@ export async function readJsonTexts(
   return texts;
 }
 
-function openDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DATABASE, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(STORE);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("Could not open storage"));
-  });
-}
-
-async function withStore<T>(
-  mode: IDBTransactionMode,
-  use: (store: IDBObjectStore) => IDBRequest<T>,
-): Promise<T> {
-  const database = await openDatabase();
-  try {
-    return await new Promise<T>((resolve, reject) => {
-      const request = use(database.transaction(STORE, mode).objectStore(STORE));
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error ?? new Error("Storage request failed"));
-    });
-  } finally {
-    database.close();
-  }
-}
-
 export async function rememberedFolder(): Promise<FileSystemDirectoryHandle | null> {
   try {
-    const stored: unknown = await withStore("readonly", (store) => store.get(FOLDER_KEY));
+    const stored = await readStored(HANDLES_STORE, FOLDER_KEY);
     return stored instanceof FileSystemDirectoryHandle ? stored : null;
   } catch {
     return null;
@@ -94,5 +69,5 @@ export async function rememberedFolder(): Promise<FileSystemDirectoryHandle | nu
 }
 
 export async function rememberFolder(folder: FileSystemDirectoryHandle): Promise<void> {
-  await withStore("readwrite", (store) => store.put(folder, FOLDER_KEY));
+  await writeStored(HANDLES_STORE, FOLDER_KEY, folder);
 }

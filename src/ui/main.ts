@@ -40,14 +40,16 @@ import {
   type SaveStore,
 } from "./save-store";
 import {
+  IndexedDbLibraryStore,
   LocalStorageLibraryStore,
+  migrateLibrary,
   parseAddOnText,
   parseLibraryFile,
   parsePackText,
   refreshLibrary,
   withAddOn,
   withoutAddOn,
-  type LibraryStore,
+  type LibrarySnapshot,
 } from "./pack-store";
 import {
   chooseFolder,
@@ -121,7 +123,10 @@ function randomSeed(): number {
   return crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
 }
 
-function start(active: ActivePack, library: LibraryStore, engine: Engine, store: SaveStore): void {
+/** The loaded files as they stand, and how to store a changed set. */
+type Library = { current: LibrarySnapshot; save(next: LibrarySnapshot): Promise<boolean> };
+
+function start(active: ActivePack, library: Library, engine: Engine, store: SaveStore): void {
   const { pack } = active;
   let folder: FileSystemDirectoryHandle | null = null;
   const roundText = requireElement("round", HTMLSpanElement);
@@ -604,13 +609,11 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
       });
     }
     const refreshed = refreshLibrary(
-      library.loadCore(),
-      library.loadAddOns(),
+      library.current.core,
+      library.current.addOns,
       await readJsonTexts(chosen),
     );
-    const stored =
-      (refreshed.core === null || library.saveCore(refreshed.core)) &&
-      library.saveAddOns(refreshed.addOns);
+    const stored = await library.save({ core: refreshed.core, addOns: refreshed.addOns });
     if (!stored) {
       openMenu(["The files are too large for this browser to remember."]);
       return;
@@ -657,10 +660,12 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
       openMenu(parsed.error);
       return;
     }
-    const stored =
+    const { current } = library;
+    const stored = await library.save(
       parsed.value.type === "core"
-        ? library.saveCore(text)
-        : library.saveAddOns(withAddOn(library.loadAddOns(), text, parsed.value.addOn));
+        ? { ...current, core: text }
+        : { ...current, addOns: withAddOn(current.addOns, text, parsed.value.addOn) },
+    );
     if (!stored) {
       openMenu(["The file is too large for this browser to remember."]);
       return;
@@ -669,13 +674,14 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
   }
 
   function removeAddOn(id: string): void {
-    library.saveAddOns(withoutAddOn(library.loadAddOns(), id));
-    location.reload();
+    const { current } = library;
+    void library
+      .save({ ...current, addOns: withoutAddOn(current.addOns, id) })
+      .then(() => location.reload());
   }
 
   function useDemoCore(): void {
-    library.clearCore();
-    location.reload();
+    void library.save({ ...library.current, core: null }).then(() => location.reload());
   }
 
   function resume(): void {
@@ -758,8 +764,8 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
   resume();
 }
 
-function storedCore(library: LibraryStore): { core: Pack | null; notices: string[] } {
-  const stored = library.loadCore();
+function storedCore(library: LibrarySnapshot): { core: Pack | null; notices: string[] } {
+  const stored = library.core;
   if (stored === null) return { core: null, notices: [] };
   const parsed = parsePackText(stored);
   return parsed.ok
@@ -772,14 +778,14 @@ function describeKind(kind: string): string {
   return /^[aeiou]/i.test(words) ? `an ${words}` : `a ${words}`;
 }
 
-function chooseGame(library: LibraryStore): ActivePack | null {
+function chooseGame(library: LibrarySnapshot): ActivePack | null {
   const demo = parsePack(demoPackData);
   if (!demo.ok) {
     console.error("Demo pack is invalid", demo.error);
     return null;
   }
   const { core, notices } = storedCore(library);
-  const texts = library.loadAddOns();
+  const texts = library.addOns;
   const addOns = texts.flatMap((text) => {
     const addOn = parseAddOnText(text);
     return addOn === null ? [] : [addOn];
@@ -804,9 +810,25 @@ function chooseGame(library: LibraryStore): ActivePack | null {
   };
 }
 
-const library = new LocalStorageLibraryStore(PACK_KEY, ADD_ONS_KEY, localStorage);
-const active = chooseGame(library);
-if (active !== null) {
+/** The stored library; one an older version kept in localStorage is moved to the database first. */
+async function openLibrary(): Promise<Library> {
+  const database = new IndexedDbLibraryStore();
+  const legacyStore = new LocalStorageLibraryStore(PACK_KEY, ADD_ONS_KEY, localStorage);
+  const legacy = { core: legacyStore.loadCore(), addOns: legacyStore.loadAddOns() };
+  const { library, migrate } = migrateLibrary(await database.load(), legacy);
+  if (migrate && (await database.save(library))) legacyStore.clear();
+  const current = library;
+  return { current, save: (next) => database.save(next) };
+}
+
+async function boot(): Promise<void> {
+  const notice = requireElement("notice", HTMLParagraphElement);
+  notice.textContent = "Loading packs…";
+  notice.hidden = false;
+  const library = await openLibrary();
+  const active = chooseGame(library.current);
+  notice.hidden = true;
+  if (active === null) return;
   start(
     active,
     library,
@@ -814,3 +836,5 @@ if (active !== null) {
     new LocalStorageSaveStore(SAVE_KEY_PREFIX + active.pack.meta.id, localStorage),
   );
 }
+
+void boot();
