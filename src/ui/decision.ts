@@ -5,6 +5,8 @@ import { describeAction, describeCost, describeDecision, type Labels } from "./l
 export type DecisionHandlers = {
   takeAction: (action: Action) => void;
   openCard: (card: ViewCard) => void;
+  /** Shows the card's details while `target` is hovered or keyboard-focused. */
+  previewCard: (target: HTMLElement, card: ViewCard) => void;
   newGame: () => void;
 };
 
@@ -139,7 +141,7 @@ function unavailableControl(
     },
     [`Buy ${labels.card(card)}`, h("span", { className: "action-note", text: note })],
   );
-  return h("div", { className: "action-with-info" }, [
+  const row = h("div", { className: "action-with-info" }, [
     greyed,
     h("button", {
       className: "info",
@@ -148,6 +150,8 @@ function unavailableControl(
       onClick: () => handlers.openCard(card),
     }),
   ]);
+  handlers.previewCard(row, card);
+  return row;
 }
 
 /** Buy buttons and the greyed-out cards that cannot be bought, together in name order. */
@@ -247,7 +251,7 @@ function actionControl(
   );
   const card = offeredCard(action, shown);
   if (card === null || card.card === null) return take;
-  return h("div", { className: "action-with-info" }, [
+  const row = h("div", { className: "action-with-info" }, [
     take,
     discard === null ? null : discardBeside(discard, card, labels, handlers),
     h("button", {
@@ -257,6 +261,8 @@ function actionControl(
       onClick: () => handlers.openCard(card),
     }),
   ]);
+  handlers.previewCard(row, card);
+  return row;
 }
 
 /** The pinned bar: what the game is waiting for and one button per offered action. */

@@ -784,6 +784,45 @@ h3 {
   font-style: italic;
 }
 
+/* Where the device can hover, hovering or focusing a card previews it, so the "i" button is not needed. */
+@media (hover: hover) and (pointer: fine) {
+  .action-with-info .info {
+    display: none;
+  }
+}
+
+.card-preview {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 32px));
+  max-height: 60dvh;
+  overflow: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 30%);
+  pointer-events: none;
+}
+
+.card-preview[hidden] {
+  display: none;
+}
+
+.card-preview-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.card-preview .card-image {
+  max-height: 30dvh;
+}
+
 .sheet {
   margin: auto auto 0;
   width: 100%;

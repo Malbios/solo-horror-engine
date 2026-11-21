@@ -2,7 +2,17 @@ import type { CounterShow, Die, GameView, UnitState, ViewCard } from "../core";
 import { h } from "./dom";
 import { symbolCounts, type Labels } from "./labels";
 
-export type CardHandler = (card: ViewCard) => void;
+/** Opening a card's details (tap) and previewing them while an element is hovered or keyboard-focused. */
+export type CardHandlers = {
+  open: (card: ViewCard) => void;
+  preview: (target: HTMLElement, card: ViewCard) => void;
+};
+
+/** Attaches the card's preview to `element` and returns it. */
+function previewed<T extends HTMLElement>(element: T, card: ViewCard, handlers: CardHandlers): T {
+  handlers.preview(element, card);
+  return element;
+}
 
 export type LogEntry = { title: string; lines: string[] };
 
@@ -159,14 +169,14 @@ function revealedLine(card: ViewCard, text: string, index: number): HTMLElement 
 }
 
 /** A face-down card with some parts revealed: the revealed lines over a veil hiding the rest. */
-function veiledTile(card: ViewCard, labels: Labels, onOpen: CardHandler): HTMLButtonElement {
+function veiledTile(card: ViewCard, labels: Labels, handlers: CardHandlers): HTMLButtonElement {
   const lines = card.revealed ?? [];
-  return h(
+  const tile = h(
     "button",
     {
       className: "card card-veiled",
       attrs: { "aria-label": `${labels.card(card)}, ${lines.length} revealed, details` },
-      onClick: () => onOpen(card),
+      onClick: () => handlers.open(card),
     },
     [
       h("span", { className: "card-name", text: labels.card(card) }),
@@ -178,24 +188,25 @@ function veiledTile(card: ViewCard, labels: Labels, onOpen: CardHandler): HTMLBu
       h("span", { className: "veil-rest", attrs: { "aria-hidden": "true" } }),
     ],
   );
+  return previewed(tile, card, handlers);
 }
 
 export function cardTile(
   card: ViewCard,
   labels: Labels,
-  onOpen: CardHandler,
+  handlers: CardHandlers,
   copies = 1,
 ): HTMLButtonElement {
   if (card.card === null && (card.revealed?.length ?? 0) > 0)
-    return veiledTile(card, labels, onOpen);
+    return veiledTile(card, labels, handlers);
   const definition = labels.cardDefinition(card);
   const copiesText = copies > 1 ? `, ${copies} copies` : "";
-  return h(
+  const tile = h(
     "button",
     {
       className: card.card === null ? "card card-back" : "card",
       attrs: { "aria-label": `${labels.card(card)}${copiesText}, details` },
-      onClick: () => onOpen(card),
+      onClick: () => handlers.open(card),
     },
     [
       h("span", { className: "card-name" }, [
@@ -207,13 +218,14 @@ export function cardTile(
         : h("span", { className: "card-text", text: definition.text }),
     ],
   );
+  return previewed(tile, card, handlers);
 }
 
 function zoneSection(
   zone: string,
   cards: readonly ViewCard[],
   labels: Labels,
-  onOpen: CardHandler,
+  handlers: CardHandlers,
 ): HTMLElement {
   const allHidden =
     cards.length > 0 && cards.every((card) => card.card === null && card.revealed === undefined);
@@ -224,7 +236,7 @@ function zoneSection(
     : h(
         "div",
         { className: "card-row" },
-        groupCopies(cards).map(({ card, copies }) => cardTile(card, labels, onOpen, copies)),
+        groupCopies(cards).map(({ card, copies }) => cardTile(card, labels, handlers, copies)),
       );
   return h("section", { className: "zone" }, [
     h("h3", {}, [labels.zone(zone), h("span", { className: "count", text: ` ${cards.length}` })]),
@@ -253,19 +265,23 @@ function minorZoneRow(
   zone: string,
   cards: readonly ViewCard[],
   labels: Labels,
-  onOpen: CardHandler,
+  handlers: CardHandlers,
 ): HTMLElement {
   const faceUp = groupCopies(cards.filter((card) => card.card !== null));
   return compactRow(
     labels.zone(zone),
     String(cards.length),
     faceUp.map(({ card, copies }) =>
-      h("button", {
-        className: "chip",
-        text: copies > 1 ? `${labels.card(card)} ×${copies}` : labels.card(card),
-        attrs: { "aria-label": `${labels.card(card)}, details` },
-        onClick: () => onOpen(card),
-      }),
+      previewed(
+        h("button", {
+          className: "chip",
+          text: copies > 1 ? `${labels.card(card)} ×${copies}` : labels.card(card),
+          attrs: { "aria-label": `${labels.card(card)}, details` },
+          onClick: () => handlers.open(card),
+        }),
+        card,
+        handlers,
+      ),
     ),
   );
 }
@@ -273,12 +289,12 @@ function minorZoneRow(
 export function renderZones(
   shown: GameView,
   labels: Labels,
-  onOpen: CardHandler,
+  handlers: CardHandlers,
   more: MoreState,
 ): HTMLElement {
   const layout = zoneLayout(shown, labels);
   const cardsIn = (zone: string) => shown.zones[zone] ?? [];
-  const section = (zone: string) => zoneSection(zone, cardsIn(zone), labels, onOpen);
+  const section = (zone: string) => zoneSection(zone, cardsIn(zone), labels, handlers);
   return h("div", { className: "panel-body" }, [
     ...layout.main.map(section),
     ...layout.normal.map(section),
@@ -290,7 +306,7 @@ export function renderZones(
         }),
     moreSection(
       "zones",
-      layout.minor.map((zone) => minorZoneRow(zone, cardsIn(zone), labels, onOpen)),
+      layout.minor.map((zone) => minorZoneRow(zone, cardsIn(zone), labels, handlers)),
       more,
     ),
   ]);

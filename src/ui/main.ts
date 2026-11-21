@@ -57,6 +57,7 @@ import {
   rememberedFolder,
   rememberFolder,
 } from "./folder-source";
+import { createCardPreview } from "./card-preview";
 import { cardDetails, createSheet, spaceDetails } from "./sheet";
 import "./style.css";
 
@@ -142,6 +143,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
   };
   const sheetDialog = requireElement("sheet", HTMLDialogElement);
   const sheet = createSheet(sheetDialog);
+  const cardPreview = createCardPreview(requireElement("card-preview", HTMLDivElement));
   const logDrawer = requireElement("log-drawer", HTMLElement);
   const logTag = requireElement("log-tag", HTMLButtonElement);
   const logBody = requireElement("log-body", HTMLDivElement);
@@ -184,6 +186,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
   }
 
   function render(message = ""): void {
+    cardPreview.hide();
     notice.textContent = message;
     notice.hidden = message === "";
     renderTabs();
@@ -213,6 +216,8 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     const labels = labelsFor(shown);
     const openCard = (card: Parameters<typeof cardDetails>[0]) =>
       sheet.open(labels.card(card), cardDetails(card, labels));
+    const previewCard = (target: HTMLElement, card: Parameters<typeof cardDetails>[0]) =>
+      cardPreview.attach(target, labels.card(card), () => cardDetails(card, labels));
     roundText.textContent = shown.round > 0 ? `Round ${shown.round}` : "Setup";
     statusStrip.replaceChildren(...renderStatus(shown, labels));
     statusStrip.hidden = statusStrip.childElementCount === 0;
@@ -232,7 +237,10 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     );
     slidePieces(mapArea, piecesBefore);
     panels.replaceChildren(
-      panelSection("cards", renderZones(shown, labels, openCard, more)),
+      panelSection(
+        "cards",
+        renderZones(shown, labels, { open: openCard, preview: previewCard }, more),
+      ),
       panelSection("tracks", renderTracks(shown, labels, more)),
     );
     decisionBar.replaceChildren(
@@ -240,6 +248,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
         ? renderDecision(shown, actions, labels, {
             takeAction: take,
             openCard,
+            previewCard,
             newGame: confirmNewGame,
           })
         : renderPlayback(
