@@ -116,6 +116,8 @@ export type PlayWindowEffect = {
   repeat: boolean;
   /** When this holds as the window would open (again), it closes without a decision. */
   until: BoolExpr;
+  /** Display only: what the window is for, shown while it waits; `{counter}` is replaced by that counter's value. */
+  prompt: string | null;
 };
 
 export type UseLimit = { uses: number; per: Scope | "game" };

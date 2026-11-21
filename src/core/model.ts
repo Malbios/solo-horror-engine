@@ -194,6 +194,8 @@ export type Decision =
       /** The buy cost of every card in `buyFrom` as it stands now, by card instance. */
       buyPrices: Record<string, CostDue[]>;
       abilities: AbilityOffer[];
+      /** Display only: the window's own prompt (`{counter}` placeholders), or null for the generic one. */
+      prompt: string | null;
     }
   | { kind: "moveUnit"; unit: string; options: string[]; canPass: boolean }
   | { kind: "pickUnit"; options: string[]; canPass: boolean }

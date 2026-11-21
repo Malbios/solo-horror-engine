@@ -3,6 +3,7 @@ import { createEngine, view, viewActions, viewEvents } from "../src/core";
 import {
   createLabels,
   describeAction,
+  describeDecision,
   describeEvent,
   displayRules,
   HIDDEN_CARD_NAME,
@@ -180,6 +181,26 @@ describe("labels", () => {
       `Resolved ${HIDDEN_CARD_NAME} (Omen)`,
     );
     expect(state.counters["tally"]).toBe(1);
+  });
+
+  it("shows a window's own prompt with counters filled in, else the generic one", () => {
+    const windowPack = (prompt: string | null) =>
+      fixturePack({
+        counters: [{ id: "dmg", start: 3, hidden: true }],
+        phases: [
+          { id: "react", steps: [{ id: "go", effects: [{ type: "playWindow", prompt }] }] },
+          PAUSE_PHASE,
+        ],
+      });
+    const promptOf = (prompt: string | null) => {
+      const pack = windowPack(prompt);
+      const shown = view(createEngine(pack).init(1));
+      return describeDecision(shown, createLabels(displayRules(pack, shown.modules), shown));
+    };
+    expect(promptOf("Hit for {dmg}: react or pass ({nope})")).toBe(
+      "Hit for 3: react or pass ({nope})",
+    );
+    expect(promptOf(null)).toBe("Choose an action or pass");
   });
 
   it("offers a module with its note, and without one when the pack gives none", () => {

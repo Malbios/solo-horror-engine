@@ -44,6 +44,7 @@ export type DecisionView =
       /** Current buy prices of the identified cards in `buyFrom`, by card ref. */
       buyPrices: Record<string, CostDue[]>;
       abilities: AbilityOffer[];
+      prompt: string | null;
     }
   | { kind: "pickCard"; cards: ViewCard[]; canPass: boolean };
 
@@ -123,6 +124,7 @@ function viewDecision(state: GameState, pending: Decision): DecisionView {
             .map(([card, price]) => [cardRef(state, card), price]),
         ),
         abilities: pending.abilities,
+        prompt: pending.prompt,
       };
     case "pickCard":
       return {

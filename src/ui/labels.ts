@@ -364,6 +364,14 @@ export function describeOutcome(shown: GameView): string | null {
   return shown.outcome.result === "win" ? "You win" : "You lose";
 }
 
+/** Replaces each `{counter}` with that counter's current value; unknown ids stay as written. */
+function fillCounters(text: string, shown: GameView): string {
+  return text.replace(/\{([a-z0-9-]+)\}/g, (whole: string, id: string) => {
+    const value = shown.counters[id];
+    return value === undefined ? whole : String(value);
+  });
+}
+
 export function describeDecision(shown: GameView, labels: Labels): string {
   const pending = shown.pending;
   if (pending === null) return describeOutcome(shown) ?? "";
@@ -373,7 +381,9 @@ export function describeDecision(shown: GameView, labels: Labels): string {
     case "chooseOption":
       return "Choose one";
     case "window":
-      return "Choose an action or pass";
+      return pending.prompt === null
+        ? "Choose an action or pass"
+        : fillCounters(pending.prompt, shown);
     case "pickCard":
       return pending.canPass ? "Pick a card, or pass" : "Pick a card";
     case "moveUnit":

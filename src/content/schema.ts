@@ -254,6 +254,7 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       abilitiesFrom: z.array(idSchema).default([]),
       repeat: z.boolean().default(true),
       until: boolExprSchema.default(false),
+      prompt: z.string().min(1).nullable().default(null),
     }),
     z.strictObject({
       type: z.literal("resolveCard"),

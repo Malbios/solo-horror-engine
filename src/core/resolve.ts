@@ -1521,6 +1521,7 @@ export function createResolver(
           abilitiesFrom: effect.abilitiesFrom,
           repeat: effect.repeat,
           until: effect.until,
+          prompt: effect.prompt,
         });
         return;
       case "resolveCard":
@@ -1871,6 +1872,7 @@ export function createResolver(
       buyFree: frame.buy?.free ?? false,
       buyPrices: frame.buy === null ? {} : buyPrices(frame.buy.from),
       abilities: abilityOffers(frame.abilitiesFrom),
+      prompt: frame.prompt,
     };
   }
 
