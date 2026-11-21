@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createEngine, view, viewActions, type GameState } from "../src/core";
 import {
   actionLabel,
-  automaticPass,
+  automaticAction,
   buyNote,
   discardsBesidePlays,
   stableOrder,
@@ -222,16 +222,47 @@ describe("discards beside plays", () => {
   });
 });
 
-describe("automatic pass", () => {
-  it("passes for the player only when the shop offers nothing to buy", () => {
+describe("automatic action", () => {
+  it("takes the only offered action for the player, and nothing while there is a real choice", () => {
     const pack = shopPack(0);
     const engine = createEngine(pack);
     const poor = engine.init(1);
-    expect(automaticPass(view(poor), viewActions(poor))).toBeNull();
+    expect(automaticAction(viewActions(poor))).toBeNull();
     const rope = viewActions(poor).find((action) => action.type === "buyCard");
     if (rope === undefined) throw new Error("no free card offered");
     const broke = act(engine, poor, rope);
-    expect(automaticPass(view(broke), viewActions(broke))).toEqual({ type: "pass" });
+    expect(automaticAction(viewActions(broke))).toEqual({ type: "pass" });
+  });
+
+  it("takes a lone option of a choice", () => {
+    const pack = fixturePack({
+      counters: [{ id: "picked", start: 0 }],
+      phases: [
+        {
+          id: "ask",
+          steps: [
+            {
+              id: "go",
+              effects: [
+                {
+                  type: "choose",
+                  options: [
+                    {
+                      id: "only",
+                      label: "The only way",
+                      effects: [{ type: "setCounter", counter: "picked", value: 1 }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        PAUSE_PHASE,
+      ],
+    });
+    const state = createEngine(pack).init(1);
+    expect(automaticAction(viewActions(state))).toEqual({ type: "chooseOption", option: "only" });
   });
 });
 

@@ -18,7 +18,7 @@ import {
   type Rules,
 } from "../core";
 import { renderMap } from "./board";
-import { automaticPass, renderDecision, renderPlayback } from "./decision";
+import { automaticAction, renderDecision, renderPlayback } from "./decision";
 import { h, requireElement } from "./dom";
 import { logEntry, replayWithLog, withEntry } from "./game-log";
 import { createLabels, describeEvent, displayRules, moduleInfo, type Labels } from "./labels";
@@ -65,6 +65,8 @@ const PACK_KEY = "solo-horror-engine:pack";
 const ADD_ONS_KEY = "solo-horror-engine:add-ons";
 const SAVE_KEY_PREFIX = "solo-horror-engine:save:";
 const SLIDE_MILLISECONDS = 350;
+// Safety cap on lone actions taken in a row for the player (a pack that loops on one choice).
+const MAX_AUTOMATIC_ACTIONS = 200;
 
 type ActivePack = { pack: Pack; fromFile: boolean; addOns: AddOn[]; notice: string };
 const PANELS = ["cards", "tracks"] as const;
@@ -350,16 +352,29 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     };
   }
 
-  function automaticPassFor(state: GameState): Action | null {
-    return automaticPass(view(state), viewActions(state));
+  function automaticActionFor(state: GameState): Action | null {
+    return state.status === "awaitingDecision" ? automaticAction(viewActions(state)) : null;
   }
 
-  function appliedWithAutomaticPasses(current: Session, action: Action): Taken | string {
+  /** Takes every lone action in turn (one choice is no choice), until the player has a real choice. */
+  function settleAutomatic(start: Session): Taken | string {
+    let current = start;
+    const steps: Taken["steps"] = [];
+    for (let taken = 0; taken < MAX_AUTOMATIC_ACTIONS; taken += 1) {
+      const only = automaticActionFor(current.state);
+      if (only === null) return { session: current, steps };
+      const next = applied(current, only);
+      if (typeof next === "string") return next;
+      current = next.session;
+      steps.push(...next.steps);
+    }
+    return "Too many actions were taken automatically in a row.";
+  }
+
+  function appliedWithAutomaticActions(current: Session, action: Action): Taken | string {
     const next = applied(current, action);
     if (typeof next === "string") return next;
-    const pass = automaticPassFor(next.session.state);
-    if (pass === null) return next;
-    const rest = appliedWithAutomaticPasses(next.session, pass);
+    const rest = settleAutomatic(next.session);
     return typeof rest === "string"
       ? rest
       : { session: rest.session, steps: [...next.steps, ...rest.steps] };
@@ -369,7 +384,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     if (session === null) return;
     endPlayback();
     const before = session.state;
-    const next = appliedWithAutomaticPasses(session, action);
+    const next = appliedWithAutomaticActions(session, action);
     if (typeof next === "string") {
       render(next);
       return;
@@ -382,11 +397,17 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
     focusDecision();
   }
 
-  /** Undoes the last action, and also the action before it when the last was a pass taken automatically. */
+  /** Undoes the last action and every action taken automatically before it, back to the last real choice. */
   function undoneActions(seed: number, actions: readonly Action[]) {
-    const undone = undo(engine, seed, actions);
-    if (!undone.ok || automaticPassFor(undone.value.state) === null) return undone;
-    return undo(engine, seed, undone.value.actions);
+    let undone = undo(engine, seed, actions);
+    while (
+      undone.ok &&
+      undone.value.actions.length > 0 &&
+      automaticActionFor(undone.value.state) !== null
+    ) {
+      undone = undo(engine, seed, undone.value.actions);
+    }
+    return undone;
   }
 
   function takeBack(): void {
@@ -402,16 +423,25 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
       return;
     }
     const { state, actions } = undone.value;
-    session = {
+    const { settledSession, notice } = settled({
       ...session,
       state,
       actions,
       undoable: canUndo(engine, session.seed, actions),
       log: withEntry(session.log, { title: "Took back the last action", lines: [] }),
-    };
+    });
+    session = settledSession;
     persist(session);
-    render();
+    render(notice);
     focusDecision();
+  }
+
+  /** The session with its lone actions taken (see settleAutomatic), and a notice if that failed. */
+  function settled(current: Session): { settledSession: Session; notice: string } {
+    const result = settleAutomatic(current);
+    return typeof result === "string"
+      ? { settledSession: current, notice: result }
+      : { settledSession: result.session, notice: "" };
   }
 
   function persist(current: Session): void {
@@ -422,10 +452,17 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
   function newGame(): void {
     endPlayback();
     const seed = randomSeed();
-    session = { seed, actions: [], state: engine.init(seed), undoable: false, log: [] };
+    const { settledSession, notice } = settled({
+      seed,
+      actions: [],
+      state: engine.init(seed),
+      undoable: false,
+      log: [],
+    });
+    session = settledSession;
     persist(session);
     sheet.close();
-    render();
+    render(notice);
     focusDecision();
   }
 
@@ -651,14 +688,16 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
           render("The saved game could not be replayed. Start a new game.");
           return;
         }
-        session = {
+        const { settledSession, notice } = settled({
           seed,
           actions,
           state: replayed.value.state,
           undoable: canUndo(engine, seed, actions),
           log: withEntry(replayed.value.log, { title: "Game resumed", lines: [] }),
-        };
-        render(active.notice);
+        });
+        session = settledSession;
+        if (session.actions.length !== actions.length) persist(session);
+        render(notice === "" ? active.notice : notice);
         return;
       }
     }
