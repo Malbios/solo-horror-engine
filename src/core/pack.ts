@@ -303,6 +303,8 @@ export type Counter = {
   hidden: boolean;
   /** Display only: where the value is shown. */
   show: CounterShow;
+  /** Display only: shown with the cards of this zone instead of in the strip or panels. */
+  zone: string | null;
   start: number;
   min: number | null;
   max: number | null;

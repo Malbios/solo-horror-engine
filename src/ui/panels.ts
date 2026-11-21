@@ -1,6 +1,6 @@
 import type { CounterShow, Die, GameView, UnitState, ViewCard } from "../core";
 import { h } from "./dom";
-import { symbolCounts, type Labels } from "./labels";
+import { pinnedZone, symbolCounts, type Labels } from "./labels";
 
 /** Opening a card's details (tap) and previewing them while an element is hovered or keyboard-focused. */
 export type CardHandlers = {
@@ -18,6 +18,17 @@ export type LogEntry = { title: string; lines: string[] };
 
 function stat(label: string, value: string): HTMLElement {
   return h("div", { className: "stat" }, [h("dt", { text: label }), h("dd", { text: value })]);
+}
+
+/** The counters shown with a zone's cards, one line each; nothing when there are none. */
+export function zoneNotesList(notes: readonly string[]): HTMLElement | null {
+  return notes.length === 0
+    ? null
+    : h(
+        "ul",
+        { className: "zone-notes" },
+        notes.map((note) => h("li", { text: note })),
+      );
 }
 
 function counterValue(value: number, max: number | null): string {
@@ -82,7 +93,7 @@ function compactRow(label: string, value: string, extra: HTMLElement[] = []): HT
 function counterShow(id: string, labels: Labels): CounterShow | "hidden" {
   const definition = labels.rules.counterById.get(id);
   if (definition === undefined) return "normal";
-  return definition.hidden ? "hidden" : definition.show;
+  return definition.hidden || pinnedZone(labels.rules, id) !== null ? "hidden" : definition.show;
 }
 
 /** Pieces without attributes are counted per kind instead of listed one by one. */
@@ -240,6 +251,7 @@ function zoneSection(
       );
   return h("section", { className: "zone" }, [
     h("h3", {}, [labels.zone(zone), h("span", { className: "count", text: ` ${cards.length}` })]),
+    zoneNotesList(labels.zoneNotes(zone)),
     cards.length === 0 ? h("p", { className: "muted", text: "Empty" }) : body,
   ]);
 }

@@ -554,6 +554,7 @@ const counterSchema = z
     name: nameSchema.optional(),
     hidden: z.boolean().default(false),
     show: z.enum(["main", "normal", "flag", "minor"]).default("normal"),
+    zone: idSchema.nullable().default(null),
     start: z.int(),
     min: z.int().nullable().default(null),
     max: z.int().nullable().default(null),

@@ -1,6 +1,7 @@
 import type { Cost, CostDue, GameView, Space, ViewCard } from "../core";
 import { h, type Child } from "./dom";
 import { describeMarkFrom, knownCosts, priceText, type Labels } from "./labels";
+import { zoneNotesList } from "./panels";
 
 export type Sheet = {
   open: (title: string, body: readonly Child[]) => void;
@@ -71,6 +72,7 @@ export function cardDetails(card: ViewCard, labels: Labels): Child[] {
           attrs: { src: definition.image, alt: definition.name },
         }),
     definition.text === "" ? null : h("p", { className: "card-text-full", text: definition.text }),
+    zoneNotesList(labels.cardNotes(card)),
     costLine("Cost", definition.cost, null, labels),
     definition.buyCost.length === 0
       ? null

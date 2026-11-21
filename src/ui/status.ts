@@ -1,6 +1,6 @@
 import type { GameView } from "../core";
 import { h } from "./dom";
-import type { Labels } from "./labels";
+import { pinnedZone, type Labels } from "./labels";
 
 export type StatusItem = { label: string; value: string | null; flag: boolean };
 
@@ -13,7 +13,8 @@ export function statusItems(shown: GameView, labels: Labels): StatusItem[] {
   const flags: StatusItem[] = [];
   for (const [id, value] of Object.entries(shown.counters)) {
     const definition = labels.rules.counterById.get(id);
-    if (definition === undefined || definition.hidden) continue;
+    if (definition === undefined || definition.hidden || pinnedZone(labels.rules, id) !== null)
+      continue;
     if (definition.show === "main") {
       const max = definition.max === null ? "" : `/${definition.max}`;
       items.push({ label: definition.name, value: `${value}${max}`, flag: false });

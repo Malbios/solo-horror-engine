@@ -44,7 +44,27 @@ export type Labels = {
   spaces(): Space[];
   module(id: string): string;
   moduleNote(id: string): string | null;
+  /** Lines for the counters shown with a zone's cards (see `pinnedZone`). */
+  zoneNotes(zone: string): string[];
+  /** The notes of the zone a face-up card lies in; none for a face-down card. */
+  cardNotes(card: ViewCard): string[];
 };
+
+/** The zone a counter is shown with instead of the strip or panels, if any. */
+export function pinnedZone(rules: Rules, counter: string): string | null {
+  return rules.counterById.get(counter)?.zone ?? null;
+}
+
+function counterNote(rules: Rules, id: string, value: number): string | null {
+  const definition = rules.counterById.get(id);
+  if (definition === undefined || definition.hidden) return null;
+  if (definition.show === "flag") {
+    if (value === 0) return null;
+    return value === 1 ? definition.name : `${definition.name} ${value}`;
+  }
+  const max = definition.max === null ? "" : ` / ${definition.max}`;
+  return `${definition.name}: ${value}${max}`;
+}
 
 export type ModuleInfo = { name: string; note: string | null };
 
@@ -123,6 +143,12 @@ export function createLabels(
     const shownCounters = counters.map(([id, value]) => `${counterName(definition, id)} ${value}`);
     return `${name} (${shownCounters.join(", ")})`;
   };
+  const zoneNotes = (zone: string): string[] =>
+    Object.entries(shown.counters).flatMap(([id, value]) => {
+      if (pinnedZone(rules, id) !== zone) return [];
+      const note = counterNote(rules, id, value);
+      return note === null ? [] : [note];
+    });
   return {
     rules,
     counter: (id) => rules.counterById.get(id)?.name ?? id,
@@ -150,6 +176,14 @@ export function createLabels(
     spaces: () => rules.spaces,
     module: (id) => modules.get(id)?.name ?? id,
     moduleNote: (id) => modules.get(id)?.note ?? null,
+    zoneNotes,
+    cardNotes: (card) => {
+      if (card.card === null) return [];
+      const zone = Object.entries(shown.zones).find(([, cards]) =>
+        cards.some((each) => each.ref === card.ref),
+      )?.[0];
+      return zone === undefined ? [] : zoneNotes(zone);
+    },
   };
 }
 
