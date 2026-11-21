@@ -78,6 +78,29 @@ describe("labels", () => {
     expect(describeEvent(change, shown, labels)).toBeNull();
   });
 
+  it("leaves helper pieces out of the log and names a piece already gone by its kind", () => {
+    const pack = fixturePack({
+      unitKinds: [
+        { id: "pin", name: "Pin", bookkeeping: true },
+        { id: "walker", name: "Walker" },
+      ],
+    });
+    const shown = view(createEngine(pack).init(3));
+    const labels = createLabels(displayRules(pack, shown.modules), shown);
+    const lines = [
+      { type: "unitCreated", unit: "pin#1", kind: "pin" },
+      { type: "unitMoved", unit: "pin#1", kind: "pin", fromSpace: null, toSpace: "a" },
+      { type: "unitRemoved", unit: "pin#1", kind: "pin", fromSpace: "a" },
+      { type: "unitCreated", unit: "walker#7", kind: "walker" },
+    ] as const;
+    expect(lines.map((event) => describeEvent(event, shown, labels))).toEqual([
+      null,
+      null,
+      null,
+      "Walker appears",
+    ]);
+  });
+
   it("counts the named symbols of a roll", () => {
     const pack = fixturePack({
       dice: [

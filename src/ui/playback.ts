@@ -25,6 +25,8 @@ export type PlaybackInput = {
   /** The unit the player just moved by hand; its first move is not played back. */
   ownMove: string | null;
   describe: (event: GameEvent, shown: GameView) => string | null;
+  /** Helper piece kinds: kept on the board, but their moves and removals are not played back. */
+  bookkeeping: (kind: string) => boolean;
 };
 
 type Draft = { units: Record<string, UnitState>; counters: Record<string, number> };
@@ -66,16 +68,21 @@ function movedUnit(
 }
 
 /** Changes the draft for one event; returns true when the event is something to watch on the board. */
-function apply(draft: Draft, event: GameEvent, final: GameView): boolean {
+function apply(
+  draft: Draft,
+  event: GameEvent,
+  final: GameView,
+  bookkeeping: (kind: string) => boolean,
+): boolean {
   switch (event.type) {
     case "unitMoved":
       draft.units = { ...draft.units, [event.unit]: movedUnit(draft, event, final) };
-      return event.fromSpace !== null || event.toSpace !== null;
+      return !bookkeeping(event.kind) && (event.fromSpace !== null || event.toSpace !== null);
     case "unitRemoved":
       draft.units = Object.fromEntries(
         Object.entries(draft.units).filter(([id]) => id !== event.unit),
       );
-      return event.fromSpace !== null;
+      return !bookkeeping(event.kind) && event.fromSpace !== null;
     case "unitKindChanged": {
       const unit = draft.units[event.unit];
       if (unit !== undefined)
@@ -129,7 +136,13 @@ function focusOf(event: GameEvent): string[] {
  * The beats of the steps just taken: a new beat at every piece moved or removed on the board and every
  * resolved card the player can see; other described events join the current beat as lines.
  */
-export function playbackBeats({ before, steps, ownMove, describe }: PlaybackInput): Beat[] {
+export function playbackBeats({
+  before,
+  steps,
+  ownMove,
+  describe,
+  bookkeeping,
+}: PlaybackInput): Beat[] {
   const final = steps.at(-1)?.after;
   if (final === undefined) return [];
   const draft: Draft = { units: before.units, counters: before.counters };
@@ -148,7 +161,7 @@ export function playbackBeats({ before, steps, ownMove, describe }: PlaybackInpu
   for (const [index, step] of steps.entries()) {
     const stepBefore = index === 0 ? before : (steps[index - 1]?.after ?? before);
     for (const event of shownEvents(step.events, stepBefore)) {
-      const onBoard = apply(draft, event, final);
+      const onBoard = apply(draft, event, final, bookkeeping);
       const line = isBookkeeping(event) ? null : describe(event, step.after);
       const isOwn = skipOwnMove && event.type === "unitMoved" && event.unit === ownMove;
       if (isOwn) {

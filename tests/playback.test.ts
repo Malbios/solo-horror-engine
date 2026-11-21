@@ -31,7 +31,13 @@ function beatsOf(
   ownMove: string | null = null,
 ) {
   const steps: PlaybackStep[] = [{ events, after }];
-  return playbackBeats({ before, steps, ownMove, describe: describeAll });
+  return playbackBeats({
+    before,
+    steps,
+    ownMove,
+    describe: describeAll,
+    bookkeeping: (kind) => kind === "pin",
+  });
 }
 
 describe("playbackBeats", () => {
@@ -97,6 +103,24 @@ describe("playbackBeats", () => {
     const beats = beatsOf(before, events, after);
     expect(beats.map((beat) => Object.keys(beat.view.units))).toEqual([["ghost"], []]);
     expect(beats[1]?.focus).toEqual(["a"]);
+  });
+
+  it("keeps helper pieces on the board without playing their moves or removal back", () => {
+    const before = baseView({});
+    const after = baseView({});
+    const pinMoved: GameEvent = {
+      type: "unitMoved",
+      unit: "pin",
+      kind: "pin",
+      fromSpace: null,
+      toSpace: "a",
+    };
+    const events: GameEvent[] = [
+      pinMoved,
+      { type: "unitCreated", unit: "pin", kind: "pin" },
+      { type: "unitRemoved", unit: "pin", kind: "pin", fromSpace: "a" },
+    ];
+    expect(beatsOf(before, events, after)).toEqual([]);
   });
 
   it("plays nothing back from setup", () => {

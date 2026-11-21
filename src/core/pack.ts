@@ -430,6 +430,11 @@ export type UnitKind = {
   color: string | null;
   /** Display only: the short text on this kind's pieces; defaults to the name's first letter. */
   badge: string | null;
+  /**
+   * Display only: this kind's pieces are helpers (markers, tie-break options); they are drawn while they exist,
+   * but their creation, moves, removal and changes are left out of the log and playback.
+   */
+  bookkeeping: boolean;
   attributes: Counter[];
   /** Other kinds a unit of this kind also counts as wherever a kind is matched. */
   countsAs: string[];

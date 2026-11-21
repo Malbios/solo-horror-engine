@@ -314,6 +314,7 @@ function start(active: ActivePack, library: LibraryStore, engine: Engine, store:
       steps,
       ownMove: action.type === "moveTo" && pending?.kind === "moveUnit" ? pending.unit : null,
       describe: (event, shown) => describeEvent(event, shown, labelsFor(shown)),
+      bookkeeping: (kind) => labelsFor(shownBefore).isBookkeeping(kind),
     });
     if (beats.length === 0) return false;
     playback = { beats, index: 0, timer: null };

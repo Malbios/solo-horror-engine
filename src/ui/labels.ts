@@ -36,6 +36,8 @@ export type Labels = {
   /** A piece named among those on its own space, e.g. "Walker 2". */
   piece(id: string): string;
   unitKind(kind: string): string;
+  /** Helper pieces (markers, tie-break options), never logged or played back. */
+  isBookkeeping(kind: string): boolean;
   attribute(kind: string, id: string): string;
   boards(): Board[];
   markedEdges(): MarkedEdge[];
@@ -140,6 +142,7 @@ export function createLabels(
       return unit === undefined ? id : pieceName(unit);
     },
     unitKind: kindName,
+    isBookkeeping: (kind) => rules.unitKindById.get(kind)?.bookkeeping === true,
     attribute: (kind, id) =>
       rules.unitKindById.get(kind)?.attributes.find((attribute) => attribute.id === id)?.name ?? id,
     boards: () => rules.boards,
@@ -238,6 +241,11 @@ export function symbolCounts(dice: readonly Die[], rules: Rules): string {
     .join(", ");
 }
 
+/** A piece by name while it is on record, else by its kind (a piece already gone has no other name). */
+function pieceOrKind(unit: string, kind: string, shown: GameView, labels: Labels): string {
+  return shown.units[unit] === undefined ? labels.unitKind(kind) : labels.unit(unit);
+}
+
 /** One line for the game log, or null for bookkeeping events the player does not need to see. */
 export function describeEvent(event: GameEvent, shown: GameView, labels: Labels): string | null {
   switch (event.type) {
@@ -259,20 +267,25 @@ export function describeEvent(event: GameEvent, shown: GameView, labels: Labels)
     case "gameFinished":
       return event.outcome === "win" ? "You win" : "You lose";
     case "unitCreated":
-      return `${labels.unit(event.unit)} appears`;
+      if (labels.isBookkeeping(event.kind)) return null;
+      return `${pieceOrKind(event.unit, event.kind, shown, labels)} appears`;
     case "unitRemoved":
+      if (labels.isBookkeeping(event.kind)) return null;
       return event.fromSpace === null
         ? `${labels.unitKind(event.kind)} removed`
         : `${labels.unitKind(event.kind)} removed from ${labels.space(event.fromSpace)}`;
     case "unitMoved": {
+      if (labels.isBookkeeping(event.kind)) return null;
       const from = event.fromSpace === null ? "" : ` from ${labels.space(event.fromSpace)}`;
       return event.toSpace === null
         ? `${labels.unitKind(event.kind)} leaves the board${from}`
         : `${labels.unitKind(event.kind)} moves${from} to ${labels.space(event.toSpace)}`;
     }
     case "unitKindChanged":
-      return `${labels.unit(event.unit)} changes`;
+      if (labels.isBookkeeping(event.from) && labels.isBookkeeping(event.to)) return null;
+      return `${pieceOrKind(event.unit, event.from, shown, labels)} changes`;
     case "attributeChanged":
+      if (labels.isBookkeeping(event.kind)) return null;
       return `${labels.unit(event.unit)} ${labels.attribute(event.kind, event.attribute)} ${signed(event.from, event.to)} (now ${event.to})`;
     case "spaceCounterChanged":
       return `${labels.space(event.space)} ${labels.spaceCounter(event.spaceCounter)} ${signed(event.from, event.to)}`;
