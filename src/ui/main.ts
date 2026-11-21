@@ -41,6 +41,7 @@ import {
 } from "./save-store";
 import {
   IndexedDbLibraryStore,
+  libraryFromFolder,
   LocalStorageLibraryStore,
   migrateLibrary,
   parseAddOnText,
@@ -509,6 +510,17 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
       const file = fileInput.files?.[0];
       if (file !== undefined) void loadPackFile(file);
     });
+    const folderInput = h("input", {
+      attrs: { type: "file", webkitdirectory: "", multiple: "", hidden: "" },
+    });
+    folderInput.addEventListener("change", () => {
+      const files = [...(folderInput.files ?? [])].filter((file) =>
+        file.name.toLowerCase().endsWith(".json"),
+      );
+      if (files.length === 0) return;
+      showLoading();
+      void Promise.all(files.map((file) => file.text())).then(useFolderLibrary);
+    });
     endPlayback();
     sheet.open("Menu", [
       h("p", { text: `${pack.meta.name} ${pack.meta.version}` }),
@@ -523,6 +535,11 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
           text: "Load core or add-on file",
           onClick: () => fileInput.click(),
         }),
+        h("button", {
+          className: "action",
+          text: "Load all packs from a folder",
+          onClick: () => (folderSupported() ? void loadAllFromFolder() : folderInput.click()),
+        }),
         ...folderButtons(),
         active.fromFile
           ? h("button", { className: "action", text: "Use demo core", onClick: useDemoCore })
@@ -530,7 +547,51 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
       ]),
       folder === null ? null : h("p", { className: "muted", text: `Packs folder: ${folder.name}` }),
       fileInput,
+      folderInput,
     ]);
+  }
+
+  function showLoading(): void {
+    sheet.open("Loading packs…", [
+      h("p", { className: "muted", text: "Reading and checking the files." }),
+    ]);
+  }
+
+  /** Reads every pack in the remembered folder (or one the player picks) and uses them all. */
+  async function loadAllFromFolder(): Promise<void> {
+    let chosen: FileSystemDirectoryHandle;
+    try {
+      chosen = folder ?? (await chooseFolder());
+      if (!(await ensureReadable(chosen))) {
+        openMenu(["The browser did not allow reading that folder."]);
+        return;
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      openMenu(["That folder could not be opened."]);
+      return;
+    }
+    if (chosen !== folder) {
+      folder = chosen;
+      await rememberFolder(chosen).catch((error: unknown) => {
+        console.warn("Could not remember the packs folder", error);
+      });
+    }
+    showLoading();
+    await useFolderLibrary(await readJsonTexts(chosen));
+  }
+
+  async function useFolderLibrary(texts: readonly string[]): Promise<void> {
+    const found = libraryFromFolder(texts);
+    if (!found.ok) {
+      openMenu(found.error);
+      return;
+    }
+    if (!(await library.save(found.value))) {
+      openMenu(["The browser could not store the packs."]);
+      return;
+    }
+    location.reload();
   }
 
   function changeSettings(changed: Partial<Settings>): void {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import demoPackData from "../content/demo/pack.json";
 import {
   EMPTY_LIBRARY,
+  libraryFromFolder,
   LocalStorageLibraryStore,
   migrateLibrary,
   parseLibraryFile,
@@ -169,5 +170,50 @@ describe("migrateLibrary", () => {
 
   it("starts empty with nothing anywhere", () => {
     expect(migrateLibrary(null, EMPTY_LIBRARY)).toEqual({ library: EMPTY_LIBRARY, migrate: false });
+  });
+});
+
+describe("libraryFromFolder", () => {
+  const coreText = JSON.stringify(demoPackData);
+  const otherCore = (id: string) =>
+    JSON.stringify({ ...demoPackData, meta: { ...demoPackData.meta, id, name: id } });
+  const foreignAddOn = JSON.stringify({
+    meta: { id: "far", version: "1.0.0", schemaVersion: 2, name: "far", core: "elsewhere" },
+    module: { id: "far", kind: "extra", precedence: 1 },
+  });
+
+  it("takes the one core and every add-on made for it, skipping other files", () => {
+    const found = [
+      addOnText("lamp"),
+      "not json",
+      JSON.stringify({ notes: true }),
+      coreText,
+      foreignAddOn,
+      addOnText("rope"),
+    ];
+    expect(libraryFromFolder(found)).toEqual({
+      ok: true,
+      value: { core: coreText, addOns: [addOnText("lamp"), addOnText("rope")] },
+    });
+  });
+
+  it("keeps the newest version of an add-on found twice", () => {
+    const found = [
+      coreText,
+      addOnText("lamp", "1.2.0"),
+      addOnText("lamp", "1.10.0"),
+      addOnText("lamp", "1.3.0"),
+    ];
+    const library = libraryFromFolder(found);
+    expect(library.ok && library.value.addOns).toEqual([addOnText("lamp", "1.10.0")]);
+  });
+
+  it("refuses a folder without a core or with several", () => {
+    const none = libraryFromFolder([addOnText("lamp")]);
+    expect(none.ok).toBe(false);
+    if (!none.ok) expect(none.error[0]).toMatch(/No core/);
+    const two = libraryFromFolder([coreText, otherCore("second")]);
+    expect(two.ok).toBe(false);
+    if (!two.ok) expect(two.error[0]).toMatch(/more than one core.*second/);
   });
 });

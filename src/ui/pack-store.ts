@@ -224,3 +224,45 @@ export class IndexedDbLibraryStore {
     }
   }
 }
+
+function versionParts(version: string): number[] {
+  return version.split(".").map((part) => Number.parseInt(part, 10) || 0);
+}
+
+function isNewer(version: string, than: string): boolean {
+  const a = versionParts(version);
+  const b = versionParts(than);
+  for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+    const difference = (a[index] ?? 0) - (b[index] ?? 0);
+    if (difference !== 0) return difference > 0;
+  }
+  return false;
+}
+
+/**
+ * Every pack found in a folder as a library: its one core and each add-on made for that core (the
+ * newest version per id). Files that are not packs are skipped.
+ */
+export function libraryFromFolder(found: readonly string[]): Result<LibrarySnapshot, string[]> {
+  const files = found.flatMap((text) => {
+    const parsed = parseLibraryFile(text);
+    return parsed.ok ? [{ text, file: parsed.value }] : [];
+  });
+  const cores = files.flatMap(({ text, file }) =>
+    file.type === "core" ? [{ text, pack: file.pack }] : [],
+  );
+  const [core, ...others] = cores;
+  if (core === undefined) return err(["No core file was found in that folder."]);
+  if (others.length > 0) {
+    const names = cores.map(({ pack }) => `${pack.meta.name} ${pack.meta.version}`).join(", ");
+    return err([`That folder holds more than one core (${names}). Pick a folder with one core.`]);
+  }
+  const newest = new Map<string, { text: string; version: string }>();
+  for (const { text, file } of files) {
+    if (file.type !== "addOn" || file.addOn.meta.core !== core.pack.meta.id) continue;
+    const { id, version } = file.addOn.meta;
+    const kept = newest.get(id);
+    if (kept === undefined || isNewer(version, kept.version)) newest.set(id, { text, version });
+  }
+  return ok({ core: core.text, addOns: [...newest.values()].map(({ text }) => text) });
+}
