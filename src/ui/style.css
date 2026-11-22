@@ -1009,7 +1009,28 @@ h3 {
   }
 }
 
-.card-text-full {
+.card-parts {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.card-part {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 8px 10px;
+}
+
+.card-part p {
+  margin: 0;
+}
+
+.card-part-heading {
+  font-weight: 700;
+}
+
+.card-part-body {
   white-space: pre-line;
 }
 

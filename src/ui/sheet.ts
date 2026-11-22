@@ -49,6 +49,37 @@ function costLine(
   return h("p", { className: "muted", text: `${title}: ${text}` });
 }
 
+export type TextPart = { heading: string | null; body: string };
+
+/**
+ * A card text split into parts at blank lines; a part of several lines takes its first line as its heading.
+ */
+export function textParts(text: string): TextPart[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((part) => part.trim())
+    .filter((part) => part !== "")
+    .map((part) => {
+      const [first = "", ...rest] = part.split("\n");
+      return rest.length === 0
+        ? { heading: null, body: first }
+        : { heading: first.trim(), body: rest.join("\n").trim() };
+    });
+}
+
+function cardTextParts(text: string): HTMLElement {
+  return h(
+    "div",
+    { className: "card-parts" },
+    textParts(text).map(({ heading, body }) =>
+      h("section", { className: "card-part" }, [
+        heading === null ? null : h("p", { className: "card-part-heading", text: heading }),
+        h("p", { className: "card-part-body", text: body }),
+      ]),
+    ),
+  );
+}
+
 export function cardDetails(card: ViewCard, labels: Labels): Child[] {
   const definition = labels.cardDefinition(card);
   const revealed = card.revealed ?? [];
@@ -71,7 +102,7 @@ export function cardDetails(card: ViewCard, labels: Labels): Child[] {
           className: "card-image",
           attrs: { src: definition.image, alt: definition.name },
         }),
-    definition.text === "" ? null : h("p", { className: "card-text-full", text: definition.text }),
+    definition.text === "" ? null : cardTextParts(definition.text),
     zoneNotesList(labels.cardNotes(card)),
     costLine("Cost", definition.cost, null, labels),
     definition.buyCost.length === 0
