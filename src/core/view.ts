@@ -29,7 +29,13 @@ export type ViewCard = {
   revealed?: string[];
 };
 
-export type OptionChoiceView = { id: string; label: string; cost: Cost[] };
+export type OptionChoiceView = {
+  id: string;
+  label: string;
+  cost: Cost[];
+  /** A zone whose top card this option is about (display only). */
+  topCardOf: string | null;
+};
 
 export type DecisionView =
   | Exclude<Decision, { kind: "chooseOption" } | { kind: "window" } | { kind: "pickCard" }>
@@ -115,7 +121,12 @@ function viewDecision(state: GameState, pending: Decision): DecisionView {
     case "chooseOption":
       return {
         kind: "chooseOption",
-        options: pending.options.map(({ id, label, cost }) => ({ id, label, cost })),
+        options: pending.options.map(({ id, label, cost, topCardOf }) => ({
+          id,
+          label,
+          cost,
+          topCardOf,
+        })),
         canPass: pending.canPass,
         roll: pending.roll,
         unit: pending.unit,

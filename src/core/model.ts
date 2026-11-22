@@ -173,7 +173,13 @@ export type CostDue =
   | { attribute: string; amount: number }
   | { discard: string; count: number };
 
-export type OptionView = { id: string; label: string; cost: Cost[]; effects: Effect[] };
+export type OptionView = {
+  id: string;
+  label: string;
+  cost: Cost[];
+  effects: Effect[];
+  topCardOf: string | null;
+};
 
 export type Decision =
   | { kind: "pickModule"; choice: string; options: string[]; canPass: boolean }

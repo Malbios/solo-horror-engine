@@ -4,6 +4,7 @@ import {
   actionLabel,
   automaticAction,
   cardsToShow,
+  optionCard,
   rollToShow,
   buyNote,
   discardsApart,
@@ -355,6 +356,57 @@ describe("cardsToShow", () => {
     const named = offered("look");
     const hidden = { ...named, zones: { ...named.zones, look: [{ ref: "h1", card: null }] } };
     expect(cardsToShow(hidden)).toEqual([]);
+  });
+});
+
+describe("optionCard", () => {
+  const offered = (deckFace: "up" | "down", cards: string[]) => {
+    const pack = fixturePack({
+      zones: [
+        { id: "deck", name: "Deck", face: deckFace },
+        { id: "bag", name: "Bag" },
+      ],
+      cards: [
+        { id: "lamp", name: "Lamp" },
+        { id: "rope", name: "Rope" },
+      ],
+      setup: cards.map((card) => ({ type: "createCards", card, zone: "deck" })),
+      phases: [
+        {
+          id: "turn",
+          steps: [
+            {
+              id: "go",
+              effects: [
+                {
+                  type: "choose",
+                  options: [
+                    { id: "take", label: "Take the top card", topCardOf: "deck" },
+                    { id: "skip", label: "Skip" },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        PAUSE_PHASE,
+      ],
+    });
+    return view(createEngine(pack).init(1));
+  };
+  const take = { type: "chooseOption" as const, option: "take" };
+
+  it("gives the known top card of the zone an option names", () => {
+    const shown = offered("up", ["lamp", "rope"]);
+    const top = shown.zones["deck"]?.[0];
+    expect(optionCard(take, shown)).toEqual(top);
+    expect(top?.card).not.toBeNull();
+    expect(optionCard({ type: "chooseOption", option: "skip" }, shown)).toBeNull();
+  });
+
+  it("gives nothing for a face-down top card or an empty zone", () => {
+    expect(optionCard(take, offered("down", ["lamp"]))).toBeNull();
+    expect(optionCard(take, offered("up", []))).toBeNull();
   });
 });
 

@@ -219,7 +219,7 @@ describe("own moves", () => {
   const moving: DecisionView = { kind: "moveUnit", unit: "walker", options: ["b"], canPass: false };
   const choosing: DecisionView = {
     kind: "chooseOption",
-    options: [{ id: "keep", label: "Keep", cost: [] }],
+    options: [{ id: "keep", label: "Keep", cost: [], topCardOf: null }],
     canPass: true,
     roll: null,
     unit: "friend",

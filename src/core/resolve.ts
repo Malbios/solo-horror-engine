@@ -741,6 +741,7 @@ export function createResolver(
         label: modifier.id,
         cost: [],
         effects: [],
+        topCardOf: null,
       })),
       canPass: true,
       context: deliveryContext(frame),
@@ -1427,7 +1428,13 @@ export function createResolver(
     if (options.length === 0) return;
     work.pending = {
       kind: "chooseOption",
-      options: options.map(({ id, label, cost, effects }) => ({ id, label, cost, effects })),
+      options: options.map(({ id, label, cost, effects, topCardOf }) => ({
+        id,
+        label,
+        cost,
+        effects,
+        topCardOf,
+      })),
       canPass: effect.optional,
       context,
       roll: effect.roll,

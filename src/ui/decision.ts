@@ -36,6 +36,15 @@ function offeredCard(action: Action, shown: GameView): ViewCard | null {
   );
 }
 
+/** The known top card of the zone a chosen option names in its display-only `topCardOf`. */
+export function optionCard(action: Action, shown: GameView): ViewCard | null {
+  const pending = shown.pending;
+  if (action.type !== "chooseOption" || pending?.kind !== "chooseOption") return null;
+  const zone = pending.options.find((option) => option.id === action.option)?.topCardOf ?? null;
+  const top = zone === null ? undefined : shown.zones[zone]?.[0];
+  return top === undefined || top.card === null ? null : top;
+}
+
 /** The cards an action of this type chooses among, so copies can be counted. */
 function cardsChosenAmong(action: Action, shown: GameView): readonly ViewCard[] {
   const pending = shown.pending;
@@ -240,10 +249,13 @@ function actionControl(
   labels: Labels,
   handlers: DecisionHandlers,
 ): HTMLElement {
+  const aboutCard = optionCard(action, shown);
   const note =
     action.type === "pickModule"
       ? labels.moduleNote(action.module)
-      : buyNote(action, shown, labels);
+      : aboutCard !== null
+        ? labels.card(aboutCard)
+        : buyNote(action, shown, labels);
   const take = h(
     "button",
     {
@@ -255,7 +267,7 @@ function actionControl(
       note === null ? null : h("span", { className: "action-note", text: note }),
     ],
   );
-  const card = offeredCard(action, shown);
+  const card = offeredCard(action, shown) ?? aboutCard;
   if (card === null || card.card === null) return take;
   const row = h("div", { className: "action-with-info" }, [
     take,

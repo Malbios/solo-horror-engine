@@ -203,6 +203,7 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
     when: boolExprSchema.default(true),
     cost: costListSchema,
     effects,
+    topCardOf: idSchema.nullable().default(null),
   });
   return z.discriminatedUnion("type", [
     z.strictObject({ type: z.literal("changeCounter"), counter: idSchema, amount: numExprSchema }),

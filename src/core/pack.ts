@@ -89,6 +89,8 @@ export type ChooseOption = {
   when: BoolExpr;
   cost: Cost[];
   effects: Effect[];
+  /** Display only: a zone whose top card this option is about; its button shows that card while it is known. */
+  topCardOf: string | null;
 };
 
 export type CardPosition = "top" | "bottom";
