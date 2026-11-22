@@ -462,6 +462,11 @@ export type UnitKind = {
    * but their creation, moves, removal and changes are left out of the log and playback.
    */
   bookkeeping: boolean;
+  /**
+   * Display only: this kind's pieces come along with others (vehicles brought to where a piece went); their moves
+   * from one space to another get no playback beat of their own, but still show on the board and in the log.
+   */
+  comesAlong: boolean;
   attributes: Counter[];
   /** Other kinds a unit of this kind also counts as wherever a kind is matched. */
   countsAs: string[];

@@ -340,6 +340,7 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
       ownRemoval: ownRemovalOf(action, shownBefore.pending),
       describe: (event, shown) => describeEvent(event, shown, labelsFor(shown)),
       bookkeeping: (kind) => labelsFor(shownBefore).isBookkeeping(kind),
+      comesAlong: (kind) => labelsFor(shownBefore).comesAlong(kind),
     });
     if (beats.length === 0) return false;
     playback = { beats, index: 0, timer: null };

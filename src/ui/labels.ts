@@ -38,6 +38,8 @@ export type Labels = {
   unitKind(kind: string): string;
   /** Helper pieces (markers, tie-break options), never logged or played back. */
   isBookkeeping(kind: string): boolean;
+  /** Pieces that come along with others; their moves between spaces get no playback beat of their own. */
+  comesAlong(kind: string): boolean;
   attribute(kind: string, id: string): string;
   boards(): Board[];
   markedEdges(): MarkedEdge[];
@@ -169,6 +171,7 @@ export function createLabels(
     },
     unitKind: kindName,
     isBookkeeping: (kind) => rules.unitKindById.get(kind)?.bookkeeping === true,
+    comesAlong: (kind) => rules.unitKindById.get(kind)?.comesAlong === true,
     attribute: (kind, id) =>
       rules.unitKindById.get(kind)?.attributes.find((attribute) => attribute.id === id)?.name ?? id,
     boards: () => rules.boards,

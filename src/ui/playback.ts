@@ -34,6 +34,8 @@ export type PlaybackInput = {
   describe: (event: GameEvent, shown: GameView) => string | null;
   /** Helper piece kinds: kept on the board, but their moves and removals are not played back. */
   bookkeeping: (kind: string) => boolean;
+  /** Piece kinds that come along with others: their moves between spaces join the current beat. */
+  comesAlong: (kind: string) => boolean;
 };
 
 /** The unit whose move the player chose with this action: the piece moved, or the piece picked (e.g. to follow). */
@@ -91,12 +93,16 @@ function apply(
   draft: Draft,
   event: GameEvent,
   final: GameView,
-  bookkeeping: (kind: string) => boolean,
+  quiet: { bookkeeping: (kind: string) => boolean; comesAlong: (kind: string) => boolean },
 ): boolean {
+  const { bookkeeping, comesAlong } = quiet;
   switch (event.type) {
-    case "unitMoved":
+    case "unitMoved": {
       draft.units = { ...draft.units, [event.unit]: movedUnit(draft, event, final) };
+      const between = event.fromSpace !== null && event.toSpace !== null;
+      if (between && comesAlong(event.kind)) return false;
       return !bookkeeping(event.kind) && (event.fromSpace !== null || event.toSpace !== null);
+    }
     case "unitRemoved":
       draft.units = Object.fromEntries(
         Object.entries(draft.units).filter(([id]) => id !== event.unit),
@@ -162,6 +168,7 @@ export function playbackBeats({
   ownRemoval,
   describe,
   bookkeeping,
+  comesAlong,
 }: PlaybackInput): Beat[] {
   const final = steps.at(-1)?.after;
   if (final === undefined) return [];
@@ -182,7 +189,7 @@ export function playbackBeats({
   for (const [index, step] of steps.entries()) {
     const stepBefore = index === 0 ? before : (steps[index - 1]?.after ?? before);
     for (const event of shownEvents(step.events, stepBefore)) {
-      const onBoard = apply(draft, event, final, bookkeeping);
+      const onBoard = apply(draft, event, final, { bookkeeping, comesAlong });
       const line = isBookkeeping(event) ? null : describe(event, step.after);
       const isOwn = skipOwnMove && event.type === "unitMoved" && event.unit === ownMove;
       if (isOwn) {

@@ -80,6 +80,19 @@ describe("labels", () => {
     expect(describeEvent(change, shown, labels)).toBeNull();
   });
 
+  it("tells which pieces come along with others", () => {
+    const pack = fixturePack({
+      unitKinds: [
+        { id: "cart", name: "Cart", comesAlong: true },
+        { id: "walker", name: "Walker" },
+      ],
+    });
+    const shown = view(createEngine(pack).init(3));
+    const labels = createLabels(displayRules(pack, shown.modules), shown);
+    expect(labels.comesAlong("cart")).toBe(true);
+    expect(labels.comesAlong("walker")).toBe(false);
+  });
+
   it("leaves helper pieces out of the log and names a piece already gone by its kind", () => {
     const pack = fixturePack({
       unitKinds: [

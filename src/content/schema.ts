@@ -736,6 +736,7 @@ const unitKindSchema = z.strictObject({
   color: z.string().min(1).nullable().default(null),
   badge: z.string().min(1).max(3).nullable().default(null),
   bookkeeping: z.boolean().default(false),
+  comesAlong: z.boolean().default(false),
   countsAs: z.array(idSchema).default([]),
   attributes: z
     .array(counterSchema)

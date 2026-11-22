@@ -52,6 +52,7 @@ function beatsOf(
     ownRemoval,
     describe: describeAll,
     bookkeeping: (kind) => kind === "pin",
+    comesAlong: (kind) => kind === "cart",
   });
 }
 
@@ -140,6 +141,27 @@ describe("playbackBeats", () => {
       "friend",
     );
     expect(ownLater.map((beat) => beat.lines)).toEqual([["unitMoved"], ["unitRemoved"]]);
+  });
+
+  it("moves a piece that comes along within the current beat, but shows it arriving", () => {
+    const cart = (from: string | null, to: string | null): GameEvent => ({
+      type: "unitMoved",
+      unit: "cart",
+      kind: "cart",
+      fromSpace: from,
+      toSpace: to,
+    });
+    const before = baseView({
+      units: { walker: onSpace("walker", "walker", "a"), cart: onSpace("cart", "cart", "a") },
+    });
+    const after = baseView({
+      units: { walker: onSpace("walker", "walker", "b"), cart: onSpace("cart", "cart", "b") },
+    });
+    const beats = beatsOf(before, [moved("walker", "a", "b"), cart("a", "b")], after);
+    expect(beats.map((beat) => beat.lines)).toEqual([["unitMoved", "unitMoved"]]);
+    expect(beats[0]?.view.units["cart"]?.placement).toEqual({ type: "space", space: "b" });
+    const arriving = beatsOf(baseView({}), [cart(null, "b")], after);
+    expect(arriving.map((beat) => beat.focus)).toEqual([["b"]]);
   });
 
   it("shows a piece created and removed in the same step, then takes it away", () => {
