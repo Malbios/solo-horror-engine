@@ -40,6 +40,7 @@ import {
   type SaveStore,
 } from "./save-store";
 import {
+  addOnGroups,
   IndexedDbLibraryStore,
   libraryFromFolder,
   LocalStorageLibraryStore,
@@ -694,22 +695,30 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
 
   function renderAddOnList(): HTMLElement | null {
     if (active.addOns.length === 0) return null;
+    const kindOrder = active.pack.choices.flatMap((choice) =>
+      choice.kind === null ? [] : [choice.kind],
+    );
     return h("section", {}, [
       h("h3", { text: "Add-ons" }),
-      h(
-        "ul",
-        { className: "add-on-list" },
-        active.addOns.map((addOn) =>
-          h("li", { className: "add-on" }, [
-            h("span", { text: `${addOn.meta.name} ${addOn.meta.version}` }),
-            h("button", {
-              className: "action action-pass",
-              text: "Remove",
-              attrs: { "aria-label": `Remove ${addOn.meta.name}` },
-              onClick: () => removeAddOn(addOn.meta.id),
-            }),
-          ]),
-        ),
+      ...addOnGroups(active.addOns, kindOrder).map((group) =>
+        h("details", { className: "add-on-group" }, [
+          h("summary", { className: "add-on-group-summary", text: group.title }),
+          h(
+            "ul",
+            { className: "add-on-list" },
+            group.addOns.map((addOn) =>
+              h("li", { className: "add-on" }, [
+                h("span", { text: `${addOn.meta.name} ${addOn.meta.version}` }),
+                h("button", {
+                  className: "action action-pass",
+                  text: "Remove",
+                  attrs: { "aria-label": `Remove ${addOn.meta.name}` },
+                  onClick: () => removeAddOn(addOn.meta.id),
+                }),
+              ]),
+            ),
+          ),
+        ]),
       ),
     ]);
   }

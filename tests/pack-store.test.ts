@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import demoPackData from "../content/demo/pack.json";
 import {
+  addOnGroups,
   EMPTY_LIBRARY,
+  parseAddOnText,
   libraryFromFolder,
   LocalStorageLibraryStore,
   migrateLibrary,
@@ -215,5 +217,42 @@ describe("libraryFromFolder", () => {
     const two = libraryFromFolder([coreText, otherCore("second")]);
     expect(two.ok).toBe(false);
     if (!two.ok) expect(two.error[0]).toMatch(/more than one core.*second/);
+  });
+});
+
+describe("addOnGroups", () => {
+  const addOn = (id: string, name: string, kind: string) => {
+    const parsed = parseAddOnText(
+      JSON.stringify({
+        meta: { id, version: "1.0.0", schemaVersion: 2, name, core: "demo" },
+        module: { id, kind, precedence: 1 },
+      }),
+    );
+    if (parsed === null) throw new Error("invalid add-on fixture");
+    return parsed;
+  };
+
+  it("groups by kind in the given order, others after by id, names sorted", () => {
+    const groups = addOnGroups(
+      [
+        addOn("lamp", "Lamp", "tool"),
+        addOn("cellar", "Cellar", "room"),
+        addOn("axe", "Axe", "tool"),
+        addOn("wisp", "Wisp", "side-quest"),
+        addOn("bell", "Bell", "charm"),
+      ],
+      ["room", "tool"],
+    );
+    expect(groups.map((group) => group.title)).toEqual([
+      "Rooms (1)",
+      "Tools (2)",
+      "Charms (1)",
+      "Side quests (1)",
+    ]);
+    expect(groups[1]?.addOns.map((member) => member.meta.id)).toEqual(["axe", "lamp"]);
+  });
+
+  it("gives no groups without add-ons", () => {
+    expect(addOnGroups([], ["room"])).toEqual([]);
   });
 });

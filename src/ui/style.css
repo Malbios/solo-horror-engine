@@ -100,6 +100,37 @@ h3 {
   gap: 8px;
 }
 
+.add-on-group {
+  border-top: 1px solid var(--line);
+}
+
+.add-on-group-summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  gap: 8px;
+  font-weight: 600;
+  list-style: none;
+}
+
+.add-on-group-summary::-webkit-details-marker {
+  display: none;
+}
+
+.add-on-group-summary::before {
+  content: "▸";
+  color: var(--muted);
+}
+
+.add-on-group[open] > .add-on-group-summary::before {
+  content: "▾";
+}
+
+.add-on-group > .add-on-list {
+  padding-bottom: 8px;
+}
+
 .add-on {
   display: flex;
   align-items: center;

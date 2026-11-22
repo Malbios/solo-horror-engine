@@ -225,6 +225,36 @@ export class IndexedDbLibraryStore {
   }
 }
 
+export type AddOnGroup = { kind: string; title: string; addOns: AddOn[] };
+
+function groupTitle(kind: string, count: number): string {
+  const words = kind.replaceAll("-", " ");
+  return `${words.charAt(0).toUpperCase()}${words.slice(1)}s (${count})`;
+}
+
+/**
+ * The add-ons grouped by their module's kind: kinds named in `kindOrder` first, in that order, then
+ * the others by id; each group sorted by name.
+ */
+export function addOnGroups(addOns: readonly AddOn[], kindOrder: readonly string[]): AddOnGroup[] {
+  const byKind = new Map<string, AddOn[]>();
+  for (const addOn of addOns) {
+    const kind = addOn.module.kind;
+    byKind.set(kind, [...(byKind.get(kind) ?? []), addOn]);
+  }
+  const rank = (kind: string) => {
+    const index = kindOrder.indexOf(kind);
+    return index === -1 ? kindOrder.length : index;
+  };
+  const kinds = [...byKind.keys()].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  return kinds.map((kind) => {
+    const members = [...(byKind.get(kind) ?? [])].sort((a, b) =>
+      a.meta.name.localeCompare(b.meta.name),
+    );
+    return { kind, title: groupTitle(kind, members.length), addOns: members };
+  });
+}
+
 function versionParts(version: string): number[] {
   return version.split(".").map((part) => Number.parseInt(part, 10) || 0);
 }
