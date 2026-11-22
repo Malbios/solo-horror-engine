@@ -7,7 +7,7 @@
     <title>Solo Engine</title>
   </head>
   <body>
-    <div class="app">
+    <div id="app" class="app">
       <header class="topbar">
         <span id="round" class="round"></span>
         <div class="topbar-actions">
@@ -40,6 +40,7 @@
       <div id="log-body" class="log-drawer-body" inert></div>
     </aside>
     <dialog id="sheet" class="sheet"></dialog>
+    <div id="busy" class="busy" role="alert" aria-busy="true" hidden></div>
     <div id="card-preview" class="card-preview" popover="manual" role="tooltip" hidden></div>
     <script type="module" src="/src/ui/main.ts"></script>
   </body>

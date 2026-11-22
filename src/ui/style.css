@@ -1122,6 +1122,63 @@ h3 {
   }
 }
 
+.busy {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 55%);
+  cursor: progress;
+}
+
+.busy[hidden] {
+  display: none;
+}
+
+.busy:focus {
+  outline: none;
+}
+
+.busy-card {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  max-width: 320px;
+  padding: 20px 24px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: center;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+}
+
+.busy-card p {
+  margin: 0;
+}
+
+.busy-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.busy-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: busy-spin 0.9s linear infinite;
+  will-change: transform;
+}
+
+@keyframes busy-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
@@ -1129,7 +1186,8 @@ h3 {
 
   .veil-line-new,
   .space-focus,
-  .toast {
+  .toast,
+  .busy-spinner {
     animation: none;
   }
 }

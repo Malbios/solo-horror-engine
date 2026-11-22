@@ -18,6 +18,7 @@ import {
   type Rules,
 } from "../core";
 import { renderMap } from "./board";
+import { createBusy, nextPaint, type Busy } from "./busy";
 import { automaticAction, renderDecision, renderPlayback, rollToShow } from "./decision";
 import { h, requireElement } from "./dom";
 import { logEntry, replayWithLog, withEntry } from "./game-log";
@@ -76,6 +77,7 @@ import "./style.css";
 const PACK_KEY = "solo-horror-engine:pack";
 const ADD_ONS_KEY = "solo-horror-engine:add-ons";
 const SAVE_KEY_PREFIX = "solo-horror-engine:save:";
+const LOADING_PACKS = "Loading packs…";
 const SLIDE_MILLISECONDS = 350;
 // Safety cap on lone actions taken in a row for the player (a pack that loops on one choice).
 const MAX_AUTOMATIC_ACTIONS = 200;
@@ -136,7 +138,13 @@ function randomSeed(): number {
 /** The loaded files as they stand, and how to store a changed set. */
 type Library = { current: LibrarySnapshot; save(next: LibrarySnapshot): Promise<boolean> };
 
-function start(active: ActivePack, library: Library, engine: Engine, store: SaveStore): void {
+function start(
+  active: ActivePack,
+  library: Library,
+  engine: Engine,
+  store: SaveStore,
+  busy: Busy,
+): void {
   const { pack } = active;
   let folder: FileSystemDirectoryHandle | null = null;
   const roundText = requireElement("round", HTMLSpanElement);
@@ -530,7 +538,7 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
         file.name.toLowerCase().endsWith(".json"),
       );
       if (files.length === 0) return;
-      showLoading();
+      busy.show(LOADING_PACKS);
       void Promise.all(files.map((file) => file.text())).then(useFolderLibrary);
     });
     endPlayback();
@@ -563,24 +571,28 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
     ]);
   }
 
-  function showLoading(): void {
-    sheet.open("Loading packs…", [
-      h("p", { className: "muted", text: "Reading and checking the files." }),
-    ]);
+  /** Leaves the busy overlay for the menu, with what went wrong. */
+  function stopLoading(message: readonly string[] = []): void {
+    busy.hide();
+    openMenu(message);
   }
 
   /** Reads every pack in the remembered folder (or one the player picks) and uses them all. */
   async function loadAllFromFolder(): Promise<void> {
+    busy.show(LOADING_PACKS);
     let chosen: FileSystemDirectoryHandle;
     try {
       chosen = folder ?? (await chooseFolder());
       if (!(await ensureReadable(chosen))) {
-        openMenu(["The browser did not allow reading that folder."]);
+        stopLoading(["The browser did not allow reading that folder."]);
         return;
       }
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      openMenu(["That folder could not be opened."]);
+      if (error instanceof DOMException && error.name === "AbortError") {
+        stopLoading();
+        return;
+      }
+      stopLoading(["That folder could not be opened."]);
       return;
     }
     if (chosen !== folder) {
@@ -589,18 +601,18 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
         console.warn("Could not remember the packs folder", error);
       });
     }
-    showLoading();
     await useFolderLibrary(await readJsonTexts(chosen));
   }
 
   async function useFolderLibrary(texts: readonly string[]): Promise<void> {
+    await nextPaint();
     const found = libraryFromFolder(texts);
     if (!found.ok) {
-      openMenu(found.error);
+      stopLoading(found.error);
       return;
     }
     if (!(await library.save(found.value))) {
-      openMenu(["The browser could not store the packs."]);
+      stopLoading(["The browser could not store the packs."]);
       return;
     }
     location.reload();
@@ -663,16 +675,20 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
   }
 
   async function reloadFromFolder(pickAnother: boolean): Promise<void> {
+    busy.show(LOADING_PACKS);
     let chosen: FileSystemDirectoryHandle;
     try {
       chosen = pickAnother || folder === null ? await chooseFolder() : folder;
       if (!(await ensureReadable(chosen))) {
-        openMenu(["The browser did not allow reading that folder."]);
+        stopLoading(["The browser did not allow reading that folder."]);
         return;
       }
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      openMenu(["That folder could not be opened."]);
+      if (error instanceof DOMException && error.name === "AbortError") {
+        stopLoading();
+        return;
+      }
+      stopLoading(["That folder could not be opened."]);
       return;
     }
     if (chosen !== folder) {
@@ -681,20 +697,19 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
         console.warn("Could not remember the packs folder", error);
       });
     }
-    const refreshed = refreshLibrary(
-      library.current.core,
-      library.current.addOns,
-      await readJsonTexts(chosen),
-    );
+    const texts = await readJsonTexts(chosen);
+    await nextPaint();
+    const refreshed = refreshLibrary(library.current.core, library.current.addOns, texts);
     const stored = await library.save({ core: refreshed.core, addOns: refreshed.addOns });
     if (!stored) {
-      openMenu(["The files are too large for this browser to remember."]);
+      stopLoading(["The files are too large for this browser to remember."]);
       return;
     }
     if (refreshed.missing.length === 0) {
       location.reload();
       return;
     }
+    busy.hide();
     sheet.open("Some packs were not found", [
       h("p", { text: `Not in ${chosen.name}: ${refreshed.missing.join(", ")}.` }),
       h("p", { className: "muted", text: "The packs that were found are updated." }),
@@ -907,19 +922,27 @@ async function openLibrary(): Promise<Library> {
 }
 
 async function boot(): Promise<void> {
-  const notice = requireElement("notice", HTMLParagraphElement);
-  notice.textContent = "Loading packs…";
-  notice.hidden = false;
+  const busy = createBusy(
+    requireElement("busy", HTMLDivElement),
+    ["app", "toasts", "log-drawer"].map((id) => requireElement(id, HTMLElement)),
+    [requireElement("sheet", HTMLDialogElement), requireElement("card-preview", HTMLDivElement)],
+  );
+  busy.show(LOADING_PACKS);
   const library = await openLibrary();
+  await nextPaint();
   const active = chooseGame(library.current);
-  notice.hidden = true;
-  if (active === null) return;
+  if (active === null) {
+    busy.hide();
+    return;
+  }
   start(
     active,
     library,
     createEngine(active.pack),
     new LocalStorageSaveStore(SAVE_KEY_PREFIX + active.pack.meta.id, localStorage),
+    busy,
   );
+  busy.hide();
 }
 
 void boot();
