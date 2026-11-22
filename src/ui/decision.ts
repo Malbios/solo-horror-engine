@@ -17,6 +17,8 @@ export type DecisionHandlers = {
   openCard: (card: ViewCard) => void;
   /** Shows the card's details while `target` is hovered or keyboard-focused. */
   previewCard: (target: HTMLElement, card: ViewCard) => void;
+  /** Offers the window's discards (one control each) to pick from. */
+  chooseDiscard: (controls: HTMLElement[]) => void;
   newGame: () => void;
 };
 
@@ -169,7 +171,7 @@ function withUnavailableBuys(
   shown: GameView,
   labels: Labels,
   handlers: DecisionHandlers,
-  discardFor: ReadonlyMap<Action, Action>,
+  beforePass: HTMLElement | null,
 ): HTMLElement[] {
   const nameOf = (card: ViewCard | null) => (card === null ? "" : labels.card(card));
   const buys = [
@@ -193,46 +195,42 @@ function withUnavailableBuys(
       : passAt === -1
         ? others.length
         : passAt;
-  const controls = others.map((action) =>
-    actionControl(action, shown, labels, handlers, discardFor.get(action) ?? null),
-  );
+  const controls = others.map((action) => actionControl(action, shown, labels, handlers));
+  if (beforePass !== null) controls.splice(passAt === -1 ? controls.length : passAt, 0, beforePass);
   controls.splice(insertAt, 0, ...buys.map(({ element }) => element));
   return controls;
 }
 
-/** Pairs each played card with the discard of the same card, so both share one row. */
-export function discardsBesidePlays(
-  ordered: readonly Action[],
-  shown: GameView,
-): { actions: Action[]; discardFor: Map<Action, Action> } {
-  const definitionOf = (action: Action) => offeredCard(action, shown)?.card ?? null;
-  const discards = ordered.filter((action) => action.type === "discardCard");
-  const discardFor = new Map<Action, Action>();
-  for (const play of ordered.filter((action) => action.type === "playCard")) {
-    const definition = definitionOf(play);
-    const discard = discards.find(
-      (candidate) =>
-        definition !== null &&
-        definitionOf(candidate) === definition &&
-        ![...discardFor.values()].includes(candidate),
-    );
-    if (discard !== undefined) discardFor.set(play, discard);
-  }
-  const paired = new Set(discardFor.values());
-  return { actions: ordered.filter((action) => !paired.has(action)), discardFor };
+/**
+ * Takes the discards out of the list when it offers anything else besides pass, so they can sit behind
+ * one button; a list of only discards (and pass) keeps them.
+ */
+export function discardsApart(ordered: readonly Action[]): {
+  actions: Action[];
+  discards: Action[];
+} {
+  const isDiscard = (action: Action) => action.type === "discardCard";
+  const offersMore = ordered.some((action) => !isDiscard(action) && action.type !== "pass");
+  if (!offersMore) return { actions: [...ordered], discards: [] };
+  return {
+    actions: ordered.filter((action) => !isDiscard(action)),
+    discards: ordered.filter(isDiscard),
+  };
 }
 
-function discardBeside(
-  discard: Action,
-  card: ViewCard,
+function discardButton(
+  discards: readonly Action[],
+  shown: GameView,
   labels: Labels,
   handlers: DecisionHandlers,
-) {
+): HTMLElement {
   return h("button", {
     className: "action action-secondary",
-    text: "Discard",
-    attrs: { "aria-label": `Discard ${labels.card(card)}` },
-    onClick: () => handlers.takeAction(discard),
+    text: "Discard…",
+    onClick: () =>
+      handlers.chooseDiscard(
+        discards.map((discard) => actionControl(discard, shown, labels, handlers)),
+      ),
   });
 }
 
@@ -241,7 +239,6 @@ function actionControl(
   shown: GameView,
   labels: Labels,
   handlers: DecisionHandlers,
-  discard: Action | null = null,
 ): HTMLElement {
   const note =
     action.type === "pickModule"
@@ -262,7 +259,6 @@ function actionControl(
   if (card === null || card.card === null) return take;
   const row = h("div", { className: "action-with-info" }, [
     take,
-    discard === null ? null : discardBeside(discard, card, labels, handlers),
     h("button", {
       className: "info",
       text: "i",
@@ -332,7 +328,9 @@ export function renderDecision(
       ]),
     ];
   }
-  const rows = discardsBesidePlays(stableOrder(actions, shown, labels), shown);
+  const rows = discardsApart(stableOrder(actions, shown, labels));
+  const discard =
+    rows.discards.length === 0 ? null : discardButton(rows.discards, shown, labels, handlers);
   const dice = roll === null ? [] : (shown.pools[roll] ?? []);
   const rollLine =
     dice.length === 0
@@ -344,7 +342,7 @@ export function renderDecision(
     h(
       "div",
       { className: "actions" },
-      withUnavailableBuys(rows.actions, shown, labels, handlers, rows.discardFor),
+      withUnavailableBuys(rows.actions, shown, labels, handlers, discard),
     ),
   ];
 }

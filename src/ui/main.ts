@@ -265,6 +265,8 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
               takeAction: take,
               openCard,
               previewCard,
+              chooseDiscard: (controls) =>
+                sheet.open("Discard which card?", [h("div", { className: "actions" }, controls)]),
               newGame: confirmNewGame,
             },
             rollPool,

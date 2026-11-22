@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createEngine, view, viewActions, type GameState } from "../src/core";
+import { createEngine, view, viewActions, type Action, type GameState } from "../src/core";
 import {
   actionLabel,
   automaticAction,
   rollToShow,
   buyNote,
-  discardsBesidePlays,
+  discardsApart,
   stableOrder,
   unavailableBuys,
 } from "../src/ui/decision";
@@ -178,15 +178,15 @@ describe("unavailable buys", () => {
   });
 });
 
-describe("discards beside plays", () => {
-  it("puts the discard of a playable card on its row and keeps other discards apart", () => {
-    const pack = fixturePack({
+describe("discards apart", () => {
+  const windowPack = (playable: boolean) =>
+    fixturePack({
       zones: [
         { id: "hand", name: "Hand" },
         { id: "pile", name: "Pile" },
       ],
       cards: [
-        { id: "lamp", name: "Lamp" },
+        { id: "lamp", name: "Lamp", playable },
         { id: "bell", name: "Bell", playable: false },
       ],
       setup: [
@@ -212,14 +212,23 @@ describe("discards beside plays", () => {
         PAUSE_PHASE,
       ],
     });
-    const state = createEngine(pack).init(1);
-    const shown = view(state);
-    const { actions, discardFor } = discardsBesidePlays(viewActions(state), shown);
-    expect(actions.map((action) => action.type)).toEqual(["playCard", "discardCard", "pass"]);
-    const play = actions[0];
-    if (play === undefined) throw new Error("no play offered");
-    expect(discardFor.get(play)).toMatchObject({ type: "discardCard", card: "lamp:1" });
-    expect(actions[1]).toMatchObject({ type: "discardCard", card: "bell:1" });
+  const types = (actions: readonly Action[]) => actions.map((action) => action.type);
+
+  it("takes every discard out of a list that offers more than discards", () => {
+    const state = createEngine(windowPack(true)).init(1);
+    const { actions, discards } = discardsApart(viewActions(state));
+    expect(types(actions)).toEqual(["playCard", "pass"]);
+    expect(discards).toEqual([
+      expect.objectContaining({ type: "discardCard", card: "lamp:1" }),
+      expect.objectContaining({ type: "discardCard", card: "bell:1" }),
+    ]);
+  });
+
+  it("keeps the discards in a list of only discards and pass", () => {
+    const state = createEngine(windowPack(false)).init(1);
+    const { actions, discards } = discardsApart(viewActions(state));
+    expect(types(actions)).toEqual(["discardCard", "discardCard", "pass"]);
+    expect(discards).toEqual([]);
   });
 });
 
