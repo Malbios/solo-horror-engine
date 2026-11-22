@@ -71,14 +71,24 @@ function unitCard(unit: UnitState, labels: Labels): HTMLElement {
 /** Remembers which "More" sections are open across re-renders. */
 export type MoreState = { isOpen(key: string): boolean; setOpen(key: string, open: boolean): void };
 
+/** The fold's label: what tapping it does next. */
+export function moreLabel(open: boolean): string {
+  return open ? "Less" : "More";
+}
+
 function moreSection(key: string, rows: HTMLElement[], more: MoreState): HTMLElement | null {
   if (rows.length === 0) return null;
+  const open = more.isOpen(key);
+  const summary = h("summary", { className: "more-summary", text: moreLabel(open) });
   const details = h("details", { className: "more" }, [
-    h("summary", { className: "more-summary", text: "More" }),
+    summary,
     h("div", { className: "more-rows" }, rows),
   ]);
-  details.open = more.isOpen(key);
-  details.addEventListener("toggle", () => more.setOpen(key, details.open));
+  details.open = open;
+  details.addEventListener("toggle", () => {
+    more.setOpen(key, details.open);
+    summary.textContent = moreLabel(details.open);
+  });
   return details;
 }
 

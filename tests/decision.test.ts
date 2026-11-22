@@ -12,7 +12,7 @@ import {
   unavailableBuys,
 } from "../src/ui/decision";
 import { createLabels, displayRules, knownCosts } from "../src/ui/labels";
-import { groupCopies } from "../src/ui/panels";
+import { groupCopies, moreLabel } from "../src/ui/panels";
 import { act, fixturePack, PAUSE_PHASE } from "./helpers";
 
 function shopPack(coins = 9) {
@@ -407,6 +407,13 @@ describe("optionCard", () => {
   it("gives nothing for a face-down top card or an empty zone", () => {
     expect(optionCard(take, offered("down", ["lamp"]))).toBeNull();
     expect(optionCard(take, offered("up", []))).toBeNull();
+  });
+});
+
+describe("moreLabel", () => {
+  it("says what tapping the fold does next", () => {
+    expect(moreLabel(false)).toBe("More");
+    expect(moreLabel(true)).toBe("Less");
   });
 });
 
