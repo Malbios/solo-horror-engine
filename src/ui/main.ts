@@ -22,7 +22,14 @@ import { automaticAction, renderDecision, renderPlayback, rollToShow } from "./d
 import { h, requireElement } from "./dom";
 import { logEntry, replayWithLog, withEntry } from "./game-log";
 import { createLabels, describeEvent, displayRules, moduleInfo, type Labels } from "./labels";
-import { playbackBeats, readingMilliseconds, type Beat, type PlaybackStep } from "./playback";
+import {
+  ownMoveOf,
+  ownRemovalOf,
+  playbackBeats,
+  readingMilliseconds,
+  type Beat,
+  type PlaybackStep,
+} from "./playback";
 import { clearToasts, showToast, toastTexts } from "./toast";
 import {
   loadSettings,
@@ -326,11 +333,11 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
   ): boolean {
     if (!settings.showAutomaticSteps) return false;
     const shownBefore = view(before);
-    const pending = shownBefore.pending;
     const beats = playbackBeats({
       before: shownBefore,
       steps,
-      ownMove: action.type === "moveTo" && pending?.kind === "moveUnit" ? pending.unit : null,
+      ownMove: ownMoveOf(action, shownBefore.pending),
+      ownRemoval: ownRemovalOf(action, shownBefore.pending),
       describe: (event, shown) => describeEvent(event, shown, labelsFor(shown)),
       bookkeeping: (kind) => labelsFor(shownBefore).isBookkeeping(kind),
     });

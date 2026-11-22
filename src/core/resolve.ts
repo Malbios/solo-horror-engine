@@ -745,6 +745,7 @@ export function createResolver(
       canPass: true,
       context: deliveryContext(frame),
       roll: null,
+      unit: null,
     };
   }
 
@@ -1429,6 +1430,7 @@ export function createResolver(
       canPass: effect.optional,
       context,
       roll: effect.roll,
+      unit: context.self,
     };
   }
 

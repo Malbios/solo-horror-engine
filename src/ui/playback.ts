@@ -1,5 +1,7 @@
 import {
   assertNever,
+  type Action,
+  type DecisionView,
   type GameEvent,
   type GameView,
   type UnitPlacement,
@@ -22,12 +24,29 @@ export type PlaybackStep = { events: readonly GameEvent[]; after: GameView };
 export type PlaybackInput = {
   before: GameView;
   steps: readonly PlaybackStep[];
-  /** The unit the player just moved by hand; its first move is not played back. */
+  /** The unit the player just moved or picked by hand; its first move is not played back. */
   ownMove: string | null;
+  /**
+   * The unit the option the player just chose is about; its removal is not played back when it comes
+   * before anything else on the board.
+   */
+  ownRemoval: string | null;
   describe: (event: GameEvent, shown: GameView) => string | null;
   /** Helper piece kinds: kept on the board, but their moves and removals are not played back. */
   bookkeeping: (kind: string) => boolean;
 };
+
+/** The unit whose move the player chose with this action: the piece moved, or the piece picked (e.g. to follow). */
+export function ownMoveOf(action: Action, pending: DecisionView | null): string | null {
+  if (action.type === "moveTo" && pending?.kind === "moveUnit") return pending.unit;
+  if (action.type === "pickUnit") return action.unit;
+  return null;
+}
+
+/** The unit the option the player chose with this action is about, if any. */
+export function ownRemovalOf(action: Action, pending: DecisionView | null): string | null {
+  return action.type === "chooseOption" && pending?.kind === "chooseOption" ? pending.unit : null;
+}
 
 type Draft = { units: Record<string, UnitState>; counters: Record<string, number> };
 
@@ -140,6 +159,7 @@ export function playbackBeats({
   before,
   steps,
   ownMove,
+  ownRemoval,
   describe,
   bookkeeping,
 }: PlaybackInput): Beat[] {
@@ -151,6 +171,7 @@ export function playbackBeats({
   // Lines before the first beat (e.g. a roll that decides the move) open that beat.
   let leadingLines: string[] = [];
   let skipOwnMove = ownMove !== null;
+  let boardChanged = false;
   const snapshot = (): GameView => ({
     ...final,
     units: draft.units,
@@ -168,6 +189,10 @@ export function playbackBeats({
         skipOwnMove = false;
         continue;
       }
+      const isOwnRemoval =
+        !boardChanged && event.type === "unitRemoved" && event.unit === ownRemoval;
+      if (onBoard) boardChanged = true;
+      if (isOwnRemoval) continue;
       const card = event.type === "cardResolved" ? visibleCard(event.card, step.after) : null;
       if (onBoard || card !== null) {
         const lines = [...leadingLines, ...(line === null ? [] : [line])];

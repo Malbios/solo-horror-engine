@@ -184,6 +184,8 @@ export type Decision =
       context: ExpressionContext;
       /** Display only: the dice pool this decision is about. */
       roll: string | null;
+      /** Display only: the unit this choice is about (the `self` it was offered for). */
+      unit: string | null;
     }
   | {
       kind: "window";

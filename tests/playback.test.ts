@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { createEngine, view, type GameEvent, type GameView, type UnitState } from "../src/core";
-import { playbackBeats, readingMilliseconds, type PlaybackStep } from "../src/ui/playback";
+import {
+  createEngine,
+  view,
+  type DecisionView,
+  type GameEvent,
+  type GameView,
+  type UnitState,
+} from "../src/core";
+import {
+  ownMoveOf,
+  ownRemovalOf,
+  playbackBeats,
+  readingMilliseconds,
+  type PlaybackStep,
+} from "../src/ui/playback";
 import { loadDemoPack } from "./helpers";
 
 const onSpace = (id: string, kind: string, space: string): UnitState => ({
@@ -29,12 +42,14 @@ function beatsOf(
   events: GameEvent[],
   after: GameView,
   ownMove: string | null = null,
+  ownRemoval: string | null = null,
 ) {
   const steps: PlaybackStep[] = [{ events, after }];
   return playbackBeats({
     before,
     steps,
     ownMove,
+    ownRemoval,
     describe: describeAll,
     bookkeeping: (kind) => kind === "pin",
   });
@@ -92,6 +107,41 @@ describe("playbackBeats", () => {
     expect(beats[0]?.view.units["friend"]?.placement).toEqual({ type: "space", space: "b" });
   });
 
+  it("skips the move of the piece the player picked to follow", () => {
+    const before = baseView({ units: { friend: onSpace("friend", "walker", "a") } });
+    const after = baseView({ units: { friend: onSpace("friend", "walker", "b") } });
+    expect(beatsOf(before, [moved("friend", "a", "b")], after, "friend")).toEqual([]);
+  });
+
+  it("skips the removal of the piece a chosen option is about, but not a later one", () => {
+    const removed = (unit: string): GameEvent => ({
+      type: "unitRemoved",
+      unit,
+      kind: "walker",
+      fromSpace: "a",
+    });
+    const before = baseView({
+      units: { friend: onSpace("friend", "walker", "a"), other: onSpace("other", "walker", "b") },
+    });
+    const after = baseView({ units: { other: onSpace("other", "walker", "a") } });
+    const ownFirst = beatsOf(
+      before,
+      [removed("friend"), moved("other", "b", "a")],
+      after,
+      null,
+      "friend",
+    );
+    expect(ownFirst.map((beat) => beat.lines)).toEqual([["unitMoved"]]);
+    const ownLater = beatsOf(
+      before,
+      [moved("other", "b", "a"), removed("friend")],
+      after,
+      null,
+      "friend",
+    );
+    expect(ownLater.map((beat) => beat.lines)).toEqual([["unitMoved"], ["unitRemoved"]]);
+  });
+
   it("shows a piece created and removed in the same step, then takes it away", () => {
     const before = baseView({});
     const after = baseView({});
@@ -140,6 +190,29 @@ describe("playbackBeats", () => {
     ];
     const beats = beatsOf(before, events, after);
     expect(beats.map((beat) => beat.card)).toEqual([{ ref: "card-1", card: "notice" }]);
+  });
+});
+
+describe("own moves", () => {
+  const moving: DecisionView = { kind: "moveUnit", unit: "walker", options: ["b"], canPass: false };
+  const choosing: DecisionView = {
+    kind: "chooseOption",
+    options: [{ id: "keep", label: "Keep", cost: [] }],
+    canPass: true,
+    roll: null,
+    unit: "friend",
+  };
+
+  it("names the piece the player moved or picked", () => {
+    expect(ownMoveOf({ type: "moveTo", space: "b" }, moving)).toBe("walker");
+    expect(ownMoveOf({ type: "pickUnit", unit: "friend" }, null)).toBe("friend");
+    expect(ownMoveOf({ type: "pass" }, moving)).toBeNull();
+  });
+
+  it("names the piece a chosen option is about", () => {
+    expect(ownRemovalOf({ type: "chooseOption", option: "keep" }, choosing)).toBe("friend");
+    expect(ownRemovalOf({ type: "pass" }, choosing)).toBeNull();
+    expect(ownRemovalOf({ type: "pickUnit", unit: "friend" }, null)).toBeNull();
   });
 });
 

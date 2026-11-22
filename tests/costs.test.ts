@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEngine } from "../src/core";
+import { createEngine, view } from "../src/core";
 import { act, CONTINUE, fixturePack, PAUSE_PHASE } from "./helpers";
 
 const change = (counter: string, amount: unknown) => ({ type: "changeCounter", counter, amount });
@@ -45,6 +45,30 @@ describe("costs", () => {
     expect(nextRound.round).toBe(3);
     expect(nextRound.counters["bought"]).toBe(1);
     expect(engine.legalActions(nextRound)).toEqual([CONTINUE]);
+  });
+
+  it("names the unit a choice is offered for", () => {
+    const keep = { type: "choose", options: [{ id: "keep", label: "Keep" }] };
+    const pack = onePhase(
+      [keep, { type: "forEachUnit", units: { kind: "sheep", at: null }, effects: [keep] }],
+      {
+        spaces: [{ id: "field", name: "field" }],
+        unitKinds: [{ id: "sheep", name: "Sheep" }],
+        setup: [
+          {
+            type: "createUnit",
+            kind: "sheep",
+            id: "s1",
+            placement: { onSpace: { space: "field" } },
+          },
+        ],
+      },
+    );
+    const engine = createEngine(pack);
+    const first = engine.init(1);
+    expect(view(first).pending).toMatchObject({ kind: "chooseOption", unit: null });
+    const second = act(engine, first, { type: "chooseOption", option: "keep" });
+    expect(view(second).pending).toMatchObject({ kind: "chooseOption", unit: "s1" });
   });
 
   it("treats a counter without a minimum as always payable", () => {
