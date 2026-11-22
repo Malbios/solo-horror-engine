@@ -3,6 +3,7 @@ import { createEngine, view, viewActions, type Action, type GameState } from "..
 import {
   actionLabel,
   automaticAction,
+  cardsToShow,
   rollToShow,
   buyNote,
   discardsApart,
@@ -318,6 +319,42 @@ describe("rollToShow", () => {
       const unnamed = waitingOn(effect);
       expect(rollToShow([{ events: [], after: unnamed }], unnamed)).toBeNull();
     }
+  });
+});
+
+describe("cardsToShow", () => {
+  const offered = (showZone: string | null) => {
+    const pack = fixturePack({
+      zones: [{ id: "look", name: "Look" }],
+      cards: [{ id: "lamp", name: "Lamp" }],
+      setup: [{ type: "createCards", card: "lamp", zone: "look" }],
+      phases: [
+        {
+          id: "turn",
+          steps: [
+            {
+              id: "go",
+              effects: [{ type: "choose", showZone, options: [{ id: "keep", label: "Keep" }] }],
+            },
+          ],
+        },
+        PAUSE_PHASE,
+      ],
+    });
+    return view(createEngine(pack).init(1));
+  };
+
+  it("shows the face-up cards of the zone a choice names", () => {
+    const named = offered("look");
+    expect(named.pending).toMatchObject({ kind: "chooseOption", showZone: "look" });
+    expect(cardsToShow(named).map((card) => card.card)).toEqual(["lamp"]);
+    expect(cardsToShow(offered(null))).toEqual([]);
+  });
+
+  it("leaves face-down cards out", () => {
+    const named = offered("look");
+    const hidden = { ...named, zones: { ...named.zones, look: [{ ref: "h1", card: null }] } };
+    expect(cardsToShow(hidden)).toEqual([]);
   });
 });
 

@@ -357,7 +357,7 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
   }
 
   function focusDecision(): void {
-    decisionBar.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+    decisionBar.querySelector<HTMLButtonElement>(".actions button")?.focus({ preventScroll: true });
   }
 
   function applied(current: Session, action: Action): Taken | string {

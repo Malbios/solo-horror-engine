@@ -39,6 +39,7 @@ export type DecisionView =
       canPass: boolean;
       roll: string | null;
       unit: string | null;
+      showZone: string | null;
     }
   | {
       kind: "window";
@@ -118,6 +119,7 @@ function viewDecision(state: GameState, pending: Decision): DecisionView {
         canPass: pending.canPass,
         roll: pending.roll,
         unit: pending.unit,
+        showZone: pending.showZone,
       };
     case "window":
       return {

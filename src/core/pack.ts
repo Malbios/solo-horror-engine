@@ -154,6 +154,8 @@ export type Effect =
       options: ChooseOption[];
       /** Display only: the dice pool this decision is about; its dice are shown with the prompt. */
       roll: string | null;
+      /** Display only: a zone whose face-up cards are shown with the prompt (the cards this choice is about). */
+      showZone: string | null;
     }
   | PlayWindowEffect
   | { type: "resolveCard"; zone: string; to: string | null; ifEmpty: Effect[] }

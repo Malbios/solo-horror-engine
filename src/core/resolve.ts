@@ -746,6 +746,7 @@ export function createResolver(
       context: deliveryContext(frame),
       roll: null,
       unit: null,
+      showZone: null,
     };
   }
 
@@ -1431,6 +1432,7 @@ export function createResolver(
       context,
       roll: effect.roll,
       unit: context.self,
+      showZone: effect.showZone,
     };
   }
 

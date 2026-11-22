@@ -201,6 +201,7 @@ describe("own moves", () => {
     canPass: true,
     roll: null,
     unit: "friend",
+    showZone: null,
   };
 
   it("names the piece the player moved or picked", () => {

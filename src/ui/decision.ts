@@ -284,6 +284,35 @@ export function rollToShow(steps: readonly PlaybackStep[], shown: GameView): str
   return null;
 }
 
+/** The face-up cards of the zone the pending choice names in its display-only `showZone`. */
+export function cardsToShow(shown: GameView): ViewCard[] {
+  const pending = shown.pending;
+  if (pending?.kind !== "chooseOption" || pending.showZone === null) return [];
+  return (shown.zones[pending.showZone] ?? []).filter((card) => card.card !== null);
+}
+
+/** The cards a choice is about, by name; tapping one opens its details. */
+function shownCards(
+  cards: readonly ViewCard[],
+  labels: Labels,
+  handlers: DecisionHandlers,
+): HTMLElement {
+  return h(
+    "div",
+    { className: "decision-cards" },
+    cards.map((card) => {
+      const button = h("button", {
+        className: "decision-card",
+        text: labels.card(card),
+        attrs: { "aria-label": `${labels.card(card)}, details` },
+        onClick: () => handlers.openCard(card),
+      });
+      handlers.previewCard(button, card);
+      return button;
+    }),
+  );
+}
+
 /** The roll as dice icons, each face's label on its die, then the symbol counts; read out as `line`. */
 function rollResult(line: string, dice: GameView["pools"][string], labels: Labels): HTMLElement {
   const icons = rolledDice(dice, labels.rules).map((icon) => {
@@ -339,9 +368,11 @@ export function renderDecision(
     dice.length === 0
       ? null
       : describeEvent({ type: "diceRolled", pool: roll ?? "", dice }, shown, labels);
+  const cards = cardsToShow(shown);
   return [
     prompt,
     ...(rollLine === null ? [] : [rollResult(rollLine, dice, labels)]),
+    ...(cards.length === 0 ? [] : [shownCards(cards, labels, handlers)]),
     h(
       "div",
       { className: "actions" },

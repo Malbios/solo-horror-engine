@@ -234,6 +234,7 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       optional: z.boolean().default(false),
       options: z.array(option).min(1).refine(hasUniqueIds, "option ids must be unique"),
       roll: idSchema.nullable().default(null),
+      showZone: idSchema.nullable().default(null),
     }),
     z.strictObject({
       type: z.literal("playWindow"),

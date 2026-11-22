@@ -186,6 +186,8 @@ export type Decision =
       roll: string | null;
       /** Display only: the unit this choice is about (the `self` it was offered for). */
       unit: string | null;
+      /** Display only: a zone whose face-up cards this choice is about. */
+      showZone: string | null;
     }
   | {
       kind: "window";
