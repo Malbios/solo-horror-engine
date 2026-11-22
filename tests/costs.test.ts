@@ -85,6 +85,7 @@ describe("costs", () => {
       buyPrices: {},
       abilities: [],
       prompt: null,
+      roll: null,
     });
     const played = act(engine, window, { type: "playCard", card: "cheap:1" });
     expect(played.counters["coins"]).toBe(0);

@@ -296,6 +296,29 @@ describe("rollToShow", () => {
     expect(rollToShow([{ events: [], after: picking }], picking)).toBe("tray");
     expect(rollToShow([{ events: [], after: shown }], shown)).toBeNull();
   });
+
+  it("shows the roll a choice or window names when nothing was rolled", () => {
+    const waitingOn = (effect: Record<string, unknown>) => {
+      const pack = fixturePack({
+        zones: [{ id: "hand", name: "Hand" }],
+        phases: [{ id: "turn", steps: [{ id: "go", effects: [effect] }] }, PAUSE_PHASE],
+      });
+      return view(createEngine(pack).init(1));
+    };
+    const choice = {
+      type: "choose",
+      optional: true,
+      options: [{ id: "keep", label: "Keep", effects: [] }],
+    };
+    const window = { type: "playWindow", play: { from: "hand", to: "hand" } };
+    for (const effect of [choice, window]) {
+      const named = waitingOn({ ...effect, roll: "tray" });
+      expect(rollToShow([{ events: [], after: named }], named)).toBe("tray");
+      expect(rollToShow([{ events: [rolled("other")], after: named }], named)).toBe("other");
+      const unnamed = waitingOn(effect);
+      expect(rollToShow([{ events: [], after: unnamed }], unnamed)).toBeNull();
+    }
+  });
 });
 
 describe("groupCopies", () => {

@@ -233,6 +233,7 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       type: z.literal("choose"),
       optional: z.boolean().default(false),
       options: z.array(option).min(1).refine(hasUniqueIds, "option ids must be unique"),
+      roll: idSchema.nullable().default(null),
     }),
     z.strictObject({
       type: z.literal("playWindow"),
@@ -255,6 +256,7 @@ export const effectSchema: z.ZodType<Effect> = z.lazy(() => {
       repeat: z.boolean().default(true),
       until: boolExprSchema.default(false),
       prompt: z.string().min(1).nullable().default(null),
+      roll: idSchema.nullable().default(null),
     }),
     z.strictObject({
       type: z.literal("resolveCard"),

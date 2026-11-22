@@ -272,13 +272,16 @@ function actionControl(
 
 /**
  * The dice pool to show under the prompt: the last one rolled (or rerolled) by the steps just taken, else the
- * pool of dice being picked. An adjustment that changes no dice leads to a prompt without the roll.
+ * pool of dice being picked, else the roll the pending decision names.
  */
 export function rollToShow(steps: readonly PlaybackStep[], shown: GameView): string | null {
   const rolls = steps.flatMap((step) => step.events).filter((event) => event.type === "diceRolled");
   const last = rolls.at(-1);
   if (last !== undefined) return last.pool;
-  return shown.pending?.kind === "pickDie" ? shown.pending.pool : null;
+  const pending = shown.pending;
+  if (pending?.kind === "pickDie") return pending.pool;
+  if (pending?.kind === "chooseOption" || pending?.kind === "window") return pending.roll;
+  return null;
 }
 
 /** The roll as dice icons, each face's label on its die, then the symbol counts; read out as `line`. */

@@ -182,6 +182,8 @@ export type Decision =
       options: OptionView[];
       canPass: boolean;
       context: ExpressionContext;
+      /** Display only: the dice pool this decision is about. */
+      roll: string | null;
     }
   | {
       kind: "window";
@@ -196,6 +198,8 @@ export type Decision =
       abilities: AbilityOffer[];
       /** Display only: the window's own prompt (`{counter}` placeholders), or null for the generic one. */
       prompt: string | null;
+      /** Display only: the dice pool this decision is about. */
+      roll: string | null;
     }
   | { kind: "moveUnit"; unit: string; options: string[]; canPass: boolean }
   | { kind: "pickUnit"; options: string[]; canPass: boolean }

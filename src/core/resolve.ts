@@ -744,6 +744,7 @@ export function createResolver(
       })),
       canPass: true,
       context: deliveryContext(frame),
+      roll: null,
     };
   }
 
@@ -1427,6 +1428,7 @@ export function createResolver(
       options: options.map(({ id, label, cost, effects }) => ({ id, label, cost, effects })),
       canPass: effect.optional,
       context,
+      roll: effect.roll,
     };
   }
 
@@ -1522,6 +1524,7 @@ export function createResolver(
           repeat: effect.repeat,
           until: effect.until,
           prompt: effect.prompt,
+          roll: effect.roll,
         });
         return;
       case "resolveCard":
@@ -1873,6 +1876,7 @@ export function createResolver(
       buyPrices: frame.buy === null ? {} : buyPrices(frame.buy.from),
       abilities: abilityOffers(frame.abilitiesFrom),
       prompt: frame.prompt,
+      roll: frame.roll,
     };
   }
 

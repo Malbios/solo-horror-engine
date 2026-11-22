@@ -33,7 +33,7 @@ export type OptionChoiceView = { id: string; label: string; cost: Cost[] };
 
 export type DecisionView =
   | Exclude<Decision, { kind: "chooseOption" } | { kind: "window" } | { kind: "pickCard" }>
-  | { kind: "chooseOption"; options: OptionChoiceView[]; canPass: boolean }
+  | { kind: "chooseOption"; options: OptionChoiceView[]; canPass: boolean; roll: string | null }
   | {
       kind: "window";
       play: ViewCard[];
@@ -45,6 +45,7 @@ export type DecisionView =
       buyPrices: Record<string, CostDue[]>;
       abilities: AbilityOffer[];
       prompt: string | null;
+      roll: string | null;
     }
   | { kind: "pickCard"; cards: ViewCard[]; canPass: boolean };
 
@@ -109,6 +110,7 @@ function viewDecision(state: GameState, pending: Decision): DecisionView {
         kind: "chooseOption",
         options: pending.options.map(({ id, label, cost }) => ({ id, label, cost })),
         canPass: pending.canPass,
+        roll: pending.roll,
       };
     case "window":
       return {
@@ -125,6 +127,7 @@ function viewDecision(state: GameState, pending: Decision): DecisionView {
         ),
         abilities: pending.abilities,
         prompt: pending.prompt,
+        roll: pending.roll,
       };
     case "pickCard":
       return {

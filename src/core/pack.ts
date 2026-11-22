@@ -118,6 +118,8 @@ export type PlayWindowEffect = {
   until: BoolExpr;
   /** Display only: what the window is for, shown while it waits; `{counter}` is replaced by that counter's value. */
   prompt: string | null;
+  /** Display only: the dice pool this decision is about; its dice are shown with the prompt. */
+  roll: string | null;
 };
 
 export type UseLimit = { uses: number; per: Scope | "game" };
@@ -146,7 +148,13 @@ export type Effect =
   | { type: "peek"; zone: string; count: NumExpr }
   | { type: "turnCards"; zone: string; count: NumExpr; face: ZoneFace }
   | { type: "if"; condition: BoolExpr; then: Effect[]; else: Effect[] }
-  | { type: "choose"; optional: boolean; options: ChooseOption[] }
+  | {
+      type: "choose";
+      optional: boolean;
+      options: ChooseOption[];
+      /** Display only: the dice pool this decision is about; its dice are shown with the prompt. */
+      roll: string | null;
+    }
   | PlayWindowEffect
   | { type: "resolveCard"; zone: string; to: string | null; ifEmpty: Effect[] }
   /** Reveals one part of the zone's top card (its text becomes known) and runs its effects; the card stays face down. */

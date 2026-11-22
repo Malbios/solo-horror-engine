@@ -451,7 +451,7 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
       log: withEntry(session.log, { title: "Took back the last action", lines: [] }),
     });
     session = settledSession;
-    rollPool = null;
+    rollPool = rollToShow([], view(session.state));
     persist(session);
     render(notice);
     focusDecision();
@@ -481,7 +481,7 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
       log: [],
     });
     session = settledSession;
-    rollPool = null;
+    rollPool = rollToShow([], view(session.state));
     persist(session);
     sheet.close();
     render(notice);
@@ -791,7 +791,7 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
           log: withEntry(replayed.value.log, { title: "Game resumed", lines: [] }),
         });
         session = settledSession;
-        rollPool = null;
+        rollPool = rollToShow([], view(session.state));
         if (session.actions.length !== actions.length) persist(session);
         render(notice === "" ? active.notice : notice);
         return;
