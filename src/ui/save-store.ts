@@ -62,12 +62,52 @@ function isSave(value: unknown): value is Save {
   );
 }
 
-export function describeSaveMismatch(save: Save, current: SaveIdentity): string | null {
-  const fields = ["engineVersion", "packId", "packVersion"] as const;
-  const mismatches = fields
-    .filter((field) => save[field] !== current[field])
-    .map((field) => `${field}: saved ${save[field]}, current ${current[field]}`);
-  return mismatches.length === 0 ? null : mismatches.join("; ");
+type SplitVersion = { core: string; addOns: Map<string, string> };
+
+/** Splits a combined pack version (`core+id@version+...`) into the core's and each add-on's. */
+function splitPackVersion(version: string): SplitVersion {
+  const [core = "", ...parts] = version.split("+");
+  const addOns = new Map<string, string>();
+  for (const part of parts) {
+    const at = part.lastIndexOf("@");
+    if (at === -1) addOns.set(part, "");
+    else addOns.set(part.slice(0, at), part.slice(at + 1));
+  }
+  return { core, addOns };
+}
+
+function describePackVersionChange(saved: string, current: string): string[] {
+  const before = splitPackVersion(saved);
+  const after = splitPackVersion(current);
+  const lines: string[] = [];
+  if (before.core !== after.core) lines.push(`Core: saved ${before.core}, now ${after.core}`);
+  const added = [...after.addOns.keys()].filter((id) => !before.addOns.has(id));
+  const removed = [...before.addOns.keys()].filter((id) => !after.addOns.has(id));
+  const updated = [...after.addOns].flatMap(([id, version]) => {
+    const old = before.addOns.get(id);
+    return old === undefined || old === version ? [] : [`${id} ${old} to ${version}`];
+  });
+  if (added.length > 0) lines.push(`Add-ons added: ${added.join(", ")}`);
+  if (removed.length > 0) lines.push(`Add-ons removed: ${removed.join(", ")}`);
+  if (updated.length > 0) lines.push(`Add-ons updated: ${updated.join(", ")}`);
+  return lines;
+}
+
+/** One line per difference between the save and the current game, or null when they match. */
+export function describeSaveMismatch(save: Save, current: SaveIdentity): string[] | null {
+  const lines: string[] = [];
+  if (save.engineVersion !== current.engineVersion)
+    lines.push(`Engine: saved ${save.engineVersion}, now ${current.engineVersion}`);
+  if (save.packId !== current.packId)
+    lines.push(`Pack: saved ${save.packId}, now ${current.packId}`);
+  else if (save.packVersion !== current.packVersion)
+    lines.push(...describePackVersionChange(save.packVersion, current.packVersion));
+  return lines.length === 0 ? null : lines;
+}
+
+/** The core's part of a combined pack version. */
+export function coreVersion(version: string): string {
+  return splitPackVersion(version).core;
 }
 
 export class LocalStorageSaveStore implements SaveStore {

@@ -34,6 +34,7 @@ import {
 import { renderLog, renderTracks, renderZones, type LogEntry, type MoreState } from "./panels";
 import { renderStatus } from "./status";
 import {
+  coreVersion,
   describeSaveMismatch,
   LocalStorageSaveStore,
   type Save,
@@ -524,7 +525,7 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
     });
     endPlayback();
     sheet.open("Menu", [
-      h("p", { text: `${pack.meta.name} ${pack.meta.version}` }),
+      h("p", { text: `${pack.meta.name} ${coreVersion(pack.meta.version)}` }),
       h("p", { className: "muted", text: `Engine ${ENGINE_VERSION}` }),
       ...message.map((line) => h("p", { className: "sheet-error", text: line })),
       renderAddOnList(),
@@ -767,7 +768,11 @@ function start(active: ActivePack, library: Library, engine: Engine, store: Save
       case "ok": {
         const mismatch = describeSaveMismatch(loaded.save, identity);
         if (mismatch !== null) {
-          render(`The saved game is from a different version (${mismatch}). Start a new game.`);
+          render(
+            ["The saved game is from a different version.", ...mismatch, "Start a new game."].join(
+              "\n",
+            ),
+          );
           return;
         }
         const { seed, actions } = loaded.save;
