@@ -639,9 +639,12 @@ const dieTypeSchema = z.strictObject({
       z.strictObject({
         id: idSchema,
         symbols: z.record(idSchema, z.int()).default({}),
+        label: z.string().min(1).nullable().default(null),
       }),
     )
     .min(1),
+  color: z.string().min(1).nullable().default(null),
+  labelColor: z.string().min(1).nullable().default(null),
   symbols: z
     .array(
       z.strictObject({

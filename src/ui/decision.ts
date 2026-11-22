@@ -6,6 +6,8 @@ import {
   describeEvent,
   knownCosts,
   priceText,
+  rolledDice,
+  symbolCounts,
   type Labels,
 } from "./labels";
 import type { PlaybackStep } from "./playback";
@@ -283,6 +285,21 @@ export function rollToShow(steps: readonly PlaybackStep[], shown: GameView): str
   return shown.pending?.kind === "pickDie" ? shown.pending.pool : null;
 }
 
+/** The roll as dice icons, each face's label on its die, then the symbol counts; read out as `line`. */
+function rollResult(line: string, dice: GameView["pools"][string], labels: Labels): HTMLElement {
+  const icons = rolledDice(dice, labels.rules).map((icon) => {
+    const die = h("span", { className: "roll-die", text: icon.label });
+    if (icon.color !== null) die.style.background = icon.color;
+    if (icon.labelColor !== null) die.style.color = icon.labelColor;
+    return die;
+  });
+  const counts = symbolCounts(dice, labels.rules);
+  return h("div", { className: "roll-result", attrs: { role: "status", "aria-label": line } }, [
+    h("span", { className: "roll-dice", attrs: { "aria-hidden": "true" } }, icons),
+    ...(counts === "" ? [] : [h("span", { text: counts, attrs: { "aria-hidden": "true" } })]),
+  ]);
+}
+
 /** The pinned bar: what the game is waiting for, the roll it is about (`roll`, a pool) and one button per action. */
 export function renderDecision(
   shown: GameView,
@@ -323,9 +340,7 @@ export function renderDecision(
       : describeEvent({ type: "diceRolled", pool: roll ?? "", dice }, shown, labels);
   return [
     prompt,
-    ...(rollLine === null
-      ? []
-      : [h("p", { className: "roll-result", text: rollLine, attrs: { "aria-live": "polite" } })]),
+    ...(rollLine === null ? [] : [rollResult(rollLine, dice, labels)]),
     h(
       "div",
       { className: "actions" },

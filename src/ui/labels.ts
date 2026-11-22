@@ -282,6 +282,21 @@ export function symbolCounts(dice: readonly Die[], rules: Rules): string {
     .join(", ");
 }
 
+export type RolledDieIcon = { label: string; color: string | null; labelColor: string | null };
+
+/** Each die as its icon shows it: the face's label (else its id) in the die type's colours. */
+export function rolledDice(dice: readonly Die[], rules: Rules): RolledDieIcon[] {
+  return dice.map((die) => {
+    const type = rules.dieById.get(die.die);
+    const face = type?.faces.find((candidate) => candidate.id === die.face);
+    return {
+      label: face?.label ?? die.face,
+      color: type?.color ?? null,
+      labelColor: type?.labelColor ?? null,
+    };
+  });
+}
+
 /** A piece by name while it is on record, else by its kind (a piece already gone has no other name). */
 function pieceOrKind(unit: string, kind: string, shown: GameView, labels: Labels): string {
   return shown.units[unit] === undefined ? labels.unitKind(kind) : labels.unit(unit);

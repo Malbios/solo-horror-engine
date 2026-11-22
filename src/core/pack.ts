@@ -360,12 +360,25 @@ export type CardCounter = {
   max: number | null;
 };
 
-export type DieFace = { id: string; symbols: Record<string, number> };
+export type DieFace = {
+  id: string;
+  symbols: Record<string, number>;
+  /** Display only: the text on this face's die icon; defaults to the face id. */
+  label: string | null;
+};
 
 /** Display only: a face symbol named so the log can count it, e.g. "1 hit". */
 export type DieSymbol = { id: string; name: string; plural: string | null };
 
-export type DieType = { id: string; faces: DieFace[]; symbols: DieSymbol[] };
+export type DieType = {
+  id: string;
+  faces: DieFace[];
+  symbols: DieSymbol[];
+  /** Display only: the body colour of this type's die icons. */
+  color: string | null;
+  /** Display only: the colour of the face text on this type's die icons. */
+  labelColor: string | null;
+};
 
 export type Pool = { id: string; name: string };
 

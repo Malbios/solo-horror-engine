@@ -8,6 +8,7 @@ import {
   displayRules,
   HIDDEN_CARD_NAME,
   moduleInfo,
+  rolledDice,
 } from "../src/ui/labels";
 import { fixturePack, loadDemoPack, PAUSE_PHASE } from "./helpers";
 
@@ -135,6 +136,32 @@ describe("labels", () => {
     expect(roll(["star", "blank"])).toBe("Rolled star, blank: 1 star");
     expect(roll(["star", "star"])).toBe("Rolled star, star: 2 stars");
     expect(roll(["blank"])).toBe("Rolled blank: 0 stars");
+  });
+
+  it("draws each rolled die with its face label in its type's colours", () => {
+    const pack = fixturePack({
+      dice: [
+        {
+          id: "cube",
+          color: "teal",
+          labelColor: "ivory",
+          faces: [
+            { id: "blank", symbols: {} },
+            { id: "star", symbols: { star: 1 }, label: "*" },
+          ],
+        },
+        { id: "plain", faces: [{ id: "dot", symbols: {} }] },
+      ],
+    });
+    const rules = displayRules(pack, view(createEngine(pack).init(3)).modules);
+    const die = (type: string, face: string) => ({ id: "d1", die: type, face, role: null });
+    expect(
+      rolledDice([die("cube", "star"), die("cube", "blank"), die("plain", "dot")], rules),
+    ).toEqual([
+      { label: "*", color: "teal", labelColor: "ivory" },
+      { label: "blank", color: "teal", labelColor: "ivory" },
+      { label: "dot", color: null, labelColor: null },
+    ]);
   });
 
   it("never names a face-down card in actions or the log", () => {
