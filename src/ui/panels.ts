@@ -53,9 +53,17 @@ export function shownAttributes(unit: UnitState, labels: Labels): [string, numbe
   });
 }
 
+/** Attributes for the piece's card in the panel: shown ones that the status strip does not show already. */
+export function panelAttributes(unit: UnitState, labels: Labels): [string, number][] {
+  const definitions = labels.rules.unitKindById.get(unit.kind)?.attributes ?? [];
+  return shownAttributes(unit, labels).filter(
+    ([id]) => definitions.find((definition) => definition.id === id)?.show !== "main",
+  );
+}
+
 function unitCard(unit: UnitState, labels: Labels): HTMLElement {
   const definitions = labels.rules.unitKindById.get(unit.kind)?.attributes ?? [];
-  const attributes = shownAttributes(unit, labels).map(([id, value]) =>
+  const attributes = panelAttributes(unit, labels).map(([id, value]) =>
     stat(
       labels.attribute(unit.kind, id),
       amountText(
@@ -149,7 +157,7 @@ export function renderTracks(shown: GameView, labels: Labels, more: MoreState): 
       ? null
       : h("dl", { className: "stats" }, [...counters, ...pieces]),
     ...Object.values(shown.units)
-      .filter((unit) => shownAttributes(unit, labels).length > 0)
+      .filter((unit) => panelAttributes(unit, labels).length > 0)
       .map((unit) => unitCard(unit, labels)),
     ...pools.map(([pool, dice]) =>
       h("section", { className: "pool" }, [

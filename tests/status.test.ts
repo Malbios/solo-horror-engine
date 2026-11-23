@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { parsePack } from "../src/content";
 import { createEngine, view, type Counter } from "../src/core";
 import { amountText, createLabels, displayRules } from "../src/ui/labels";
-import { piecesWithoutAttributes, shownAttributes, zoneLayout } from "../src/ui/panels";
+import {
+  panelAttributes,
+  piecesWithoutAttributes,
+  shownAttributes,
+  zoneLayout,
+} from "../src/ui/panels";
 import { statusItems } from "../src/ui/status";
 import { fixturePack, PAUSE_PHASE } from "./helpers";
 
@@ -152,6 +157,21 @@ describe("panels", () => {
     expect(shownAttributes(stone, labels)).toEqual([]);
     expect(shownAttributes({ ...stone, attributes: { moss: 1, age: 3 } }, labels)).toEqual([
       ["moss", 1],
+    ]);
+  });
+
+  it("leaves attributes shown in the strip out of the piece's card", () => {
+    const { shown, labels } = screen();
+    const walker = Object.values(shown.units).find((unit) => unit.kind === "walker");
+    const stone = Object.values(shown.units).find((unit) => unit.kind === "stone");
+    if (walker === undefined || stone === undefined) throw new Error("pieces missing");
+    expect(shownAttributes(walker, labels)).toEqual([["grit", 5]]);
+    expect(panelAttributes(walker, labels)).toEqual([]);
+    expect(panelAttributes({ ...stone, attributes: { moss: 1, age: 3 } }, labels)).toEqual([
+      ["moss", 1],
+    ]);
+    expect(panelAttributes({ ...walker, attributes: { grit: 5, extra: 2 } }, labels)).toEqual([
+      ["extra", 2],
     ]);
   });
 
