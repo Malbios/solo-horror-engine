@@ -155,6 +155,7 @@ function start(
   const table = requireElement("table", HTMLElement);
   const tabs = requireElement("tabs", HTMLElement);
   const panels = requireElement("panels", HTMLElement);
+  const sidePanels = tabs.closest<HTMLElement>(".side") ?? tabs;
   const decisionBar = requireElement("decision", HTMLElement);
   const notice = requireElement("notice", HTMLParagraphElement);
   const statusStrip = requireElement("status", HTMLDivElement);
@@ -231,6 +232,7 @@ function start(
       undoButton.disabled = true;
       mapArea.replaceChildren();
       panels.replaceChildren();
+      sidePanels.hidden = false;
       decisionBar.replaceChildren(
         h("div", { className: "actions" }, [
           h("button", { className: "action", text: "New game", onClick: newGame }),
@@ -264,6 +266,7 @@ function start(
       ),
     );
     slidePieces(mapArea, piecesBefore);
+    sidePanels.hidden = shown.pending?.kind === "pickModule";
     panels.replaceChildren(
       panelSection(
         "cards",
