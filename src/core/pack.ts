@@ -347,6 +347,10 @@ export type Zone = {
   face: ZoneFace;
   backEffects: Effect[];
   show: ZoneShow;
+  /** Display only: lower first among zones shown alike; zones without one follow, in pack order. */
+  order: number | null;
+  /** Display only: zones with the same row are drawn side by side, where the first of them would be. */
+  row: string | null;
 };
 
 export type Card = {

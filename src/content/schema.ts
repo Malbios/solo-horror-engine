@@ -585,6 +585,8 @@ const zoneSchema = z
     face: z.enum(["up", "down"]).default("up"),
     backEffects: effectListSchema,
     show: z.enum(["main", "normal", "minor"]).default("normal"),
+    order: z.int().nullable().default(null),
+    row: idSchema.nullable().default(null),
   })
   .transform(({ name, ...zone }): Zone => ({ ...zone, name: name ?? zone.id }));
 

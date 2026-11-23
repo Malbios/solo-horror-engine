@@ -260,21 +260,50 @@ function zoneSection(
   ]);
 }
 
-export type ZoneLayout = { main: string[]; normal: string[]; empty: string[]; minor: string[] };
+export type ZoneLayout = { rows: string[][]; empty: string[]; minor: string[] };
 
-/** Main zones first, then normal ones with cards; empty normal zones and minor zones are listed apart. */
-export function zoneLayout(shown: GameView, labels: Labels): ZoneLayout {
-  const showOf = (id: string) =>
-    labels.rules.zones.find((zone) => zone.id === id)?.show ?? "normal";
-  const layout: ZoneLayout = { main: [], normal: [], empty: [], minor: [] };
-  for (const [zone, cards] of Object.entries(shown.zones)) {
-    const show = showOf(zone);
-    if (show === "main") layout.main.push(zone);
-    else if (show === "minor") layout.minor.push(zone);
-    else if (cards.length === 0) layout.empty.push(zone);
-    else layout.normal.push(zone);
+type PlacedZone = { id: string; group: number; order: number; row: string | null };
+
+/** Rows to draw, in order: zones sharing a row side by side, where the first of them would be. */
+function zoneRows(zones: readonly PlacedZone[]): string[][] {
+  const rows: string[][] = [];
+  const byRow = new Map<string, string[]>();
+  for (const zone of zones) {
+    const shared = zone.row === null ? undefined : byRow.get(zone.row);
+    if (shared !== undefined) {
+      shared.push(zone.id);
+      continue;
+    }
+    const row = [zone.id];
+    rows.push(row);
+    if (zone.row !== null) byRow.set(zone.row, row);
   }
-  return layout;
+  return rows;
+}
+
+/**
+ * Main zones first, then normal ones with cards, each by `order` (none last) and pack order, in rows;
+ * empty normal zones and minor zones are listed apart.
+ */
+export function zoneLayout(shown: GameView, labels: Labels): ZoneLayout {
+  const drawn: PlacedZone[] = [];
+  const empty: string[] = [];
+  const minor: string[] = [];
+  for (const [id, cards] of Object.entries(shown.zones)) {
+    const zone = labels.rules.zones.find((candidate) => candidate.id === id);
+    const show = zone?.show ?? "normal";
+    if (show === "minor") minor.push(id);
+    else if (show === "normal" && cards.length === 0) empty.push(id);
+    else
+      drawn.push({
+        id,
+        group: show === "main" ? 0 : 1,
+        order: zone?.order ?? Number.MAX_SAFE_INTEGER,
+        row: zone?.row ?? null,
+      });
+  }
+  drawn.sort((a, b) => a.group - b.group || a.order - b.order);
+  return { rows: zoneRows(drawn), empty, minor };
 }
 
 function minorZoneRow(
@@ -312,8 +341,11 @@ export function renderZones(
   const cardsIn = (zone: string) => shown.zones[zone] ?? [];
   const section = (zone: string) => zoneSection(zone, cardsIn(zone), labels, handlers);
   return h("div", { className: "panel-body" }, [
-    ...layout.main.map(section),
-    ...layout.normal.map(section),
+    ...layout.rows.map((row) =>
+      row.length === 1
+        ? section(row[0] ?? "")
+        : h("div", { className: "zone-row" }, row.map(section)),
+    ),
     layout.empty.length === 0
       ? null
       : h("p", {

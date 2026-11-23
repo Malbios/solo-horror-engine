@@ -430,10 +430,15 @@ h3 {
   font-weight: 600;
 }
 
-.card-row {
+.card-row,
+.zone-row {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 8px;
+}
+
+.zone-row {
+  align-items: start;
 }
 
 .card {

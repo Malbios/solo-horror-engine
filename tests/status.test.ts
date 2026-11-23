@@ -143,10 +143,33 @@ describe("panels", () => {
   it("puts main zones first and keeps empty and minor zones apart", () => {
     const { shown, labels } = screen();
     expect(zoneLayout(shown, labels)).toEqual({
-      main: ["bag"],
-      normal: ["shelf"],
+      rows: [["bag"], ["shelf"]],
       empty: ["pocket"],
       minor: ["spare"],
+    });
+  });
+
+  it("orders zones by order, then pack order, and draws zones sharing a row side by side", () => {
+    const filled = ["first", "late", "low", "tied", "joins", "boss"];
+    const pack = fixturePack({
+      zones: [
+        { id: "boss", show: "main", order: 5 },
+        { id: "first" },
+        { id: "late", order: 2, row: "pair" },
+        { id: "low", order: 1 },
+        { id: "tied", order: 1 },
+        { id: "joins", row: "pair" },
+        { id: "bare", order: 0, row: "pair" },
+      ],
+      cards: [{ id: "lamp", name: "Lamp" }],
+      setup: filled.map((zone) => ({ type: "createCards", card: "lamp", zone })),
+    });
+    const shown = view(createEngine(pack).init(1));
+    const labels = createLabels(displayRules(pack, shown.modules), shown);
+    expect(zoneLayout(shown, labels)).toEqual({
+      rows: [["boss"], ["low"], ["tied"], ["late", "joins"], ["first"]],
+      empty: ["bare"],
+      minor: [],
     });
   });
 
