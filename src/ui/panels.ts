@@ -1,6 +1,6 @@
-import type { CounterShow, Die, GameView, UnitState, ViewCard } from "../core";
+import type { CounterShow, GameView, UnitState, ViewCard } from "../core";
 import { h } from "./dom";
-import { amountText, pinnedZone, symbolCounts, type Labels } from "./labels";
+import { amountText, pinnedZone, type Labels } from "./labels";
 
 /** Opening a card's details (tap) and previewing them while an element is hovered or keyboard-focused. */
 export type CardHandlers = {
@@ -131,12 +131,6 @@ export function piecesWithoutAttributes(
   return [...counts].map(([kind, count]) => ({ kind, name: labels.unitKind(kind), count }));
 }
 
-function poolTitle(pool: string, dice: readonly Die[], labels: Labels): string {
-  const name = labels.rules.pools.find((candidate) => candidate.id === pool)?.name ?? pool;
-  const counts = symbolCounts(dice, labels.rules);
-  return counts === "" ? name : `${name}: ${counts}`;
-}
-
 export function renderTracks(shown: GameView, labels: Labels, more: MoreState): HTMLElement {
   const countersShown = (show: CounterShow) =>
     Object.entries(shown.counters).filter(([id]) => counterShow(id, labels) === show);
@@ -151,7 +145,6 @@ export function renderTracks(shown: GameView, labels: Labels, more: MoreState): 
   const pieces = piecesWithoutAttributes(shown, labels).map(({ name, count }) =>
     stat(`${name} pieces`, String(count)),
   );
-  const pools = Object.entries(shown.pools).filter(([, dice]) => dice.length > 0);
   return h("div", { className: "panel-body" }, [
     counters.length + pieces.length === 0
       ? null
@@ -159,18 +152,6 @@ export function renderTracks(shown: GameView, labels: Labels, more: MoreState): 
     ...Object.values(shown.units)
       .filter((unit) => panelAttributes(unit, labels).length > 0)
       .map((unit) => unitCard(unit, labels)),
-    ...pools.map(([pool, dice]) =>
-      h("section", { className: "pool" }, [
-        h("h3", { text: poolTitle(pool, dice, labels) }),
-        h(
-          "ul",
-          { className: "dice" },
-          dice.map((die) =>
-            h("li", { className: "die", text: die.face, attrs: { title: die.id } }),
-          ),
-        ),
-      ]),
-    ),
     moreSection("tracks", minor, more),
   ]);
 }

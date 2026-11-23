@@ -409,7 +409,6 @@ h3 {
 }
 
 .unit,
-.pool,
 .zone {
   display: grid;
   gap: 6px;
@@ -481,26 +480,6 @@ h3 {
   box-shadow:
     3px 3px 0 var(--line),
     6px 6px 0 var(--surface-2);
-}
-
-.dice {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.die {
-  min-width: var(--tap);
-  min-height: var(--tap);
-  display: grid;
-  place-items: center;
-  padding: 0 8px;
-  border: 2px solid var(--text);
-  border-radius: 8px;
-  font-weight: 600;
 }
 
 .log {
