@@ -127,6 +127,28 @@ h3 {
   content: "▾";
 }
 
+.zone-fold-summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.zone-fold-summary::-webkit-details-marker {
+  display: none;
+}
+
+.zone-fold-summary::before {
+  content: "▸";
+  color: var(--muted);
+}
+
+.zone-fold[open] > .zone-fold-summary::before {
+  content: "▾";
+}
+
 .add-on-group > .add-on-list {
   padding-bottom: 8px;
 }

@@ -149,12 +149,13 @@ describe("panels", () => {
     });
   });
 
-  it("orders zones by order, then pack order, and draws zones sharing a row side by side", () => {
+  it("orders zones by order, then main first, then pack order, and draws zones sharing a row side by side", () => {
     const filled = ["first", "late", "low", "tied", "joins", "boss"];
     const pack = fixturePack({
       zones: [
         { id: "boss", show: "main", order: 5 },
         { id: "first" },
+        { id: "front", show: "main" },
         { id: "late", order: 2, row: "pair" },
         { id: "low", order: 1 },
         { id: "tied", order: 1 },
@@ -167,7 +168,7 @@ describe("panels", () => {
     const shown = view(createEngine(pack).init(1));
     const labels = createLabels(displayRules(pack, shown.modules), shown);
     expect(zoneLayout(shown, labels)).toEqual({
-      rows: [["boss"], ["low"], ["tied"], ["late", "joins"], ["first"]],
+      rows: [["low"], ["tied"], ["late", "joins"], ["boss"], ["front"], ["first"]],
       empty: ["bare"],
       minor: [],
     });

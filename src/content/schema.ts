@@ -587,6 +587,7 @@ const zoneSchema = z
     show: z.enum(["main", "normal", "minor"]).default("normal"),
     order: z.int().nullable().default(null),
     row: idSchema.nullable().default(null),
+    fold: z.boolean().default(false),
   })
   .transform(({ name, ...zone }): Zone => ({ ...zone, name: name ?? zone.id }));
 

@@ -241,6 +241,7 @@ function zoneSection(
   cards: readonly ViewCard[],
   labels: Labels,
   handlers: CardHandlers,
+  more: MoreState,
 ): HTMLElement {
   const allHidden =
     cards.length > 0 && cards.every((card) => card.card === null && card.revealed === undefined);
@@ -253,11 +254,24 @@ function zoneSection(
         { className: "card-row" },
         groupCopies(cards).map(({ card, copies }) => cardTile(card, labels, handlers, copies)),
       );
-  return h("section", { className: "zone" }, [
-    h("h3", {}, [labels.zone(zone), h("span", { className: "count", text: ` ${cards.length}` })]),
+  const heading = h("h3", {}, [
+    labels.zone(zone),
+    h("span", { className: "count", text: ` ${cards.length}` }),
+  ]);
+  const content = [
     zoneNotesList(labels.zoneNotes(zone)),
     cards.length === 0 ? h("p", { className: "muted", text: "Empty" }) : body,
+  ];
+  const folds = labels.rules.zones.find((candidate) => candidate.id === zone)?.fold ?? false;
+  if (!folds) return h("section", { className: "zone" }, [heading, ...content]);
+  const key = `folded:${zone}`;
+  const details = h("details", { className: "zone zone-fold" }, [
+    h("summary", { className: "zone-fold-summary" }, [heading]),
+    ...content,
   ]);
+  details.open = !more.isOpen(key);
+  details.addEventListener("toggle", () => more.setOpen(key, !details.open));
+  return details;
 }
 
 export type ZoneLayout = { rows: string[][]; empty: string[]; minor: string[] };
@@ -282,7 +296,7 @@ function zoneRows(zones: readonly PlacedZone[]): string[][] {
 }
 
 /**
- * Main zones first, then normal ones with cards, each by `order` (none last) and pack order, in rows;
+ * Main zones and normal ones with cards, by `order` (none last), then main first, then pack order, in rows;
  * empty normal zones and minor zones are listed apart.
  */
 export function zoneLayout(shown: GameView, labels: Labels): ZoneLayout {
@@ -302,7 +316,7 @@ export function zoneLayout(shown: GameView, labels: Labels): ZoneLayout {
         row: zone?.row ?? null,
       });
   }
-  drawn.sort((a, b) => a.group - b.group || a.order - b.order);
+  drawn.sort((a, b) => a.order - b.order || a.group - b.group);
   return { rows: zoneRows(drawn), empty, minor };
 }
 
@@ -339,7 +353,7 @@ export function renderZones(
 ): HTMLElement {
   const layout = zoneLayout(shown, labels);
   const cardsIn = (zone: string) => shown.zones[zone] ?? [];
-  const section = (zone: string) => zoneSection(zone, cardsIn(zone), labels, handlers);
+  const section = (zone: string) => zoneSection(zone, cardsIn(zone), labels, handlers, more);
   return h("div", { className: "panel-body" }, [
     ...layout.rows.map((row) =>
       row.length === 1
