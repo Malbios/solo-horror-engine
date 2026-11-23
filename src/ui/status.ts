@@ -1,6 +1,6 @@
 import type { GameView } from "../core";
 import { h } from "./dom";
-import { pinnedZone, type Labels } from "./labels";
+import { amountText, pinnedZone, type Labels } from "./labels";
 
 export type StatusItem = { label: string; value: string | null; flag: boolean };
 
@@ -16,8 +16,11 @@ export function statusItems(shown: GameView, labels: Labels): StatusItem[] {
     if (definition === undefined || definition.hidden || pinnedZone(labels.rules, id) !== null)
       continue;
     if (definition.show === "main") {
-      const max = definition.max === null ? "" : `/${definition.max}`;
-      items.push({ label: definition.name, value: `${value}${max}`, flag: false });
+      const amount =
+        definition.icons === null && definition.max !== null
+          ? `${value}/${definition.max}`
+          : amountText(definition, value, false);
+      items.push({ label: definition.name, value: amount, flag: false });
     } else if (definition.show === "flag" && value !== 0) {
       flags.push({ label: definition.name, value: value === 1 ? null : String(value), flag: true });
     }
@@ -29,7 +32,7 @@ export function statusItems(shown: GameView, labels: Labels): StatusItem[] {
       if (attribute?.show !== "main") continue;
       items.push({
         label: `${labels.piece(unit.id)} ${attribute.name}`,
-        value: String(value),
+        value: amountText(attribute, value, false),
         flag: false,
       });
     }

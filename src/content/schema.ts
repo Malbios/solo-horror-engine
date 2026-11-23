@@ -559,6 +559,10 @@ const counterSchema = z
     hidden: z.boolean().default(false),
     show: z.enum(["main", "normal", "flag", "minor"]).default("normal"),
     zone: idSchema.nullable().default(null),
+    icons: z
+      .strictObject({ full: nameSchema, empty: nameSchema.nullable().default(null) })
+      .nullable()
+      .default(null),
     start: z.int(),
     min: z.int().nullable().default(null),
     max: z.int().nullable().default(null),

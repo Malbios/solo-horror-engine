@@ -6,6 +6,7 @@ import {
   type Card,
   type Cost,
   type CostDue,
+  type Counter,
   type Die,
   type DieSymbol,
   type Edge,
@@ -64,8 +65,26 @@ function counterNote(rules: Rules, id: string, value: number): string | null {
     if (value === 0) return null;
     return value === 1 ? definition.name : `${definition.name} ${value}`;
   }
-  const max = definition.max === null ? "" : ` / ${definition.max}`;
-  return `${definition.name}: ${value}${max}`;
+  return `${definition.name}: ${amountText(definition, value, true)}`;
+}
+
+/**
+ * A counter or attribute value: as icons plus the number when it has `icons`, else the number (and its max
+ * when `withMax`).
+ */
+export function amountText(
+  definition: Counter | undefined,
+  value: number,
+  withMax: boolean,
+): string {
+  const max = definition?.max ?? null;
+  const icons = definition?.icons ?? null;
+  if (icons === null) return withMax && max !== null ? `${value} / ${max}` : String(value);
+  const full = icons.full.repeat(Math.max(0, value));
+  const empty =
+    icons.empty === null || max === null ? "" : icons.empty.repeat(Math.max(0, max - value));
+  const drawn = full + empty;
+  return drawn === "" ? String(value) : `${drawn} (${value})`;
 }
 
 export type ModuleInfo = { name: string; note: string | null };

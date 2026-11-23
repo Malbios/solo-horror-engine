@@ -317,6 +317,8 @@ export type Counter = {
   show: CounterShow;
   /** Display only: shown with the cards of this zone instead of in the strip or panels. */
   zone: string | null;
+  /** Display only: the value drawn as icons, plus the number. */
+  icons: CounterIcons | null;
   start: number;
   min: number | null;
   max: number | null;
@@ -329,6 +331,9 @@ export type Counter = {
  * Display only. main: in the status strip at the top; normal: in the panels; flag: in the strip,
  * by name, only while not 0; minor: one compact row under More.
  */
+/** Display only. `full` once per point; `empty` once per point missing up to the max, when both are set. */
+export type CounterIcons = { full: string; empty: string | null };
+
 export type CounterShow = "main" | "normal" | "flag" | "minor";
 
 /** Display only. main: first in the cards panel; minor: one compact row under More. */

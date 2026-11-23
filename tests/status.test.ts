@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parsePack } from "../src/content";
-import { createEngine, view } from "../src/core";
-import { createLabels, displayRules } from "../src/ui/labels";
+import { createEngine, view, type Counter } from "../src/core";
+import { amountText, createLabels, displayRules } from "../src/ui/labels";
 import { piecesWithoutAttributes, shownAttributes, zoneLayout } from "../src/ui/panels";
 import { statusItems } from "../src/ui/status";
 import { fixturePack, PAUSE_PHASE } from "./helpers";
@@ -60,6 +60,76 @@ describe("status strip", () => {
       { label: "Lamps", value: "3/9", flag: false },
       { label: "Walker Grit", value: "5", flag: false },
       { label: "Wind", value: "2", flag: true },
+    ]);
+  });
+});
+
+describe("amounts as icons", () => {
+  function counter(icons: Counter["icons"], max: number | null): Counter {
+    return {
+      id: "glow",
+      name: "Glow",
+      hidden: false,
+      show: "main",
+      zone: null,
+      icons,
+      start: 0,
+      min: 0,
+      max,
+      resetScope: null,
+      onOverflow: [],
+      onUnderflow: [],
+    };
+  }
+  const both = { full: "o", empty: "x" };
+
+  it("draws a point per icon, the missing ones up to the max, then the number", () => {
+    expect(amountText(counter(both, 4), 3, false)).toBe("ooox (3)");
+    expect(amountText(counter(both, 4), 0, false)).toBe("xxxx (0)");
+    expect(amountText(counter(both, 4), 4, true)).toBe("oooo (4)");
+    expect(amountText(counter(both, null), 2, false)).toBe("oo (2)");
+  });
+
+  it("draws no missing icons without an empty icon, and only the number when nothing is drawn", () => {
+    const fullOnly = { full: "o", empty: null };
+    expect(amountText(counter(fullOnly, 4), 3, false)).toBe("ooo (3)");
+    expect(amountText(counter(fullOnly, 4), 0, false)).toBe("0");
+    expect(amountText(counter(both, 2), -1, false)).toBe("xxx (-1)");
+    expect(amountText(counter(both, 2), 5, false)).toBe("ooooo (5)");
+  });
+
+  it("keeps the number, and the max where asked, without icons", () => {
+    expect(amountText(counter(null, 4), 3, false)).toBe("3");
+    expect(amountText(counter(null, 4), 3, true)).toBe("3 / 4");
+    expect(amountText(counter(null, null), 3, true)).toBe("3");
+    expect(amountText(undefined, 3, true)).toBe("3");
+  });
+
+  it("shows a main attribute with icons in the strip", () => {
+    const pack = fixturePack({
+      unitKinds: [
+        {
+          id: "walker",
+          name: "Walker",
+          attributes: [
+            {
+              id: "grit",
+              name: "Grit",
+              start: 2,
+              max: 3,
+              show: "main",
+              icons: { full: "o", empty: "x" },
+            },
+          ],
+        },
+      ],
+      spaces: [{ id: "mill", name: "Mill" }],
+      setup: [{ type: "createUnit", kind: "walker", placement: { onSpace: { space: "mill" } } }],
+    });
+    const shown = view(createEngine(pack).init(1));
+    const labels = createLabels(displayRules(pack, shown.modules), shown);
+    expect(statusItems(shown, labels)).toEqual([
+      { label: "Walker Grit", value: "oox (2)", flag: false },
     ]);
   });
 });

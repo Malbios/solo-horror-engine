@@ -1,6 +1,6 @@
 import type { CounterShow, Die, GameView, UnitState, ViewCard } from "../core";
 import { h } from "./dom";
-import { pinnedZone, symbolCounts, type Labels } from "./labels";
+import { amountText, pinnedZone, symbolCounts, type Labels } from "./labels";
 
 /** Opening a card's details (tap) and previewing them while an element is hovered or keyboard-focused. */
 export type CardHandlers = {
@@ -31,10 +31,6 @@ export function zoneNotesList(notes: readonly string[]): HTMLElement | null {
       );
 }
 
-function counterValue(value: number, max: number | null): string {
-  return max === null ? String(value) : `${value} / ${max}`;
-}
-
 function placementText(unit: UnitState, labels: Labels): string {
   switch (unit.placement.type) {
     case "space":
@@ -58,8 +54,16 @@ export function shownAttributes(unit: UnitState, labels: Labels): [string, numbe
 }
 
 function unitCard(unit: UnitState, labels: Labels): HTMLElement {
+  const definitions = labels.rules.unitKindById.get(unit.kind)?.attributes ?? [];
   const attributes = shownAttributes(unit, labels).map(([id, value]) =>
-    stat(labels.attribute(unit.kind, id), String(value)),
+    stat(
+      labels.attribute(unit.kind, id),
+      amountText(
+        definitions.find((definition) => definition.id === id),
+        value,
+        false,
+      ),
+    ),
   );
   return h("section", { className: "unit" }, [
     h("h3", { text: labels.unit(unit.id) }),
@@ -128,12 +132,13 @@ function poolTitle(pool: string, dice: readonly Die[], labels: Labels): string {
 export function renderTracks(shown: GameView, labels: Labels, more: MoreState): HTMLElement {
   const countersShown = (show: CounterShow) =>
     Object.entries(shown.counters).filter(([id]) => counterShow(id, labels) === show);
-  const maxOf = (id: string) => labels.rules.counterById.get(id)?.max ?? null;
+  const amount = (id: string, value: number) =>
+    amountText(labels.rules.counterById.get(id), value, true);
   const counters = countersShown("normal").map(([id, value]) =>
-    stat(labels.counter(id), counterValue(value, maxOf(id))),
+    stat(labels.counter(id), amount(id, value)),
   );
   const minor = countersShown("minor").map(([id, value]) =>
-    compactRow(labels.counter(id), counterValue(value, maxOf(id))),
+    compactRow(labels.counter(id), amount(id, value)),
   );
   const pieces = piecesWithoutAttributes(shown, labels).map(({ name, count }) =>
     stat(`${name} pieces`, String(count)),
