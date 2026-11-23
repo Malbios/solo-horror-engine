@@ -79,6 +79,7 @@ export const MAX_OPERATIONS_PER_CALL = 10_000;
 const NO_HOOKS: ScopeHooks = { onEnter: [], onExit: [] };
 
 const CHECK_SOURCE_PREFIX = "check:";
+const TRIGGER_SOURCE_PREFIX = "trigger:";
 
 export class EngineFaultSignal extends Error {}
 
@@ -279,7 +280,7 @@ export function createResolver(
 
   function fireTrigger(trigger: Trigger, context: ExpressionContext): void {
     if (trigger.once) work.firedTriggers.push(trigger.id);
-    pushEffects(trigger.effects, context, null);
+    pushEffects(trigger.effects, context, `${TRIGGER_SOURCE_PREFIX}${trigger.id}`);
   }
 
   /** The innermost running unit loop that is working on `unit`. */
@@ -1937,7 +1938,19 @@ export function createResolver(
     const effect = frame.effects[frame.index];
     if (effect === undefined) {
       work.stack.pop();
+      if (frame.source?.startsWith(TRIGGER_SOURCE_PREFIX) === true) {
+        events.push({
+          type: "triggerDone",
+          trigger: frame.source.slice(TRIGGER_SOURCE_PREFIX.length),
+        });
+      }
       return;
+    }
+    if (frame.index === 0 && frame.source?.startsWith(TRIGGER_SOURCE_PREFIX) === true) {
+      events.push({
+        type: "triggerFired",
+        trigger: frame.source.slice(TRIGGER_SOURCE_PREFIX.length),
+      });
     }
     frame.index += 1;
     const outer = causingSelf;

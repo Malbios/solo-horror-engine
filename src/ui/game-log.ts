@@ -13,7 +13,7 @@ import {
 } from "../core";
 import { describeAction, describeEvent, type Labels } from "./labels";
 import type { LogEntry } from "./panels";
-import { shownEvents } from "./playback";
+import { shownEvents, withoutSilentTriggers } from "./playback";
 
 export const LOG_LIMIT = 100;
 
@@ -30,8 +30,12 @@ export function logEntry(
   const title = describeAction(action, shownBefore, labelsFor(shownBefore));
   const shownAfter = view(after);
   const labels = labelsFor(shownAfter);
-  const lines = shownEvents(viewEvents(events, after), shownBefore).flatMap((event) => {
-    const line = describeEvent(event, shownAfter, labels);
+  const describe = (event: GameEvent) => describeEvent(event, shownAfter, labels);
+  const lines = withoutSilentTriggers(
+    shownEvents(viewEvents(events, after), shownBefore),
+    describe,
+  ).flatMap((event) => {
+    const line = describe(event);
     return line === null ? [] : [line];
   });
   return { title, lines };

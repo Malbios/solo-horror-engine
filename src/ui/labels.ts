@@ -380,6 +380,13 @@ export function describeEvent(event: GameEvent, shown: GameView, labels: Labels)
       return `Resolved ${cardLabel(event.card, shown, labels)}`;
     case "cardBought":
       return `Got ${cardLabel(event.card, shown, labels)}`;
+    case "triggerDone":
+      return null;
+    case "triggerFired": {
+      const name =
+        labels.rules.triggers.find((trigger) => trigger.id === event.trigger)?.name ?? null;
+      return name === null ? null : `${name} takes effect`;
+    }
     case "abilityUsed":
       return `Used ${abilityLabel(event.card, event.ability, shown, labels)}`;
     case "cardCounterChanged":

@@ -436,6 +436,8 @@ export type Phase = { id: string; onEnter: Effect[]; onExit: Effect[]; steps: St
 
 export type Trigger = {
   id: string;
+  /** Display only: what the player knows this rule by (e.g. the card it comes from); unnamed ones stay silent. */
+  name: string | null;
   on: EventPattern;
   condition: BoolExpr;
   effects: Effect[];

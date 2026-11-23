@@ -293,6 +293,10 @@ export type GameEvent =
   | { type: "edgeChanged"; edge: string; change: "added" | "removed" | "retargeted" }
   | { type: "diceRolled"; pool: string; dice: Die[] }
   | { type: "abilityUsed"; card: string; ability: string }
+  /** A trigger's effects start running; comes before the events they cause. Triggers never match it. */
+  | { type: "triggerFired"; trigger: string }
+  /** That trigger's effects (and everything they started) are done. Triggers never match it. */
+  | { type: "triggerDone"; trigger: string }
   | { type: "cardResolved"; card: string }
   | { type: "cardBought"; card: string }
   | { type: "cardCounterChanged"; card: string; counter: string; from: number; to: number }

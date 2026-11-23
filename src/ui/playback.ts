@@ -56,6 +56,31 @@ const isRoundStart = (event: GameEvent): boolean =>
   event.type === "scopeEntered" && event.scope === "round";
 
 /** Setup bookkeeping is left out: before round 1, only what follows the round start counts. */
+/**
+ * Drops the "a rule takes effect" events whose effects showed nothing (no described event before the trigger is
+ * done), and every "done" event; `describe` says what a line would read, null for none.
+ */
+export function withoutSilentTriggers(
+  events: readonly GameEvent[],
+  describe: (event: GameEvent) => string | null,
+): GameEvent[] {
+  const kept: GameEvent[] = [];
+  const open: { index: number; shown: boolean }[] = [];
+  for (const event of events) {
+    if (event.type === "triggerFired") {
+      open.push({ index: kept.length, shown: false });
+      kept.push(event);
+    } else if (event.type === "triggerDone") {
+      const fired = open.pop();
+      if (fired !== undefined && !fired.shown) kept.splice(fired.index, 1);
+    } else {
+      if (describe(event) !== null) for (const fired of open) fired.shown = true;
+      kept.push(event);
+    }
+  }
+  return kept;
+}
+
 export function shownEvents(events: readonly GameEvent[], before: GameView): readonly GameEvent[] {
   if (before.round > 0) return events;
   const roundStart = events.findIndex(isRoundStart);
@@ -135,6 +160,8 @@ function apply(
     case "edgeChanged":
     case "diceRolled":
     case "abilityUsed":
+    case "triggerFired":
+    case "triggerDone":
     case "cardResolved":
     case "cardBought":
     case "cardCounterChanged":
@@ -188,7 +215,10 @@ export function playbackBeats({
 
   for (const [index, step] of steps.entries()) {
     const stepBefore = index === 0 ? before : (steps[index - 1]?.after ?? before);
-    for (const event of shownEvents(step.events, stepBefore)) {
+    const heard = withoutSilentTriggers(shownEvents(step.events, stepBefore), (event) =>
+      isBookkeeping(event) ? null : describe(event, step.after),
+    );
+    for (const event of heard) {
       const onBoard = apply(draft, event, final, { bookkeeping, comesAlong });
       const line = isBookkeeping(event) ? null : describe(event, step.after);
       const isOwn = skipOwnMove && event.type === "unitMoved" && event.unit === ownMove;

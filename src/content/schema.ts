@@ -705,6 +705,7 @@ const phaseSchema = z.strictObject({
 
 const triggerSchema = z.strictObject({
   id: idSchema,
+  name: nameSchema.nullable().default(null),
   on: eventPatternSchema,
   condition: boolExprSchema.default(true),
   effects: effectListSchema,
