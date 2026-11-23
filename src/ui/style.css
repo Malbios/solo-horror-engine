@@ -514,7 +514,7 @@ h3 {
 }
 
 .log-drawer:not([data-open]) .log-tag {
-  margin-right: var(--page-scrollbar, 0px);
+  margin-right: var(--tag-clearance, 0px);
 }
 
 .log-drawer[data-open] {

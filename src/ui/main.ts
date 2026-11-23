@@ -71,6 +71,7 @@ import {
   rememberFolder,
 } from "./folder-source";
 import { createCardPreview } from "./card-preview";
+import { tagClearance } from "./log-tag";
 import { cardDetails, createSheet, spaceDetails } from "./sheet";
 import "./style.css";
 
@@ -834,9 +835,16 @@ function start(
     logBody.scrollTop = logBody.scrollHeight;
   }
 
+  /** The page scrolls in the table on narrow screens and in the side column on wide ones. */
+  const scrollers = [table, ...table.querySelectorAll<HTMLElement>(":scope > .side")];
+
   function keepTagClearOfScrollbar(): void {
-    const scrollbar = table.offsetWidth - table.clientWidth;
-    logDrawer.style.setProperty("--page-scrollbar", `${scrollbar}px`);
+    const scrollbars = scrollers.map((scroller) => ({
+      right: scroller.getBoundingClientRect().right - scroller.clientLeft,
+      width: scroller.offsetWidth - scroller.clientWidth - scroller.clientLeft * 2,
+    }));
+    const clearance = tagClearance(document.documentElement.clientWidth, scrollbars);
+    logDrawer.style.setProperty("--tag-clearance", `${clearance}px`);
   }
 
   const decisionWatch = new ResizeObserver(() => {
@@ -848,6 +856,7 @@ function start(
   decisionWatch.observe(decisionBar);
   const scrollbarWatch = new ResizeObserver(keepTagClearOfScrollbar);
   for (const watched of [table, ...table.children]) scrollbarWatch.observe(watched);
+  window.addEventListener("resize", keepTagClearOfScrollbar);
   logTag.addEventListener("click", () => showLog(!logOpen));
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && logOpen && !sheetDialog.open) showLog(false);
