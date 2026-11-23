@@ -48,9 +48,11 @@ export type Labels = {
   module(id: string): string;
   moduleNote(id: string): string | null;
   moduleImage(id: string): string | null;
-  /** Lines for the counters shown with a zone's cards (see `pinnedZone`). */
+  /** Lines for the non-flag counters shown with a zone's cards (see `pinnedZone`). */
   zoneNotes(zone: string): string[];
-  /** The notes of the zone a face-up card lies in; none for a face-down card. */
+  /** Names of the zone's flag counters that are set; its cards are marked while there are any. */
+  zoneFlags(zone: string): string[];
+  /** The flags and notes of the zone a face-up card lies in; none for a face-down card. */
   cardNotes(card: ViewCard): string[];
 };
 
@@ -165,12 +167,15 @@ export function createLabels(
     const shownCounters = counters.map(([id, value]) => `${counterName(definition, id)} ${value}`);
     return `${name} (${shownCounters.join(", ")})`;
   };
-  const zoneNotes = (zone: string): string[] =>
+  const pinnedNotes = (zone: string, flags: boolean): string[] =>
     Object.entries(shown.counters).flatMap(([id, value]) => {
       if (pinnedZone(rules, id) !== zone) return [];
+      if ((rules.counterById.get(id)?.show === "flag") !== flags) return [];
       const note = counterNote(rules, id, value);
       return note === null ? [] : [note];
     });
+  const zoneNotes = (zone: string): string[] => pinnedNotes(zone, false);
+  const zoneFlags = (zone: string): string[] => pinnedNotes(zone, true);
   return {
     rules,
     counter: (id) => rules.counterById.get(id)?.name ?? id,
@@ -201,12 +206,13 @@ export function createLabels(
     moduleNote: (id) => modules.get(id)?.note ?? null,
     moduleImage: (id) => modules.get(id)?.image ?? null,
     zoneNotes,
+    zoneFlags,
     cardNotes: (card) => {
       if (card.card === null) return [];
       const zone = Object.entries(shown.zones).find(([, cards]) =>
         cards.some((each) => each.ref === card.ref),
       )?.[0];
-      return zone === undefined ? [] : zoneNotes(zone);
+      return zone === undefined ? [] : [...zoneFlags(zone), ...zoneNotes(zone)];
     },
   };
 }

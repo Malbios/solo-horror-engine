@@ -211,16 +211,19 @@ export function cardTile(
   labels: Labels,
   handlers: CardHandlers,
   copies = 1,
+  flags: readonly string[] = [],
 ): HTMLButtonElement {
   if (card.card === null && (card.revealed?.length ?? 0) > 0)
     return veiledTile(card, labels, handlers);
   const definition = labels.cardDefinition(card);
   const copiesText = copies > 1 ? `, ${copies} copies` : "";
+  const flagsText = flags.map((flag) => `, ${flag}`).join("");
+  const className = card.card === null ? "card card-back" : "card";
   const tile = h(
     "button",
     {
-      className: card.card === null ? "card card-back" : "card",
-      attrs: { "aria-label": `${labels.card(card)}${copiesText}, details` },
+      className: flags.length > 0 ? `${className} card-marked` : className,
+      attrs: { "aria-label": `${labels.card(card)}${copiesText}${flagsText}, details` },
       onClick: () => handlers.open(card),
     },
     [
@@ -245,6 +248,7 @@ function zoneSection(
 ): HTMLElement {
   const allHidden =
     cards.length > 0 && cards.every((card) => card.card === null && card.revealed === undefined);
+  const flags = labels.zoneFlags(zone);
   const body = allHidden
     ? h("div", { className: "card card-back card-stack", attrs: { "aria-hidden": "true" } }, [
         h("span", { className: "card-name", text: `${cards.length}` }),
@@ -252,7 +256,9 @@ function zoneSection(
     : h(
         "div",
         { className: "card-row" },
-        groupCopies(cards).map(({ card, copies }) => cardTile(card, labels, handlers, copies)),
+        groupCopies(cards).map(({ card, copies }) =>
+          cardTile(card, labels, handlers, copies, card.card === null ? [] : flags),
+        ),
       );
   const heading = h("h3", {}, [
     labels.zone(zone),

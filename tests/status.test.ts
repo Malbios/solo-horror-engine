@@ -233,9 +233,15 @@ describe("counters shown with a zone", () => {
 
   it("lists them with the zone's cards instead of in the strip", () => {
     const { shown, labels } = pinned();
-    expect(labels.zoneNotes("shelf")).toEqual(["Glowing", "Charge: 2 / 5"]);
+    expect(labels.zoneNotes("shelf")).toEqual(["Charge: 2 / 5"]);
     expect(labels.zoneNotes("bag")).toEqual([]);
     expect(statusItems(shown, labels).map((item) => item.label)).toEqual(["Lamps"]);
+  });
+
+  it("names the set flags apart, to mark the zone's cards with", () => {
+    const { labels } = pinned();
+    expect(labels.zoneFlags("shelf")).toEqual(["Glowing"]);
+    expect(labels.zoneFlags("bag")).toEqual([]);
   });
 
   it("adds them to the details of a card in that zone only", () => {

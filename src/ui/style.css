@@ -8,6 +8,7 @@
   --accent: #8a2b2b;
   --accent-text: #ffffff;
   --target: #c98a1b;
+  --marked: #7a4fb3;
   --card-back: #3b3631;
   --focus: #1f5fbf;
   --radius: 10px;
@@ -26,6 +27,7 @@
     --accent: #c25450;
     --accent-text: #ffffff;
     --target: #e0a43a;
+    --marked: #b18ae6;
     --card-back: #4a433d;
     --focus: #7fb0ff;
   }
@@ -505,6 +507,11 @@ h3 {
   background: var(--card-back);
   color: #f3eee8;
   border-color: var(--card-back);
+}
+
+.card-marked {
+  border-color: var(--marked);
+  box-shadow: inset 0 0 0 1px var(--marked);
 }
 
 .card-stack {
