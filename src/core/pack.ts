@@ -541,6 +541,8 @@ export type Module = {
   name: string | null;
   /** A short line shown when the module is offered (display only). */
   note: string | null;
+  /** A picture shown when the module is offered: a relative path or a `data:` URL (display only). */
+  image: string | null;
   kind: string;
   precedence: number;
   content: Content;

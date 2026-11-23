@@ -284,6 +284,8 @@ function start(
               takeAction: take,
               openCard,
               previewCard,
+              openDetails: (title, body) => sheet.open(title, body),
+              previewDetails: (target, title, body) => cardPreview.attach(target, title, body),
               chooseDiscard: (controls) =>
                 sheet.open("Discard which card?", [h("div", { className: "actions" }, controls)]),
               newGame: confirmNewGame,

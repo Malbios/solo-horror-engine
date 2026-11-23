@@ -47,6 +47,7 @@ export type Labels = {
   spaces(): Space[];
   module(id: string): string;
   moduleNote(id: string): string | null;
+  moduleImage(id: string): string | null;
   /** Lines for the counters shown with a zone's cards (see `pinnedZone`). */
   zoneNotes(zone: string): string[];
   /** The notes of the zone a face-up card lies in; none for a face-down card. */
@@ -87,7 +88,7 @@ export function amountText(
   return drawn === "" ? String(value) : `${drawn} (${value})`;
 }
 
-export type ModuleInfo = { name: string; note: string | null };
+export type ModuleInfo = { name: string; note: string | null; image: string | null };
 
 export type MarkedEdge = { edge: Edge; mark: EdgeMark };
 
@@ -109,7 +110,7 @@ export function moduleInfo(pack: Pack): ReadonlyMap<string, ModuleInfo> {
   return new Map(
     pack.modules.map((module) => [
       module.id,
-      { name: module.name ?? module.id, note: module.note },
+      { name: module.name ?? module.id, note: module.note, image: module.image },
     ]),
   );
 }
@@ -198,6 +199,7 @@ export function createLabels(
     spaces: () => rules.spaces,
     module: (id) => modules.get(id)?.name ?? id,
     moduleNote: (id) => modules.get(id)?.note ?? null,
+    moduleImage: (id) => modules.get(id)?.image ?? null,
     zoneNotes,
     cardNotes: (card) => {
       if (card.card === null) return [];

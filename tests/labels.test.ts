@@ -256,6 +256,20 @@ describe("labels", () => {
     expect([...moduleInfo(plain).values()].every((info) => info.note === null)).toBe(true);
   });
 
+  it("offers a module with its picture when it has one", () => {
+    const pack = loadDemoPack();
+    const pictured = {
+      ...pack,
+      modules: pack.modules.map((module) => ({ ...module, image: "pics/extra.png" })),
+    };
+    const shown = view(createEngine(pack).init(1));
+    const plainLabels = createLabels(displayRules(pack, shown.modules), shown, moduleInfo(pack));
+    const labels = createLabels(displayRules(pack, shown.modules), shown, moduleInfo(pictured));
+    expect(plainLabels.moduleImage("bonus-cards")).toBeNull();
+    expect(labels.moduleImage("bonus-cards")).toBe("pics/extra.png");
+    expect(labels.moduleImage("missing-module")).toBeNull();
+  });
+
   it("names pieces by kind and space, never by id", () => {
     const create = (id: string, kind: string, space: string) => ({
       type: "createUnit",

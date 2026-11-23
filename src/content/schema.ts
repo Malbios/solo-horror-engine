@@ -805,6 +805,7 @@ const moduleSchema = z.strictObject({
   id: idSchema,
   name: nameSchema.nullable().default(null),
   note: z.string().min(1).nullable().default(null),
+  image: z.string().min(1).nullable().default(null),
   kind: nameSchema,
   precedence: z.int(),
   content: contentSchema.prefault({}),

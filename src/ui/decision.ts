@@ -1,5 +1,5 @@
 import type { Action, GameView, ViewCard } from "../core";
-import { h } from "./dom";
+import { h, type Child } from "./dom";
 import {
   describeAction,
   describeDecision,
@@ -17,6 +17,10 @@ export type DecisionHandlers = {
   openCard: (card: ViewCard) => void;
   /** Shows the card's details while `target` is hovered or keyboard-focused. */
   previewCard: (target: HTMLElement, card: ViewCard) => void;
+  /** Opens details on tap, where the device cannot hover. */
+  openDetails: (title: string, body: readonly Child[]) => void;
+  /** Shows details while `target` is hovered or keyboard-focused. */
+  previewDetails: (target: HTMLElement, title: string, body: () => readonly Child[]) => void;
   /** Offers the window's discards (one control each) to pick from. */
   chooseDiscard: (controls: HTMLElement[]) => void;
   newGame: () => void;
@@ -243,6 +247,37 @@ function discardButton(
   });
 }
 
+/** A module's picture and note, shown when it is offered. */
+function moduleDetails(module: string, image: string, labels: Labels): Child[] {
+  const note = labels.moduleNote(module);
+  return [
+    h("img", { className: "module-image", attrs: { src: image, alt: labels.module(module) } }),
+    note === null ? null : h("p", { text: note }),
+  ];
+}
+
+function withModuleImage(
+  take: HTMLElement,
+  module: string,
+  labels: Labels,
+  handlers: DecisionHandlers,
+): HTMLElement {
+  const image = labels.moduleImage(module);
+  if (image === null) return take;
+  const title = labels.module(module);
+  const row = h("div", { className: "action-with-info" }, [
+    take,
+    h("button", {
+      className: "info",
+      text: "i",
+      attrs: { "aria-label": `${title}, picture` },
+      onClick: () => handlers.openDetails(title, moduleDetails(module, image, labels)),
+    }),
+  ]);
+  handlers.previewDetails(row, title, () => moduleDetails(module, image, labels));
+  return row;
+}
+
 function actionControl(
   action: Action,
   shown: GameView,
@@ -267,6 +302,7 @@ function actionControl(
       note === null ? null : h("span", { className: "action-note", text: note }),
     ],
   );
+  if (action.type === "pickModule") return withModuleImage(take, action.module, labels, handlers);
   const card = offeredCard(action, shown) ?? aboutCard;
   if (card === null || card.card === null) return take;
   const row = h("div", { className: "action-with-info" }, [

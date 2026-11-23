@@ -127,6 +127,14 @@ h3 {
   content: "▾";
 }
 
+.module-image {
+  display: block;
+  max-width: min(240px, 100%);
+  max-height: 240px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
 .zone-fold-summary {
   min-height: var(--tap);
   display: flex;

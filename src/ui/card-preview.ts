@@ -54,6 +54,16 @@ export function createCardPreview(element: HTMLElement): CardPreview {
     element.hidden = false;
     if (supportsPopover(element) && !element.matches(":popover-open")) element.showPopover();
     place(element, target);
+    for (const image of element.querySelectorAll("img")) {
+      if (image.complete) continue;
+      image.addEventListener(
+        "load",
+        () => {
+          if (owner === target) place(element, target);
+        },
+        { once: true },
+      );
+    }
     owner?.removeAttribute("aria-describedby");
     owner = target;
     target.setAttribute("aria-describedby", element.id);
