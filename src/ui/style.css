@@ -9,6 +9,7 @@
   --accent-text: #ffffff;
   --target: #c98a1b;
   --marked: #7a4fb3;
+  --win: #2f7d4a;
   --card-back: #3b3631;
   --focus: #1f5fbf;
   --radius: 10px;
@@ -28,6 +29,7 @@
     --accent-text: #ffffff;
     --target: #e0a43a;
     --marked: #b18ae6;
+    --win: #5cbf7e;
     --card-back: #4a433d;
     --focus: #7fb0ff;
   }
@@ -949,6 +951,48 @@ h3 {
 
 .sheet::backdrop {
   background: rgb(0 0 0 / 0.45);
+}
+
+.game-end {
+  width: min(100% - 32px, 420px);
+  padding: 0;
+  border: none;
+  border-top: 6px solid var(--accent);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: center;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 40%);
+}
+
+.game-end[data-result="win"] {
+  border-top-color: var(--win);
+}
+
+.game-end::backdrop {
+  background: rgb(0 0 0 / 0.7);
+}
+
+.game-end-inner {
+  display: grid;
+  gap: 16px;
+  padding: 28px 20px 20px;
+}
+
+.game-end-title {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.game-end-text {
+  margin: 0;
+  font-size: 1.1rem;
+  overflow-wrap: anywhere;
+}
+
+.game-end-actions {
+  justify-content: center;
 }
 
 .sheet-inner {

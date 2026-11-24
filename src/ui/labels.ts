@@ -13,6 +13,7 @@ import {
   type EdgeMark,
   type GameEvent,
   type GameView,
+  type Outcome,
   type Pack,
   type Rules,
   type Space,
@@ -351,7 +352,7 @@ export function describeEvent(event: GameEvent, shown: GameView, labels: Labels)
     case "scopeExited":
       return null;
     case "gameFinished":
-      return event.outcome === "win" ? "You win" : "You lose";
+      return outcomeTitle(event.outcome, event.endCondition, labels);
     case "unitCreated":
       if (labels.isBookkeeping(event.kind)) return null;
       return `${pieceOrKind(event.unit, event.kind, shown, labels)} appears`;
@@ -445,9 +446,31 @@ export function knownCosts(costs: readonly Cost[]): CostDue[] {
   });
 }
 
-export function describeOutcome(shown: GameView): string | null {
+const DEFAULT_OUTCOME_TITLES: Record<Outcome, string> = { win: "You won!", loss: "You lost" };
+
+function outcomeTitle(result: Outcome, endCondition: string, labels: Labels): string {
+  return labels.rules.endConditionById.get(endCondition)?.title ?? DEFAULT_OUTCOME_TITLES[result];
+}
+
+/** Replaces each `{kind}` with that unit kind's name; unknown ids stay as written. */
+function fillKindNames(text: string, labels: Labels): string {
+  return text.replace(/\{([a-z0-9-]+)\}/g, (whole: string, id: string) =>
+    labels.rules.unitKindById.has(id) ? labels.unitKind(id) : whole,
+  );
+}
+
+export type OutcomeText = { result: Outcome; title: string; text: string | null };
+
+/** How the game ended, in the pack's words where it has them; null while it goes on. */
+export function describeOutcome(shown: GameView, labels: Labels): OutcomeText | null {
   if (shown.outcome === null) return null;
-  return shown.outcome.result === "win" ? "You win" : "You lose";
+  const { result, endCondition } = shown.outcome;
+  const text = labels.rules.endConditionById.get(endCondition)?.text ?? null;
+  return {
+    result,
+    title: outcomeTitle(result, endCondition, labels),
+    text: text === null ? null : fillKindNames(text, labels),
+  };
 }
 
 /** Replaces each `{counter}` with that counter's current value; unknown ids stay as written. */
@@ -460,7 +483,7 @@ function fillCounters(text: string, shown: GameView): string {
 
 export function describeDecision(shown: GameView, labels: Labels): string {
   const pending = shown.pending;
-  if (pending === null) return describeOutcome(shown) ?? "";
+  if (pending === null) return describeOutcome(shown, labels)?.title ?? "";
   switch (pending.kind) {
     case "pickModule":
       return `Choose: ${pending.choice.replaceAll("-", " ")}`;

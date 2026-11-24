@@ -22,7 +22,15 @@ import { createBusy, nextPaint, type Busy } from "./busy";
 import { automaticAction, renderDecision, renderPlayback, rollToShow } from "./decision";
 import { h, requireElement } from "./dom";
 import { logEntry, replayWithLog, withEntry } from "./game-log";
-import { createLabels, describeEvent, displayRules, moduleInfo, type Labels } from "./labels";
+import { createGameEnd } from "./game-end";
+import {
+  createLabels,
+  describeEvent,
+  describeOutcome,
+  displayRules,
+  moduleInfo,
+  type Labels,
+} from "./labels";
 import {
   ownMoveOf,
   ownRemovalOf,
@@ -170,6 +178,9 @@ function start(
   };
   const sheetDialog = requireElement("sheet", HTMLDialogElement);
   const sheet = createSheet(sheetDialog);
+  const gameEnd = createGameEnd(requireElement("game-end", HTMLDialogElement));
+  // The finished state the game end was last shown for, so closing it keeps it closed.
+  let gameEndShownFor: GameState | null = null;
   const cardPreview = createCardPreview(requireElement("card-preview", HTMLDivElement));
   const logDrawer = requireElement("log-drawer", HTMLElement);
   const logTag = requireElement("log-tag", HTMLButtonElement);
@@ -297,6 +308,22 @@ function start(
             { next: nextBeat, skip: () => endPlayback(true) },
           )),
     );
+    showGameEnd(beat === null ? current.state : null, labels);
+  }
+
+  /** Shows how the game ended once the final state is on screen, once per finished game. */
+  function showGameEnd(state: GameState | null, labels: Labels): void {
+    if (state === null || state.status !== "finished") {
+      gameEndShownFor = null;
+      gameEnd.close();
+      return;
+    }
+    if (gameEndShownFor === state) return;
+    const outcome = describeOutcome(view(state), labels);
+    if (outcome === null) return;
+    gameEndShownFor = state;
+    sheet.close();
+    gameEnd.show(outcome, { newGame });
   }
 
   /** Describes the current beat in a toast and moves on once its text could be read. */

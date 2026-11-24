@@ -462,6 +462,10 @@ export type EndCondition = {
   condition: BoolExpr;
   sequence: Effect[];
   outcome: OutcomeRule;
+  /** Display only: the heading shown when the game ends this way. */
+  title: string | null;
+  /** Display only: a line under it; each `{id}` of a unit kind becomes that kind's name. */
+  text: string | null;
 };
 
 export type UnitKind = {

@@ -727,6 +727,8 @@ const endConditionSchema = z.strictObject({
     outcomeSchema,
     z.strictObject({ when: boolExprSchema, then: outcomeSchema, else: outcomeSchema }),
   ]),
+  title: nameSchema.nullable().default(null),
+  text: nameSchema.nullable().default(null),
 });
 
 const procedureSchema = z.strictObject({
